@@ -99,8 +99,11 @@ struct ChannelsView: View {
         }
         #if os(tvOS)
         .padding(.horizontal, Theme.edge)
-        // rullelistene strekker seg ellers opp under fanelinja, og det som rulles forbi, havnet bak den
+        #endif
+        // rullelistene strekker seg ellers opp under fanelinja (og klokka på iPad), og det som rulles forbi, havnet bak
+        // den
         .clipped()
+        #if os(tvOS)
         // nærmere sidene og helt ned (den trygge sonen til Apple TV ga for mye luft); toppen står under fanelinja
         .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
         #endif
@@ -236,46 +239,55 @@ struct ChannelsView: View {
     }
 
     #if os(iOS)
-    /// iPhone: kategorien øverst (trykk for å velge en annen) og kortene i en liste under.
+    /// iPhone: kategorien står fast øverst (trykk for å velge en annen), og kortene ruller i en liste under den. Lista
+    /// begynner under kategorien, ikke øverst på skjermen, så kortene går ikke opp under klokka og Dynamic Island.
     private func phone(_ shelf: Shelf) -> some View {
         let channels = list(shelf)
-        return ScrollView {
-            LazyVStack(alignment: .leading, spacing: Metrics.gridSpacing - 2) {
-                Button {
-                    picking = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Text(title(shelf))
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundStyle(Theme.ink)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(Theme.signal)
-                        Spacer(minLength: 8)
-                        Text(verbatim: "\(channels.count)")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Theme.muted)
-                    }
-                    .padding(.vertical, 6)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("kategori-velger")
-                if channels.isEmpty {
-                    Text(emptyText(shelf))
-                        .font(.system(size: 16))
+        return VStack(spacing: 0) {
+            Button {
+                picking = true
+            } label: {
+                HStack(spacing: 8) {
+                    Text(title(shelf))
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.signal)
+                    Spacer(minLength: 8)
+                    Text(verbatim: "\(channels.count)")
+                        .font(.system(size: 15))
                         .foregroundStyle(Theme.muted)
                 }
-                ForEach(channels) { channel in
-                    ChannelCard(channel: channel) { play(channel, channels) }
-                }
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
+                .padding(.bottom, 10)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 20)
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("kategori-velger")
+            Rectangle()
+                .fill(Theme.line)
+                .frame(height: 1)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: Metrics.gridSpacing - 2) {
+                    if channels.isEmpty {
+                        Text(emptyText(shelf))
+                            .font(.system(size: 16))
+                            .foregroundStyle(Theme.muted)
+                    }
+                    ForEach(channels) { channel in
+                        ChannelCard(channel: channel) { play(channel, channels) }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 10)
+                .padding(.bottom, 20)
+            }
+            .refreshable { await model.reload() }
+            .id(shelf)
         }
-        .refreshable { await model.reload() }
-        .id(shelf)
         .sheet(isPresented: $picking) {
             CategoryPicker(chosen: $chosen, current: shelf)
                 .environment(model)

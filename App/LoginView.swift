@@ -35,6 +35,8 @@ struct LoginView: View {
             .frame(maxWidth: .infinity)
         }
         .scrollDismissesKeyboard(.interactively)
+        // det som rulles forbi, går ikke opp under klokka
+        .clipped()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("innlogging")
         #endif

@@ -1,5 +1,11 @@
 # Endringer
 
+## v0.1.5
+
+- iPhone: kanalkortene ruller ikke lenger opp under klokka og Dynamic Island. Kategorien står fast øverst, og lista
+  ruller under den.
+- iPad: sidemenyen og kortene ruller ikke inn under linja øverst.
+
 ## v0.1.4
 
 Fyrlys for iPhone og iPad, i samme app som Apple TV (samme TestFlight-lenke):

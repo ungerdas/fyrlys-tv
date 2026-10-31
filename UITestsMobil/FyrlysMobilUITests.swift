@@ -149,4 +149,18 @@ final class FyrlysMobilUITests: XCTestCase {
         wait(2)
         shot("12-english")
     }
+
+    /// Rull lista: kortene skal forsvinne under kategorivalget (iPhone) eller kanten øverst (iPad), ikke opp under
+    /// klokka (skjermbildet viser det).
+    func test11Rulling() {
+        let app = launch("tv")
+        XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 30))
+        wait(2)
+        app.swipeUp(velocity: .slow)
+        wait(2)
+        if !isPad {
+            XCTAssertTrue(find(app, "kategori-velger").isHittable, "kategorivalget rullet bort")
+        }
+        shot("13-rullet")
+    }
 }

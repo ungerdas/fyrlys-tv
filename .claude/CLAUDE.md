@@ -99,8 +99,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - `.github/workflows/build.yml`: kjernen på Linux; appen på `macos-15` med høyeste Xcode, XcodeGen, simulator fra
   `tools/simulator.py` (`[plattform] [slag] [variabel]`, f.eks. `iOS iPad IPAD_ID`; laster ned plattformen om den
   mangler), falsk leverandør, `xcodebuild test`, skjermbildene ut med `tools/screenshots.py` (`xcresulttool export
-  attachments`) og inn i grenen `skjermbilder`. Jobben `ios` gjør det samme for iPhone og iPad (to `-destination` i
-  samme kjøring) og legger bildene i `skjermbilder-mobil`.
+  attachments`) og inn i grenen `skjermbilder`. Jobben `ios` bygger én gang (`build-for-testing`) og tester på iPhone
+  og så iPad (`test-without-building`, se Status) og legger bildene i `skjermbilder-mobil`.
 - **TestFlight** (jobbene `oppsett` og `testflight`, bare på main og når hemmelighetene `ASC_KEY_ID`, `ASC_ISSUER_ID`,
   `ASC_KEY_P8` og `APPLE_TEAM_ID` finnes; Admin-nøkkel laget av eieren): `tools/asc.py check` (nøkkelen, app-id-en
   `no.fyrlys.tv`, appen i App Store Connect; `ensure_platform` legger IOS til appen med `POST /v1/appStoreVersions`
@@ -153,4 +153,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   iphone/ipad» med hver test og tiden, og utdrag av loggene (`*-utdrag.txt`, `tider.txt`) i `skjermbilder-mobil`.
   Tilgjengelighet på iOS: et kort med to knapper må ha `.accessibilityElement(children: .contain)`, ellers skriver
   «kanal-…» på kortet over id-ene til knappene.
+- 31.10.2026: 0.1.5: på iPhone rullet kortene opp under klokka og Dynamic Island (bilde fra eieren). En ScrollView som
+  når toppen av skjermen uten navigasjonslinje tegner det som rulles forbi under statuslinja. Nå står kategorivalget
+  fast øverst med lista under (ScrollView-en begynner under det); på iPad (og innloggingen) `.clipped()`, som på Apple
+  TV. Under fanelinja nederst ruller innholdet fortsatt, som i Apples egne apper (glass).
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.
