@@ -64,7 +64,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `SettingsView.swift`, `PlayerView.swift` (AVPlayerViewController med `transportBarCustomMenuItems`/
   `customInfoViewControllers`), hurtigrullingen i `ScrollIndex.swift`. Bare iOS: `GuideViewMobil.swift` (som nettsiden:
   valg av favoritter/alle/kategori lagret som `guide`, «Til nå» via `scrollPosition(id:)` på halvtimene, tidslinja
-  øverst flyttes etter sporene via en preference og `GuideScroll`, kanalkolonnen er lat og henter programinfoen,
+  øverst flyttes etter sporene via en preference og `GuideScroll`, sporene har fast bredde (rammen minus
+  kanalkolonnen; uten den tok den vannrette ScrollView-en hele bredden på seks timer, og radene havnet utenfor
+  skjermen i 0.1.6), kanalkolonnen er lat og henter programinfoen,
   info-ark med «Se kanalen»), `SettingsViewMobil.swift` (Form, bare iPad; med lys/mørk), `PlayerViewMobil.swift` (bildet
   øverst med bilde-i-bilde, panel og kanalliste under; liggende iPhone bare bildet; iPad på tvers lista ved siden av;
   alltid mørk; dra bildet ned for å lukke: en `UIPanGestureRecognizer` (`DragDown`) på AVPlayerViewController-visningen
@@ -176,5 +178,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   TV. Under fanelinja nederst ruller innholdet fortsatt, som i Apples egne apper (glass).
 - 31.10.2026: 0.1.6: eieren ville ha iPhone-appen lik Fyrlys-nettsiden på telefon (bilde): topplinje, «Sist sett»,
   kategorifliser, store kort med logofarge, fanene nederst. Laget som over (se Arkitektur), også lys modus. Nettsiden
-  har Filmer og Serier i fanelinja; de finnes ikke i Apple-appen ennå (avtalt senere).
+  har Filmer og Serier i fanelinja; de finnes ikke i Apple-appen ennå (avtalt senere). Samme kveld (bilde fra hans
+  iPhone med ekte strømmer, spilleren virket): «dra med video vinduet for å lukke» – laget i 0.1.6.
+- 0.1.7: guiden på iPhone var tom i 0.1.6 (se Arkitektur). `UIUserInterfaceStyle: Dark` er tatt ut av iOS-målet, så
+  appen følger enheten til man velger lys eller mørk (Apple TV har den fortsatt).
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.

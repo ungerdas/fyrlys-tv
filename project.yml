@@ -13,7 +13,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.6"
+    MARKETING_VERSION: "0.1.7"
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: ""
 
@@ -87,7 +87,7 @@ targets:
         CFBundleDevelopmentRegion: nb
         CFBundleLocalizations: [nb, en]
         UILaunchScreen: {}
-        UIUserInterfaceStyle: Dark
+        # ingen fast modus: lys eller mørk som enheten, til man velger selv i appen
         UIRequiredDeviceCapabilities: [arm64]
         # iPhone: ikke opp ned; iPad: alle (kreves for delt skjerm)
         UISupportedInterfaceOrientations:

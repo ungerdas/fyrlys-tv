@@ -48,7 +48,7 @@ struct GuideView: View {
                     let start = GuideTime.start(context.date)
                     GeometryReader { geo in
                         let content = CGFloat(rows.count) * (Self.rowHeight + 1) + (all.count > rows.count ? 64 : 0)
-                        box(rows: rows, total: all.count, start: start, now: context.date)
+                        box(rows: rows, total: all.count, start: start, now: context.date, width: geo.size.width)
                             .frame(height: min(geo.size.height, Self.headHeight + 1 + max(content, Self.rowHeight)))
                     }
                 }
@@ -168,7 +168,9 @@ struct GuideView: View {
 
     // ── rammen ──
 
-    private func box(rows: [Channel], total: Int, start: Date, now: Date) -> some View {
+    /// Rammen er [width] bred: kanalene til venstre, og sporene får resten (ellers tar de hele bredden på seks timer, og
+    /// alt havnet utenfor skjermen).
+    private func box(rows: [Channel], total: Int, start: Date, now: Date, width: CGFloat) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 Text(verbatim: hhmm(now))
@@ -223,6 +225,7 @@ struct GuideView: View {
                         .coordinateSpace(name: "guide-x")
                         .scrollPosition(id: $mark, anchor: .leading)
                         .onPreferenceChange(GuideOffsetKey.self) { scroll.x = $0 }
+                        .frame(width: max(0, width - nameWidth - 1))
                     }
                     if total > rows.count {
                         Button {

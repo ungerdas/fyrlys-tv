@@ -1,5 +1,11 @@
 # Endringer
 
+## v0.1.7
+
+- TV-guiden på iPhone viste ingen kanaler (radene havnet utenfor skjermen), og på iPad sto de for langt til høyre.
+- iPhone og iPad følger lys eller mørk modus på enheten til du velger selv (0.1.6 var alltid mørk til du trykket på
+  sola).
+
 ## v0.1.6
 
 iPhone som Fyrlys på nettet:
