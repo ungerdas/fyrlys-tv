@@ -19,11 +19,14 @@ struct SearchView: View {
                     }
                     ChannelGrid(channels: results, play: play)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, Theme.edge)
                 .padding(.vertical, 30)
                 .hidesScrollIndex()
             }
             .scrollIndicators(.never)
+            .safeAreaPadding(.bottom, Theme.bottomFocus)
+            // like nær sidene som TV-siden, og helt ned
+            .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
             .searchable(text: $query, prompt: L("Søk etter kanal"))
         }
     }

@@ -61,9 +61,11 @@ struct SettingsView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 60)
+        .padding(.horizontal, Theme.edge + 8)
         .padding(.vertical, 50)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // like nær sidene som TV-siden
+        .ignoresSafeArea(.container, edges: .horizontal)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("innstillinger")
         .alert(L("Logg ut av {name}?", ["name": model.login?.label ?? ""]), isPresented: $confirmSignOut) {

@@ -13,6 +13,10 @@ enum Theme {
     static let logoBg = Color(hex: 0x1B2C3B)
     /// kanten rundt kortet som har fokus (som i Fyrlys på Windows)
     static let focus = Color(hex: 0x8CC8FF)
+    /// luft mot sidene av TV-en: sidene går forbi den trygge sonen til Apple TV (80 pt), som ga for mye luft
+    static let edge: CGFloat = 40
+    /// luft nederst når et kort med fokus rulles fram (innholdet går ellers helt ned)
+    static let bottomFocus: CGFloat = 30
 }
 
 extension Color {

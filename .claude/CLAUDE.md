@@ -73,7 +73,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   la seg over tallene og tok fokus), `ChannelGrid` (adaptiv, minst 320 pt: fire kolonner ved siden av sidemenyen) med
   `ChannelCard` (96 pt høyt som Windows-kortet: `ChannelLogo`, klokkeslett i gult, navnet, kampen eller det som går nå
   (`NowPlaying`, `.everyMinute`), nummeret og stjernen; `CardStyle` med lyseblå kant `Theme.focus` og 1,05 i fokus;
-  hold inne = favoritt), `GuideView` (6 timer, 4 pt/min, rader 66 pt, så det får plass uten vannrett rulling; fokus
+  hold inne = favoritt), `GuideView` (6 timer, 4,2 pt/min, navn 300 pt, rader 66 pt, så det får plass uten vannrett rulling; fokus
   settes i `GuideSelection`, som bare `GuideHeader` leser, så guiden ikke tegnes på nytt ved hvert steg; egen
   `GuideCellStyle` med `@Environment(\.isFocused)`), `SearchView` (`.searchable`, favorittkategoriene først),
   `SettingsView`, `PlayerView` (`PlayerModel` med AVPlayer, User-Agent som VLC, nye forsøk tre i
@@ -112,6 +112,10 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   hurtigrullingen oppå tallene. 0.1.2 (bygg 6, VALID i TestFlight 31.10) retter det (se CHANGELOG); i simulatoren
   med 25 000 kanaler kom første kort etter 6,6 s uten lista fra sist og 4,7 s med (med oppstarten). En topplinje som i
   Windows-appen ble skrevet, men forkastet: han vil beholde fanelinja til Apple TV.
+- 31.10.2026: 0.1.3: eieren syntes det var «for mye luft mellom enden av tven og appen». TV-siden, guiden, søket og
+  innstillingene ignorerer den trygge sonen til Apple TV på sidene (og nederst, unntatt innstillingene) og bruker
+  `Theme.edge` = 40 pt; `safeAreaPadding(.bottom, Theme.bottomFocus)` holder kortet med fokus litt over bunnen. Toppen
+  står under fanelinja som før.
 - Åpent (31.10): 0.1.2 er ikke prøvd på Apple TV-en hans ennå (fart med 25 000 kanaler, de nye kortene, «Dine
   kategorier», at ingenting går inn under fanelinja). «Hjem» (startsiden i Windows-appen) finnes ikke i Apple TV-appen.
   Han får en e-post «Your Certificate Has Been Revoked» for hvert bygg (fra `asc.py cleanup`); anbefalt 31.10 i stedet

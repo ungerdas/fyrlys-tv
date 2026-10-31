@@ -70,8 +70,11 @@ struct ChannelsView: View {
                 grid(shelf)
                     .focusSection()
             }
+            .padding(.horizontal, Theme.edge)
             // rullelistene strekker seg ellers opp under fanelinja, og det som rulles forbi, havnet bak den
             .clipped()
+            // nærmere sidene og helt ned (den trygge sonen til Apple TV ga for mye luft); toppen står under fanelinja
+            .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
             // det som vises først, står til man velger noe annet (ellers hopper siden til Favoritter når den
             // første favoritten legges til)
             .onAppear { if chosen == nil { chosen = shelf } }
@@ -134,10 +137,12 @@ struct ChannelsView: View {
                     }
                 }
             }
-            .padding(.vertical, 16)
+            .padding(.top, 6)
+            .padding(.bottom, 24)
             .hidesScrollIndex()
         }
         .scrollIndicators(.never)
+        .safeAreaPadding(.bottom, Theme.bottomFocus)
     }
 
     // ── rutenettet ──
@@ -181,12 +186,13 @@ struct ChannelsView: View {
                 }
                 ChannelGrid(channels: channels, play: play)
             }
-            .padding(.horizontal, 28)
-            .padding(.top, 16)
-            .padding(.bottom, 40)
+            .padding(.horizontal, 22)
+            .padding(.top, 6)
+            .padding(.bottom, 24)
             .hidesScrollIndex()
         }
         .scrollIndicators(.never)
+        .safeAreaPadding(.bottom, Theme.bottomFocus)
         .id(shelf)
     }
 }

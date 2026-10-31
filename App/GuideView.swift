@@ -23,8 +23,9 @@ struct GuideView: View {
     let play: (Channel, [Channel]) -> Void
     @State private var selection = GuideSelection()
 
-    static let perMinute: CGFloat = 4
-    static let nameWidth: CGFloat = 290
+    /// 300 + 12 + 360 min × 4,2 = 1824 pt: får plass mellom kantene (1920 − 2 × Theme.edge) uten vannrett rulling
+    static let perMinute: CGFloat = 4.2
+    static let nameWidth: CGFloat = 300
     static let rowHeight: CGFloat = 66
     static var width: CGFloat { CGFloat(GuideTime.totalMinutes) * perMinute }
 
@@ -56,8 +57,14 @@ struct GuideView: View {
                         .hidesScrollIndex()
                     }
                     .scrollIndicators(.never)
+                    .safeAreaPadding(.bottom, Theme.bottomFocus)
+                    // radene som rulles forbi, skal ikke legge seg over tidslinja og overskriften
+                    .clipped()
                 }
                 .padding(.top, 12)
+                .padding(.horizontal, Theme.edge)
+                // nærmere sidene og helt ned, som TV-siden
+                .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("guide")

@@ -1,5 +1,10 @@
 # Endringer
 
+## v0.1.3
+
+- Mindre luft mot kantene av TV-en: TV-siden, guiden, søket og innstillingene går nærmere sidene (40 pt i stedet for
+  Apple TV sin trygge sone på 80) og helt ned til bunnen. Guiden er litt bredere.
+
 ## v0.1.2
 
 - Raskere med store kanallister (titusenvis av kanaler): lista fra sist pakkes ut i bakgrunnen når appen starter, og en
