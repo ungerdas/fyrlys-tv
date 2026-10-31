@@ -8,11 +8,17 @@ struct PlayRequest: Identifiable {
     let list: [Channel]
 }
 
-/// Fanene øverst (fanelinja til Apple TV): TV, TV-guide, Søk og Innstillinger. Spilleren legger seg over alt.
+/// Fanene øverst (fanelinja til Apple TV): TV, TV-guide, Søk og Innstillinger; det samme på iPad. På iPhone som
+/// Fyrlys-nettsiden på en telefon (`PhoneHome`). Spilleren legger seg over alt.
 struct HomeView: View {
     enum Tab: Hashable { case tv, guide, search, settings }
 
     @Environment(AppModel.self) private var model
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    /// sidene som er åpnet fra TV-forsiden på iPhone (en kategori)
+    @State private var phonePath: [Shelf]
+    #endif
     @State private var tab: Tab
     @State private var playing: PlayRequest?
     @State private var testPlayed = false
@@ -27,9 +33,43 @@ struct HomeView: View {
         case "settings": _tab = State(initialValue: .settings)
         default: _tab = State(initialValue: .tv)
         }
+        #if os(iOS)
+        switch TestSupport.screen {
+        case "all": _phonePath = State(initialValue: [.all])
+        case "category": _phonePath = State(initialValue: [.category("2")])
+        default: _phonePath = State(initialValue: [])
+        }
+        #endif
     }
 
     var body: some View {
+        content
+            .fullScreenCover(item: $playing) { request in
+                PlayerView(request: request)
+                    .environment(model)
+                    #if os(iOS)
+                    // spilleren er alltid mørk, som på nettsiden
+                    .preferredColorScheme(.dark)
+                    #endif
+            }
+            .onAppear(perform: playForTest)
+            .onChange(of: model.channels.count) { playForTest() }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        #if os(iOS)
+        if sizeClass == .compact {
+            PhoneHome(tab: $tab, path: $phonePath, query: $query, play: play)
+        } else {
+            tabs
+        }
+        #else
+        tabs
+        #endif
+    }
+
+    private var tabs: some View {
         TabView(selection: $tab) {
             ChannelsView(play: play, chosen: $shelf)
                 .tabItem { tabLabel(L("TV"), "tv") }
@@ -50,12 +90,9 @@ struct HomeView: View {
                 .tabItem { tabLabel(L("Innstillinger"), "gearshape") }
                 .tag(Tab.settings)
         }
-        .fullScreenCover(item: $playing) { request in
-            PlayerView(request: request)
-                .environment(model)
-        }
-        .onAppear(perform: playForTest)
-        .onChange(of: model.channels.count) { playForTest() }
+        #if os(iOS)
+        .tint(Theme.signal)
+        #endif
     }
 
     /// Fanene: bare tekst på Apple TV (som fanelinja der), ikon og tekst nederst på iPhone og iPad.

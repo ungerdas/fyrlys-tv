@@ -23,18 +23,24 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `git show origin/skjermbilder:02-tv.png > …`, og se på dem med Read. Bilder XCTest tok ved feil heter `feil-*.png`.
 - Appen i testmodus: miljøvariablene `FYRLYS_TEST_SERVER` (falsk leverandør, test/test, ingen nøkkelring, egne
   innstillinger og kanalliste som tømmes, unntatt med `FYRLYS_TEST_KEEP`), `FYRLYS_TEST_SCREEN` (login, tv, guide,
-  search, settings, player, player-error = kanal 90 som svarer 404) og `FYRLYS_TEST_LANG` (`App/TestSupport.swift`).
+  search, settings, player, player-error = kanal 90 som svarer 404; på iPhone også all = «Alle kanaler» og category =
+  Sport åpnet), `FYRLYS_TEST_LANG` og `FYRLYS_TEST_THEME` (light/dark; UI-testene for iPhone/iPad bruker dark, ellers
+  ville simulatoren gitt lys modus) (`App/TestSupport.swift`).
   Elementene testene finner, har `accessibilityIdentifier` (`kanal-<id>`, `hylle-…`, `favoritt-<id>`, `seksjon-dine`/
   `-alle`/`-kategorier`, `lagt-overst`, `spiller-feil`, `guide`, `innstillinger`). `focus(app, mål)` i UI-testene
   flytter fokus dit uansett hvor det står. På iPhone/iPad også `kategori-velger`, `stjerne-<kategori>`,
-  `stjerne-kanal-<id>`, `spiller`, `lukk-spiller`, `neste-kanal`. Testen av farten (`test11StorListe`) bruker en stor falsk leverandør
+  `stjerne-kanal-<id>`, `spiller`, `lukk-spiller`, `neste-kanal`, `guide-velger`, `til-naa`; bare iPhone: `sok`, `tema`,
+  `konto`, `tilbake`, `kategori-stjerne`, `seksjon-favoritter`/`-sist`, flisene `hylle-…`. Testen av farten (`test11StorListe`) bruker en stor falsk leverandør
   (`fake_xtream.py --kanaler 25000 --kategorier 450` på port 8898, `FYRLYS_TEST_SERVER_STOR`); tidene står som merknad
   «ytelse» på bygget (simulatoren på en Mac er raskere enn en Apple TV).
 - **Utseendet følger Fyrlys på Windows** (eieren 31.10: «så lik som mulig windows appen»), men **fanelinja til Apple TV
   beholdes** (eieren: «jeg liker fanelinja til apple! så behold den»). Fasit for mål og farger er Windows-repoet
   (`ungerdas/fyrlys`, offentlig, kan klones for lesing: `lib/ui/channel_card.dart`, `home_page.dart` (`_sidebar`,
   `_categoryTile`), `theme.dart`), skalert opp for TV (rundt 1,4 ganger pikslene der). Ingen endringer i det repoet
-  herfra.
+  herfra. **iPhone følger nettversjonen** (Docker-versjonen av Fyrlys på telefon; eieren 31.10 med et bilde av den:
+  «Ønsker iPhone appen i denne UI!»): fasit er `app/web/fyrlys.css` (reglene under `@media (max-width: 860px)`,
+  `.chan`, `.ctile`, `.mhead`, `.tabs`, `.top`, `.gwrap`) og `js/list.js`/`guide.js`/`core.js` (`tintLogo`) i eierens
+  private repo for den; det kan legges til økta for lesing. Ingenting derfra (adresser, navn) skal hit.
 - Swift 5-modus i appen (`SWIFT_VERSION 5.0`); kjernen er swift-tools 5.9. Unngå navn som `Category` (finnes i
   ObjC-kjøretiden) og frie funksjoner med samme navn som View-metoder (`tint`): inne i en View vinner metoden.
 - Tekster: `L("norsk tekst", ["navn": verdi])` (`Core/Sources/FyrlysCore/L10n.swift`); norsken er nøkkelen i
@@ -56,9 +62,18 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   mål utelater det andres). `FyrlysUITests` og `FyrlysMobilUITests`, ett skjema per plattform.
 - **Felles kode med `#if os(tvOS)`/`#if os(iOS)`**: begge målene tar med hele `App/`. Bare tvOS: `GuideView.swift`,
   `SettingsView.swift`, `PlayerView.swift` (AVPlayerViewController med `transportBarCustomMenuItems`/
-  `customInfoViewControllers`), hurtigrullingen i `ScrollIndex.swift`. Bare iOS: `GuideViewMobil.swift` (rull
-  sidelengs, info-ark med «Se kanalen»), `SettingsViewMobil.swift` (Form), `PlayerViewMobil.swift` (bildet øverst med
-  bilde-i-bilde, panel og kanalliste under; liggende iPhone bare bildet; iPad på tvers lista ved siden av). Felles:
+  `customInfoViewControllers`), hurtigrullingen i `ScrollIndex.swift`. Bare iOS: `GuideViewMobil.swift` (som nettsiden:
+  valg av favoritter/alle/kategori lagret som `guide`, «Til nå» via `scrollPosition(id:)` på halvtimene, tidslinja
+  øverst flyttes etter sporene via en preference og `GuideScroll`, kanalkolonnen er lat og henter programinfoen,
+  info-ark med «Se kanalen»), `SettingsViewMobil.swift` (Form, bare iPad; med lys/mørk), `PlayerViewMobil.swift` (bildet
+  øverst med bilde-i-bilde, panel og kanalliste under; liggende iPhone bare bildet; iPad på tvers lista ved siden av;
+  alltid mørk). iPhone (smal bredde, `HomeView` velger på `horizontalSizeClass`): `PhoneHome.swift` (topplinja med
+  fyret, sol/måne og Konto som popover, `TabView` med TV og TV-guide og ikonene tegnet etter nettsiden, `SwipeBackEnabler`
+  så sveip tilbake virker med skjult navigasjonslinje), `PhoneTV.swift` (`NavigationStack` med stien i HomeView:
+  forsiden med søk, «Nå på favorittene», «Sist sett», flisene; `PhoneShelfPage` med tilbake, pille som åpner
+  `CategoryPicker` og stjerne), `BigCard.swift` (de store kortene, `logoTint` = `tintLogo` fra nettsiden, regnet ut i
+  `Images.load` og husket per adresse). Lys og mørk: fargene i `Theme` er dynamiske på iOS (`tone`), valget i
+  innstillingene som `tema` (tom = som enheten). Felles:
   `PlayerModel.swift`, `AppModel`, kortene og TV-siden, med mål i `Metrics` (`Theme.swift`; tvOS ≈ 1,4 × Windows,
   iOS som Windows) og `tvFocusSection()`. `focusSection`, `indexDisplayMode` og AVKits tvOS-kontroller finnes ikke på
   iOS.
@@ -157,4 +172,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   når toppen av skjermen uten navigasjonslinje tegner det som rulles forbi under statuslinja. Nå står kategorivalget
   fast øverst med lista under (ScrollView-en begynner under det); på iPad (og innloggingen) `.clipped()`, som på Apple
   TV. Under fanelinja nederst ruller innholdet fortsatt, som i Apples egne apper (glass).
+- 31.10.2026: 0.1.6: eieren ville ha iPhone-appen lik Fyrlys-nettsiden på telefon (bilde): topplinje, «Sist sett»,
+  kategorifliser, store kort med logofarge, fanene nederst. Laget som over (se Arkitektur), også lys modus. Nettsiden
+  har Filmer og Serier i fanelinja; de finnes ikke i Apple-appen ennå (avtalt senere).
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.

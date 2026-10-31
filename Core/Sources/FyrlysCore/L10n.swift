@@ -79,6 +79,31 @@ public let english: [String: String] = [
     "Søk": "Search",
     "Søk etter kanal": "Search for a channel",
     "Ingen treff.": "No results.",
+    // iPhone som Fyrlys-nettsiden
+    "Bytt mellom lys og mørk modus": "Switch between light and dark mode",
+    "Konto": "Account",
+    "Utløper {date}": "Expires {date}",
+    "{active} av {max} tilkoblinger i bruk": "{active} of {max} connections in use",
+    "Kontoen har status «{status}» hos leverandøren.": "The account has the status “{status}” at the provider.",
+    "Hent listene nå": "Reload lists now",
+    "Fyrlys {version}": "Fyrlys {version}",
+    "Treff": "Results",
+    "Nå på favorittene": "Now on your favorites",
+    "Ingen favoritter ennå. Trykk på stjernen på en kanal for å legge den til her.":
+        "No favorites yet. Tap the star on a channel to add it here.",
+    "Tilbake": "Back",
+    "Tøm søket": "Clear search",
+    "**Samle favorittene dine her.** Trykk på stjernen på kanalene du ser mest, så ligger de øverst med det som går nå. I TV-guiden ser du hva som kommer senere.":
+        "**Gather your favorites here.** Tap the star on the channels you watch most, and they'll be at the top with what's on now. The TV guide shows what's coming up later.",
+    "Utseende": "Appearance",
+    "Som enheten": "Same as device",
+    "Mørk": "Dark",
+    "Lys": "Light",
+    "Til nå": "Jump to now",
+    "Vis flere kanaler ({n} av {total})": "Show more channels ({n} of {total})",
+    "Ingen favoritter ennå. Trykk på stjernen på en kanal under TV, eller velg en kategori over.":
+        "No favorites yet. Tap the star on a channel under TV, or choose a category above.",
+    "Starter {time}": "Starts {time}",
     // spilleren
     "Neste kanal": "Next channel",
     "Forrige kanal": "Previous channel",

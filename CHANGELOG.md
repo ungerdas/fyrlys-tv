@@ -1,5 +1,22 @@
 # Endringer
 
+## v0.1.6
+
+iPhone som Fyrlys på nettet:
+
+- Topplinje med fyret og «Fyrlys», sola eller månen for lys og mørk modus, og Konto (abonnementet, hent listene på
+  nytt og logg ut). Fanene TV og TV-guide nederst.
+- TV-siden: søk øverst, «Nå på favorittene» og «Sist sett» med det som går nå, og kategoriene som fliser (Favoritter,
+  Alle kanaler, «Dine kategorier» i gult og resten).
+- En kategori åpnes som egen side: tilbake, kategorien (trykk for å velge en annen) og stjernen som legger den øverst.
+  Sveip fra venstre kant for å gå tilbake.
+- Store kanalkort: logoen på logoens egen farge, en strek for hvor langt programmet har kommet, det som går nå og
+  kanalnavnet. Stjernen oppe til høyre gjør kanalen til favoritt.
+- TV-guiden (også på iPad): velg favorittene, alle kanaler eller en kategori, «Til nå», og tidene og kanalene står fast
+  når du ruller. Trykk på det som går nå for å spille.
+- Lys modus («Nordisk lys») på iPhone og iPad. Den følger telefonen til du velger selv; på iPad under Innstillinger.
+  Spilleren er alltid mørk.
+
 ## v0.1.5
 
 - iPhone: kanalkortene ruller ikke lenger opp under klokka og Dynamic Island. Kategorien står fast øverst, og lista

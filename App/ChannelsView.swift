@@ -45,14 +45,10 @@ enum SidebarRow: Identifiable {
 }
 
 /// TV-fanen som i Fyrlys på Windows: sidemenyen med alle kanaler, favoritter, sist sett, «Dine kategorier» (lagt
-/// øverst, i din rekkefølge) og resten av kategoriene, og kanalkortene til høyre. På iPhone står kategorien øverst og
-/// åpner et ark med kategoriene (som nedtrekkslista i et smalt Windows-vindu).
+/// øverst, i din rekkefølge) og resten av kategoriene, og kanalkortene til høyre (Apple TV og iPad; iPhone har
+/// `PhoneTV`).
 struct ChannelsView: View {
     @Environment(AppModel.self) private var model
-    #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var picking = false
-    #endif
     let play: (Channel, [Channel]) -> Void
     /// det som er valgt i sidemenyen (står i HomeView, så det huskes når du er innom en annen side)
     @Binding var chosen: Shelf?
@@ -64,24 +60,11 @@ struct ChannelsView: View {
             ListsStatus()
         } else {
             let shelf = current
-            content(shelf)
+            split(shelf)
                 // det som vises først, står til man velger noe annet (ellers hopper siden til Favoritter når den
                 // første favoritten legges til)
                 .onAppear { if chosen == nil { chosen = shelf } }
         }
-    }
-
-    @ViewBuilder
-    private func content(_ shelf: Shelf) -> some View {
-        #if os(iOS)
-        if sizeClass == .compact {
-            phone(shelf)
-        } else {
-            split(shelf)
-        }
-        #else
-        split(shelf)
-        #endif
     }
 
     /// Sidemenyen og rutenettet (Apple TV og iPad).
@@ -237,63 +220,6 @@ struct ChannelsView: View {
         #endif
         .id(shelf)
     }
-
-    #if os(iOS)
-    /// iPhone: kategorien står fast øverst (trykk for å velge en annen), og kortene ruller i en liste under den. Lista
-    /// begynner under kategorien, ikke øverst på skjermen, så kortene går ikke opp under klokka og Dynamic Island.
-    private func phone(_ shelf: Shelf) -> some View {
-        let channels = list(shelf)
-        return VStack(spacing: 0) {
-            Button {
-                picking = true
-            } label: {
-                HStack(spacing: 8) {
-                    Text(title(shelf))
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(Theme.signal)
-                    Spacer(minLength: 8)
-                    Text(verbatim: "\(channels.count)")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Theme.muted)
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 4)
-                .padding(.bottom, 10)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("kategori-velger")
-            Rectangle()
-                .fill(Theme.line)
-                .frame(height: 1)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: Metrics.gridSpacing - 2) {
-                    if channels.isEmpty {
-                        Text(emptyText(shelf))
-                            .font(.system(size: 16))
-                            .foregroundStyle(Theme.muted)
-                    }
-                    ForEach(channels) { channel in
-                        ChannelCard(channel: channel) { play(channel, channels) }
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
-                .padding(.bottom, 20)
-            }
-            .refreshable { await model.reload() }
-            .id(shelf)
-        }
-        .sheet(isPresented: $picking) {
-            CategoryPicker(chosen: $chosen, current: shelf)
-                .environment(model)
-        }
-    }
-    #endif
 }
 
 #if os(iOS)

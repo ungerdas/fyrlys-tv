@@ -3,7 +3,7 @@ import Foundation
 
 /// Når appen startes av testene på GitHub: en falsk leverandør (FYRLYS_TEST_SERVER), ingen nøkkelring, egne
 /// innstillinger som tømmes, og eventuelt rett til en skjerm (FYRLYS_TEST_SCREEN: login, tv, guide, search, settings,
-/// player, player-error).
+/// player, player-error; på iPhone også category = Sport og all = Alle kanaler).
 enum TestSupport {
     static let env = ProcessInfo.processInfo.environment
 
@@ -21,11 +21,15 @@ enum TestSupport {
     /// språket (no/en), ellers som Apple TV-en
     static var language: String? { env["FYRLYS_TEST_LANG"] }
 
-    /// Innstillingene: egne for testene, og tomme ved hver start.
+    /// Innstillingene: egne for testene, og tomme ved hver start (med modusen fra FYRLYS_TEST_THEME, light eller
+    /// dark, så skjermbildene ikke avhenger av simulatoren).
     static let defaults: UserDefaults = {
         guard isActive, let test = UserDefaults(suiteName: "fyrlys-test") else { return .standard }
         if env["FYRLYS_TEST_KEEP"] == nil {
             test.removePersistentDomain(forName: "fyrlys-test")
+        }
+        if let theme = env["FYRLYS_TEST_THEME"] {
+            test.set(theme, forKey: "tema")
         }
         return test
     }()

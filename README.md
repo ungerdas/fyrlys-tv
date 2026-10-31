@@ -12,6 +12,8 @@ En enkel IPTV-spiller for Apple TV, iPhone og iPad: logg inn med Xtream Codes fr
 - **Spilleren** er Apples egen (AVPlayer). På Apple TV kan du pause og spole tilbake, bytte til neste eller forrige
   kanal i kontrollene, og sveipe ned for kanallista. På iPhone og iPad står kanallista under bildet, med bilde-i-bilde
   og AirPlay.
+- **iPhone**: som Fyrlys på nettet på en telefon, med favorittene og det du har sett sist øverst, kategoriene som
+  fliser, store kanalkort med logoens egen farge, og lys eller mørk modus.
 - Norsk og engelsk, etter språket på enheten.
 
 Innloggingen lagres kryptert i nøkkelringen på enheten og sendes bare til leverandøren din. Appen har ingen kanaler

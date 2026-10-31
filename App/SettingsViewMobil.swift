@@ -2,9 +2,11 @@
 import FyrlysCore
 import SwiftUI
 
-/// Innstillinger på iPhone og iPad: abonnementet, hent listene på nytt, logg ut, og versjonen.
+/// Innstillinger på iPad (iPhone har Konto i topplinja): abonnementet, lys eller mørk modus, hent listene på nytt,
+/// logg ut, og versjonen.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(Appearance.key, store: TestSupport.defaults) private var appearance = ""
     @State private var confirmSignOut = false
 
     var body: some View {
@@ -24,6 +26,15 @@ struct SettingsView: View {
                         }
                     }
                     Text(L("{n} kanaler i {c} kategorier", ["n": model.channels.count, "c": model.categories.count]))
+                }
+                .listRowBackground(Theme.surface)
+                Section(L("Utseende")) {
+                    Picker(L("Utseende"), selection: $appearance) {
+                        Text(L("Som enheten")).tag("")
+                        Text(L("Mørk")).tag("dark")
+                        Text(L("Lys")).tag("light")
+                    }
+                    .pickerStyle(.segmented)
                 }
                 .listRowBackground(Theme.surface)
                 Section {

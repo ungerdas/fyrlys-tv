@@ -1,23 +1,73 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
-/// Fargene fra Fyrlys («Fyrlys om natta»): mørk blå bakgrunn, lys tekst og gult lys.
+/// Fargene fra Fyrlys. Mørk «Fyrlys om natta» (havblått og fyrlys-ravgult) på Apple TV; på iPhone og iPad også lys
+/// «Nordisk lys» (papirhvitt og fjordblått, med en tynn ravgul strek), som på nettsiden. Fargene følger da modusen.
 enum Theme {
-    static let bg = Color(hex: 0x07121C)
-    static let surface = Color(hex: 0x0C1B29)
-    static let surface2 = Color(hex: 0x12263A)
-    static let line = Color(hex: 0x1D3449)
-    static let ink = Color(hex: 0xEDF1F4)
-    static let muted = Color(hex: 0x8597A8)
-    static let signal = Color(hex: 0xF2B544)
+    static let bg = tone(0x07121C, light: 0xF5F3EE)
+    static let surface = tone(0x0C1B29, light: 0xFFFFFF)
+    static let surface2 = tone(0x12263A, light: 0xE9EEF2)
+    static let line = tone(0x1D3449, light: 0xD8DFE5)
+    static let ink = tone(0xEDF1F4, light: 0x0F1F2D)
+    static let ink2 = tone(0xB3C1CD, light: 0x33485B)
+    static let muted = tone(0x8597A8, light: 0x566A7C)
+    /// gult lys i mørk modus, fjordblått i lys (som nettsiden)
+    static let signal = tone(0xF2B544, light: 0x1F5F8B)
+    /// tekst på `signal`
+    static let signalInk = tone(0x1B1305, light: 0xFFFFFF)
+    /// lyset fra fyret i logoen
+    static let beam = tone(0xF2B544, light: 0xE0A33A)
+    /// stjernen over logoen på de store kortene: alltid gul (den står på en mørk flate)
+    static let gold = Color(hex: 0xF2B544)
     static let live = Color(hex: 0xFF5A4F)
+    /// flaten bak logoene: mørk i begge moduser
     static let logoBg = Color(hex: 0x1B2C3B)
+    /// flaten bak logoen på de store kortene når logoen ikke har en farge
+    static let cardLogoBg = tone(0x050D15, light: 0x1B2C3B)
+    /// forkortelsen når logoen mangler (på den mørke logoflaten)
+    static let logoInk = Color(hex: 0xEDF1F4)
     /// kanten rundt kortet som har fokus (som i Fyrlys på Windows)
-    static let focus = Color(hex: 0x8CC8FF)
+    static let focus = tone(0x8CC8FF, light: 0x1F5F8B)
     /// luft mot sidene av TV-en: sidene går forbi den trygge sonen til Apple TV (80 pt), som ga for mye luft
     static let edge: CGFloat = 40
     /// luft nederst når et kort med fokus rulles fram (innholdet går ellers helt ned)
     static let bottomFocus: CGFloat = 30
+
+    /// [dark] i mørk modus og [light] i lys (bare på iPhone og iPad; Apple TV er alltid mørk).
+    private static func tone(_ dark: UInt32, light: UInt32) -> Color {
+        #if os(iOS)
+        Color(uiColor: UIColor { traits in
+            UIColor(hex: traits.userInterfaceStyle == .light ? light : dark)
+        })
+        #else
+        Color(hex: dark)
+        #endif
+    }
 }
+
+#if os(iOS)
+/// Lys eller mørk modus på iPhone og iPad: «light», «dark», eller tom for å følge enheten (som nettsiden).
+enum Appearance {
+    static let key = "tema"
+
+    static func scheme(_ stored: String) -> ColorScheme? {
+        switch stored {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+    }
+}
+
+extension UIColor {
+    convenience init(hex: UInt32) {
+        self.init(red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+                  blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+    }
+}
+#endif
 
 /// Målene på TV-siden: skalert opp for TV (rundt 1,4 ganger pikslene i Fyrlys på Windows), og som Windows-appen på
 /// iPhone og iPad.
@@ -87,5 +137,23 @@ extension Color {
     init(hex: UInt32) {
         self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255,
                   blue: Double(hex & 0xFF) / 255)
+    }
+
+    /// Fra HSL (fargetone 0–360, metning og lyshet 0–1), som i CSS.
+    init(hue: Double, saturation: Double, lightness: Double) {
+        let c = (1 - abs(2 * lightness - 1)) * saturation
+        let h = (hue.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360) / 60
+        let x = c * (1 - abs(h.truncatingRemainder(dividingBy: 2) - 1))
+        var r = 0.0, g = 0.0, b = 0.0
+        switch h {
+        case ..<1: (r, g, b) = (c, x, 0)
+        case ..<2: (r, g, b) = (x, c, 0)
+        case ..<3: (r, g, b) = (0, c, x)
+        case ..<4: (r, g, b) = (0, x, c)
+        case ..<5: (r, g, b) = (x, 0, c)
+        default: (r, g, b) = (c, 0, x)
+        }
+        let m = lightness - c / 2
+        self.init(red: r + m, green: g + m, blue: b + m)
     }
 }

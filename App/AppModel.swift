@@ -236,6 +236,8 @@ final class AppModel {
 @Observable
 final class ChannelPrograms {
     var list: [Program] = []
+    /// svaret er kommet (også et tomt), så kortet kan slutte å vise at det henter
+    var loaded = false
 }
 
 /// Programinfo for kanalene som vises: hentes når et kort har vært framme litt (høyst fire om gangen, de nyeste
@@ -258,7 +260,10 @@ final class ProgramStore {
 
     func reset(client: XtreamClient?) {
         self.client = client
-        for box in boxes.values where !box.list.isEmpty { box.list = [] }
+        for box in boxes.values where !box.list.isEmpty || box.loaded {
+            box.list = []
+            box.loaded = false
+        }
         fetched = [:]
         waiting = []
         running = 0
@@ -266,6 +271,9 @@ final class ProgramStore {
     }
 
     func programs(for channel: Channel) -> [Program] { box(channel.id).list }
+
+    /// Om programinfoen for kanalen er hentet (også når leverandøren ikke hadde noe).
+    func isLoaded(_ channel: Channel) -> Bool { box(channel.id).loaded }
 
     private func box(_ id: String) -> ChannelPrograms {
         if let box = boxes[id] { return box }
@@ -318,6 +326,7 @@ final class ProgramStore {
                     // en tom liste huskes også (leverandøren har ingenting nå), til den er fem minutter gammel
                     let target = self.box(channel.id)
                     if target.list != result { target.list = result }
+                    if !target.loaded { target.loaded = true }
                 } else {
                     // feil: prøv igjen neste gang kanalen vises
                     fetched[channel.id] = nil

@@ -90,7 +90,7 @@ struct LoginView: View {
                 .frame(minWidth: 300)
                 #else
                 .font(.headline)
-                .foregroundStyle(Theme.bg)
+                .foregroundStyle(Theme.signalInk)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
                 #endif

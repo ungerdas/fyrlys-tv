@@ -158,7 +158,7 @@ struct ChannelLogo: View {
                 RemoteImage(url: channel.logo.flatMap { URL(string: $0) }) {
                     Text(verbatim: logoText(channel.name))
                         .font(.system(size: textSize, weight: .bold))
-                        .foregroundStyle(Theme.ink.opacity(0.7))
+                        .foregroundStyle(Theme.logoInk.opacity(0.7))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                 }

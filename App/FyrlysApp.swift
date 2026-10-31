@@ -16,12 +16,29 @@ struct FyrlysApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if os(iOS)
+            RootView()
+                .environment(model)
+                .modifier(ChosenAppearance())
+            #else
             RootView()
                 .environment(model)
                 .preferredColorScheme(.dark)
+            #endif
         }
     }
 }
+
+#if os(iOS)
+/// Lys eller mørk modus slik den er valgt (sola og månen øverst på iPhone, Innstillinger på iPad), ellers som enheten.
+private struct ChosenAppearance: ViewModifier {
+    @AppStorage(Appearance.key, store: TestSupport.defaults) private var stored = ""
+
+    func body(content: Content) -> some View {
+        content.preferredColorScheme(Appearance.scheme(stored))
+    }
+}
+#endif
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
