@@ -136,9 +136,8 @@ jobs:
           fi
 
   # TestFlight: bare når hemmelighetene for App Store Connect finnes (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8,
-  # APPLE_TEAM_ID). Arkivet bygges usignert og signeres ad hoc; eksporten prøver Apples skysignering først, og lager
-  # ellers et sertifikat og en profil for kjøringen (som slettes etterpå). Eksporten laster opp selv, og jobben venter
-  # til App Store Connect har bygget.
+  # APPLE_TEAM_ID). Arkivet bygges usignert og signeres ad hoc; eksporten signerer med et sertifikat og en profil for
+  # kjøringen (slettes etterpå) og laster opp selv, og jobben venter til App Store Connect har bygget.
   oppsett:
     name: TestFlight satt opp?
     runs-on: ubuntu-latest
@@ -210,25 +209,10 @@ jobs:
           [ $code -eq 0 ] || exit $code
           tools/adhoc_sign.sh build/Fyrlys.xcarchive
 
-      - name: Eksport og opplasting med Apples skysignering
-        id: sky
-        continue-on-error: true
-        run: |
-          python3 tools/asc.py options build/sky
-          xcodebuild -exportArchive -archivePath build/Fyrlys.xcarchive \
-            -exportOptionsPlist build/sky/ExportOptions.plist -exportPath build/export \
-            -allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            > build/eksport-sky.log 2>&1 || { tail -n 30 build/eksport-sky.log; exit 1; }
-          echo "::notice title=opplasting::$(grep -iE "upload|export succeeded|error|warning" build/eksport-sky.log | awk '!seen[$0]++' | tail -n 12 | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
-
-      - name: Hvorfor skysigneringen ikke virket
-        if: steps.sky.outcome == 'failure'
-        run: |
-          echo "::warning title=skysignering::$(grep -E "error|rror:" build/eksport-sky.log | awk '!seen[$0]++' | tail -n 20 | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
-
-      - name: Reserve – sertifikat og profil for denne kjøringen
-        if: steps.sky.outcome == 'failure'
+      # Apples skysignering (-allowProvisioningUpdates med API-nøkkelen) ga et bygg App Store Connect avviste
+      # stille («Invalid Signature» for Fyrlys.app/Fyrlys), så bygget signeres med et sertifikat og en profil som
+      # lages gjennom API-et for denne kjøringen og slettes etterpå.
+      - name: Signer og last opp
         run: |
           umask 077
           python3 tools/asc.py prepare build/signering
@@ -256,6 +240,7 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" > build/eksport.log 2>&1
           code=$?
           tail -n 30 build/eksport.log
+          [ $code -eq 0 ] && echo "::notice title=opplasting::$(grep -iE "upload|export succeeded|warning" build/eksport.log | awk '!seen[$0]++' | tail -n 8 | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
           exit $code
 
       - name: Vent på at Apple har tatt imot bygget
@@ -274,7 +259,7 @@ jobs:
       - name: Merknad ved feil
         if: failure()
         run: |
-          for f in build/asc.log build/arkiv.log build/eksport-sky.log build/eksport.log; do
+          for f in build/asc.log build/arkiv.log build/eksport.log; do
             [ -f "$f" ] || continue
             msg=$( { grep -E "error|rror:|ERROR|failed" "$f" | awk 'length($0) < 500 && !seen[$0]++' | tail -n 30; echo; tail -n 15 "$f"; } \
               | sed "s#$GITHUB_WORKSPACE/##g" | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')

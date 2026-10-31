@@ -61,16 +61,22 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `ASC_KEY_P8` og `APPLE_TEAM_ID` finnes; Admin-nøkkel laget av eieren): `tools/asc.py check` (nøkkelen, app-id-en
   `no.fyrlys.tv`, appen i App Store Connect), arkiv uten signering (`CODE_SIGNING_ALLOWED=NO`: å signere for en
   Apple TV krever en utviklerprofil, og den krever en registrert enhet), `tools/adhoc_sign.sh` (ad hoc med
-  application-identifier og team), eksport med Apples skysignering (`-allowProvisioningUpdates` og API-nøkkelen,
-  `asc.py options`); virker ikke den, lager `asc.py prepare` et distribusjonssertifikat og en `TVOS_APP_STORE`-profil
-  for kjøringen gjennom REST-API-et (JWT med openssl, bare standardbiblioteket), i en egen nøkkelring, og
-  `asc.py cleanup` sletter dem etterpå (eieren får da en e-post om tilbaketrukket sertifikat). Opplasting med
-  `xcrun altool --upload-app -t appletvos`. Skysigneringen virket første gang (31.10, 0.1.0), så reserven er ikke
-  prøvd. Hver push til main som består testene, blir et nytt bygg i TestFlight (versjonen fra `project.yml`).
+  application-identifier og team), `asc.py prepare` (distribusjonssertifikat og `TVOS_APP_STORE`-profil for
+  kjøringen gjennom REST-API-et, JWT med openssl, bare standardbiblioteket; egen nøkkelring), `xcodebuild
+  -exportArchive` med `destination upload` og API-nøkkelen (laster opp selv), `asc.py wait <byggnummer>` (feiler hvis
+  bygget ikke dukker opp i App Store Connect, eller blir INVALID), og `asc.py cleanup` (sletter profilen og trekker
+  tilbake sertifikatet; eieren får en e-post om det for hvert bygg). Prøvd og forlatt 31.10: Apples skysignering
+  (`-allowProvisioningUpdates` med API-nøkkelen) eksporterte uten feil, men App Store Connect avviste bygget
+  («Invalid Signature … Fyrlys.app/Fyrlys»); med `altool --upload-app` forsvant byggene stille (bygg 3 og 4).
+  `.github/workflows/status.yml` (startes for hånd: `gh api -X POST
+  repos/ungerdas/fyrlys-tv/actions/workflows/status.yml/dispatches -f ref=main`) viser de siste byggene og
+  testgruppene som merknad (`asc.py builds`). `gh workflow run` virker ikke herfra (GraphQL er stengt).
+  Offentlig repo: loggene og artefaktene er synlige for alle, så ingenting hemmelig skrives ut.
 
 ## Status
 - 31.10.2026: v0.1.0 (TV, guide, søk, innstillinger, spiller), alle UI-testene grønne i simulatoren, lastet opp til
-  TestFlight (eieren registrerte `no.fyrlys.tv`, laget appen i App Store Connect og la inn hemmelighetene). 0.1.1:
+  TestFlight (eieren registrerte `no.fyrlys.tv`, laget appen i App Store Connect, la inn hemmelighetene og laget den
+  interne testgruppen). 0.1.1 (bygg 5) er den første som kom fram (VALID, IN_BETA_TESTING); 0.1.1 rettet at
   TV-siden hoppet til Favoritter ved første favoritt. Ikke prøvd på ekte Apple TV ennå, heller ikke ekte strømmer
   fra leverandøren hans (simulatoren spiller Apples eksempelstrøm).
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.

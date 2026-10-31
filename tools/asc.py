@@ -3,10 +3,9 @@
 ASC_KEY_PATH (.p8-fila), ASC_KEY_ID, ASC_ISSUER_ID og APPLE_TEAM_ID.
 
     python3 tools/asc.py check                  sjekker nøkkelen, app-id-en og appen i App Store Connect
-    python3 tools/asc.py options <mappe>        ExportOptions.plist for skysignering (Apples egne sertifikater);
-                                                eksporten laster bygget rett opp til App Store Connect
-    python3 tools/asc.py prepare <mappe>        reserve: lager et distribusjonssertifikat og en App Store-profil
-                                                for denne kjøringen (nøkkel, sertifikat, profil og ExportOptions)
+    python3 tools/asc.py prepare <mappe>        lager et distribusjonssertifikat og en App Store-profil for denne
+                                                kjøringen (nøkkel, sertifikat, profil og ExportOptions.plist, der
+                                                eksporten laster bygget rett opp til App Store Connect)
     python3 tools/asc.py cleanup <mappe>        sletter profilen og trekker tilbake sertifikatet prepare laget
     python3 tools/asc.py builds                 de siste byggene i App Store Connect og om de er klare for TestFlight
     python3 tools/asc.py wait <byggnummer>      venter (høyst 20 min) til bygget dukker opp i App Store Connect
@@ -294,8 +293,6 @@ def main():
     command = sys.argv[1]
     if command == "check":
         check()
-    elif command == "options" and len(sys.argv) == 3:
-        export_options(sys.argv[2])
     elif command == "prepare" and len(sys.argv) == 3:
         prepare(sys.argv[2])
     elif command == "cleanup" and len(sys.argv) == 3:
