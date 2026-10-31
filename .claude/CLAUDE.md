@@ -67,7 +67,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   øverst flyttes etter sporene via en preference og `GuideScroll`, kanalkolonnen er lat og henter programinfoen,
   info-ark med «Se kanalen»), `SettingsViewMobil.swift` (Form, bare iPad; med lys/mørk), `PlayerViewMobil.swift` (bildet
   øverst med bilde-i-bilde, panel og kanalliste under; liggende iPhone bare bildet; iPad på tvers lista ved siden av;
-  alltid mørk). iPhone (smal bredde, `HomeView` velger på `horizontalSizeClass`): `PhoneHome.swift` (topplinja med
+  alltid mørk; dra bildet ned for å lukke: en `UIPanGestureRecognizer` (`DragDown`) på AVPlayerViewController-visningen
+  som bare begynner nedover og virker sammen med AVKit, `offset` på hele spilleren og `presentationBackground(.clear)`
+  på `fullScreenCover`, så TV-siden synes under). iPhone (smal bredde, `HomeView` velger på `horizontalSizeClass`): `PhoneHome.swift` (topplinja med
   fyret, sol/måne og Konto som popover, `TabView` med TV og TV-guide og ikonene tegnet etter nettsiden, `SwipeBackEnabler`
   så sveip tilbake virker med skjult navigasjonslinje), `PhoneTV.swift` (`NavigationStack` med stien i HomeView:
   forsiden med søk, «Nå på favorittene», «Sist sett», flisene; `PhoneShelfPage` med tilbake, pille som åpner

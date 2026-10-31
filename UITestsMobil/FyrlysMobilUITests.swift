@@ -47,6 +47,12 @@ final class FyrlysMobilUITests: XCTestCase {
         _ = XCTWaiter.wait(for: [XCTestExpectation(description: "vent")], timeout: seconds)
     }
 
+    /// Venter til [element] er borte.
+    func gone(_ element: XCUIElement, timeout: TimeInterval) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
     func test01Login() {
         let app = launch("login")
         XCTAssertTrue(find(app, "innlogging").waitForExistence(timeout: 30))
@@ -162,6 +168,7 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("08-sok")
     }
 
+    /// Spilleren: neste kanal, så dra bildet ned for å lukke.
     func test07Player() {
         let app = launch("player")
         XCTAssertTrue(find(app, "spiller").waitForExistence(timeout: 30), "spilleren kom ikke")
@@ -169,12 +176,16 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("09-spiller")
         find(app, "neste-kanal").tap()
         wait(3)
-        find(app, "lukk-spiller").tap()
+        // bildet står øverst (stående iPhone og iPad) eller til venstre (iPad på tvers): dra det ned
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.2))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.8)))
+        XCTAssertTrue(gone(find(app, "spiller"), timeout: 10), "spilleren ble ikke lukket da bildet ble dratt ned")
         // iPad: kortene; iPhone: «Sist sett» på forsiden
         XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 10), "kom ikke tilbake fra spilleren")
         XCTAssertEqual(app.state, .runningForeground)
     }
 
+    /// Kanalen som svarer 404: feilen med HTTP-koden, så lukk med knappen.
     func test08PlayerError() {
         let app = launch("player-error")
         XCTAssertTrue(find(app, "spiller-feil").waitForExistence(timeout: 60), "feilen kom ikke")
@@ -182,6 +193,8 @@ final class FyrlysMobilUITests: XCTestCase {
                       "HTTP-koden står ikke i feilen")
         wait(1)
         shot("10-spiller-feil")
+        find(app, "lukk-spiller").tap()
+        XCTAssertTrue(gone(find(app, "spiller"), timeout: 10), "spilleren ble ikke lukket med knappen")
     }
 
     /// iPad: Innstillinger-fanen; iPhone: Konto i topplinja.

@@ -16,6 +16,7 @@ iPhone som Fyrlys på nettet:
   når du ruller. Trykk på det som går nå for å spille.
 - Lys modus («Nordisk lys») på iPhone og iPad. Den følger telefonen til du velger selv; på iPad under Innstillinger.
   Spilleren er alltid mørk.
+- Spilleren på iPhone og iPad: dra bildet ned for å lukke den (slipper du tidlig, spretter den tilbake).
 
 ## v0.1.5
 

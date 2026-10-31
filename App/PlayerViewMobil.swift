@@ -5,39 +5,44 @@ import SwiftUI
 
 /// Spilleren på iPhone og iPad, som spilleren i Fyrlys på Windows i et smalt vindu: bildet øverst (med bilde-i-bilde
 /// og AirPlay i kontrollene), kanalen og programmet, forrige/neste/favoritt, og kanallista under. Liggende iPhone:
-/// bare bildet. iPad på tvers: lista ved siden av bildet.
+/// bare bildet. iPad på tvers: lista ved siden av bildet. Dra bildet ned for å lukke.
 struct PlayerView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     @Environment(\.verticalSizeClass) private var vertical
     @State private var model: PlayerModel?
+    /// hvor langt spilleren er dratt ned (dra bildet ned for å lukke)
+    @State private var drag: CGFloat = 0
     let request: PlayRequest
 
     var body: some View {
         GeometryReader { geo in
+            let full = geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
             ZStack {
                 Theme.bg.ignoresSafeArea()
                 if let model {
                     if vertical == .compact {
                         // liggende iPhone: bare bildet, over hele skjermen
-                        screen(model)
+                        screen(model, full)
                             .ignoresSafeArea()
                     } else if geo.size.width > geo.size.height && geo.size.width >= 900 {
                         HStack(spacing: 0) {
-                            screen(model)
+                            screen(model, full)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                             PlayerPanel(model: model) { dismiss() }
                                 .frame(width: 380)
                         }
                     } else {
                         VStack(spacing: 0) {
-                            screen(model)
+                            screen(model, full)
                                 .aspectRatio(16 / 9, contentMode: .fit)
                             PlayerPanel(model: model) { dismiss() }
                         }
                     }
                 }
             }
+            // glir ned med fingeren; det som ligger under (TV-siden), synes over
+            .offset(y: drag)
         }
         .statusBarHidden(vertical == .compact)
         .onAppear {
@@ -55,21 +60,45 @@ struct PlayerView: View {
         return app.programs.programs(for: model.channel)
     }
 
-    /// Bildet, og feilen over det når kanalen ikke kan spilles.
-    private func screen(_ model: PlayerModel) -> some View {
+    /// Bildet, og feilen over det når kanalen ikke kan spilles. [full] er hele høyden (dit spilleren glir når den
+    /// lukkes ved å dra).
+    private func screen(_ model: PlayerModel, _ full: CGFloat) -> some View {
         ZStack {
             Color.black
-            VideoSurface(player: model.player)
+            VideoSurface(player: model.player,
+                         dragged: { drag = max(0, $0) },
+                         released: { finishDrag($0, velocity: $1, full: full) })
             if let error = model.error {
                 PlayerErrorMobil(model: model, message: error) { dismiss() }
             }
         }
     }
+
+    /// Dratt langt nok eller fort nok ned: spilleren glir ut og lukkes. Ellers tilbake på plass.
+    private func finishDrag(_ distance: CGFloat, velocity: CGFloat, full: CGFloat) {
+        guard distance > 120 || (distance > 20 && velocity > 900) else {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { drag = 0 }
+            return
+        }
+        withAnimation(.easeOut(duration: 0.2)) { drag = full }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            // den er alt ute av skjermen: lukk uten at den glir en gang til
+            var quiet = Transaction()
+            quiet.disablesAnimations = true
+            withTransaction(quiet) { dismiss() }
+        }
+    }
 }
 
-/// AVPlayerViewController i siden (ikke fullskjerm), med bilde-i-bilde.
+/// AVPlayerViewController i siden (ikke fullskjerm), med bilde-i-bilde, og dra ned for å lukke.
 private struct VideoSurface: UIViewControllerRepresentable {
     let player: AVPlayer
+    /// mens du drar nedover: hvor langt (punkter)
+    let dragged: (CGFloat) -> Void
+    /// når du slipper: hvor langt og hvor fort (punkter per sekund)
+    let released: (CGFloat, CGFloat) -> Void
+
+    func makeCoordinator() -> DragDown { DragDown() }
 
     func makeUIViewController(context: Context) -> AVPlayerViewController {
         let controller = AVPlayerViewController()
@@ -79,11 +108,52 @@ private struct VideoSurface: UIViewControllerRepresentable {
         controller.entersFullScreenWhenPlaybackBegins = false
         controller.exitsFullScreenWhenPlaybackEnds = false
         controller.videoGravity = .resizeAspect
+        let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(DragDown.pan(_:)))
+        pan.delegate = context.coordinator
+        pan.cancelsTouchesInView = false
+        controller.view.addGestureRecognizer(pan)
+        context.coordinator.dragged = dragged
+        context.coordinator.released = released
         return controller
     }
 
     func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
         if controller.player !== player { controller.player = player }
+        context.coordinator.dragged = dragged
+        context.coordinator.released = released
+    }
+}
+
+/// Dra bildet ned for å lukke spilleren. Begynner bare når fingeren går mest nedover (ikke når du spoler sidelengs), og
+/// virker sammen med kontrollene til AVKit.
+private final class DragDown: NSObject, UIGestureRecognizerDelegate {
+    var dragged: (CGFloat) -> Void = { _ in }
+    var released: (CGFloat, CGFloat) -> Void = { _, _ in }
+
+    @objc func pan(_ pan: UIPanGestureRecognizer) {
+        // i vinduets koordinater: bildet flytter seg med fingeren
+        let y = pan.translation(in: nil).y
+        switch pan.state {
+        case .began, .changed:
+            dragged(y)
+        case .ended:
+            released(y, pan.velocity(in: nil).y)
+        case .cancelled, .failed:
+            released(0, 0)
+        default:
+            break
+        }
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+        let velocity = pan.velocity(in: nil)
+        return velocity.y > 0 && velocity.y > abs(velocity.x)
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        true
     }
 }
 

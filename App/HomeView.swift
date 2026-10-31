@@ -50,6 +50,8 @@ struct HomeView: View {
                     #if os(iOS)
                     // spilleren er alltid mørk, som på nettsiden
                     .preferredColorScheme(.dark)
+                    // gjennomsiktig rundt, så TV-siden synes når spilleren dras ned for å lukkes
+                    .presentationBackground(.clear)
                     #endif
             }
             .onAppear(perform: playForTest)
