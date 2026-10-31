@@ -10,7 +10,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - Svar alltid på **norsk**. Commit-meldinger på norsk med prefikset `Fyrlys:`. Push rett til `main`.
 - **Xcode kan ikke kjøres i Claude-økta** (ingen Mac). Kjernen (`Core/`, bare Foundation) testes her med Swift for
   Linux: `swift test --package-path Core` (Swift 6.2 ligger i scratchpad-mappen til økta, `swift/usr/bin`, og må
-  lastes ned på nytt i en ny økt: swift.org-tarball for Ubuntu). Appen bygges og testes av GitHub Actions på
+  lastes ned på nytt i en ny økt: swift.org-tarball for Ubuntu 24.04; kjør `swift` fra en mappe som finnes: er
+  arbeidsmappen slettet, krasjer swift-driveren med «Illegal instruction»). Appen bygges og testes av GitHub Actions på
   macOS: `gh run list --repo ungerdas/fyrlys-tv`, `gh run watch <id> --repo ungerdas/fyrlys-tv`. Loggene og
   artefaktene kan ikke lastes ned herfra; ved feil legger workflowen feilene og slutten av loggen som merknad:
   `gh api repos/ungerdas/fyrlys-tv/check-runs/<jobb-id>/annotations` (jobb-id fra `gh run view <id> --json jobs`).
@@ -18,9 +19,18 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   grenen `skjermbilder` (overskrives hver gang). Hent med `git fetch origin skjermbilder` og
   `git show origin/skjermbilder:02-tv.png > …`, og se på dem med Read. Bilder XCTest tok ved feil heter `feil-*.png`.
 - Appen i testmodus: miljøvariablene `FYRLYS_TEST_SERVER` (falsk leverandør, test/test, ingen nøkkelring, egne
-  innstillinger og kanalliste som tømmes), `FYRLYS_TEST_SCREEN` (login, tv, guide, search, settings, player,
-  player-error = kanal 90 som svarer 404) og `FYRLYS_TEST_LANG` (`App/TestSupport.swift`). Elementene testene finner,
-  har `accessibilityIdentifier` (`kanal-<id>`, `hylle-…`, `favoritt-<id>`, `spiller-feil`, `guide`, `innstillinger`).
+  innstillinger og kanalliste som tømmes, unntatt med `FYRLYS_TEST_KEEP`), `FYRLYS_TEST_SCREEN` (login, tv, guide,
+  search, settings, player, player-error = kanal 90 som svarer 404) og `FYRLYS_TEST_LANG` (`App/TestSupport.swift`).
+  Elementene testene finner, har `accessibilityIdentifier` (`kanal-<id>`, `hylle-…`, `favoritt-<id>`, `seksjon-dine`/
+  `-alle`/`-kategorier`, `lagt-overst`, `spiller-feil`, `guide`, `innstillinger`). `focus(app, mål)` i UI-testene
+  flytter fokus dit uansett hvor det står. Testen av farten (`test11StorListe`) bruker en stor falsk leverandør
+  (`fake_xtream.py --kanaler 25000 --kategorier 450` på port 8898, `FYRLYS_TEST_SERVER_STOR`); tidene står som merknad
+  «ytelse» på bygget (simulatoren på en Mac er raskere enn en Apple TV).
+- **Utseendet følger Fyrlys på Windows** (eieren 31.10: «så lik som mulig windows appen»), men **fanelinja til Apple TV
+  beholdes** (eieren: «jeg liker fanelinja til apple! så behold den»). Fasit for mål og farger er Windows-repoet
+  (`ungerdas/fyrlys`, offentlig, kan klones for lesing: `lib/ui/channel_card.dart`, `home_page.dart` (`_sidebar`,
+  `_categoryTile`), `theme.dart`), skalert opp for TV (rundt 1,4 ganger pikslene der). Ingen endringer i det repoet
+  herfra.
 - Swift 5-modus i appen (`SWIFT_VERSION 5.0`); kjernen er swift-tools 5.9. Unngå navn som `Category` (finnes i
   ObjC-kjøretiden) og frie funksjoner med samme navn som View-metoder (`tint`): inne i en View vinner metoden.
 - Tekster: `L("norsk tekst", ["navn": verdi])` (`Core/Sources/FyrlysCore/L10n.swift`); norsken er nøkkelen i
@@ -38,18 +48,35 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (bundle-id `no.fyrlys.tv`, http tillatt fordi leverandørene bruker det, `ITSAppUsesNonExemptEncryption` false) og
   `FyrlysUITests`.
 - `Core/Sources/FyrlysCore/`: `Models.swift` (`ChannelCategory`, `Channel`, `Program`, `Account`, `Login` med
-  `normalize`, `id` = `stableHash(server|bruker)` uten passordet, `nowAndNext`, `cleanPrograms`), `Xtream.swift`
-  (`XtreamClient`: player_api.php, `liveURL` = `/live/<bruker>/<passord>/<id>.m3u8`, `redact`, løse typer fra
-  leverandøren, EPG i base64; `Fetch` byttes ut i testene), `Store.swift` (`Library`: favoritter og sist sett per
-  innlogging i UserDefaults, `search`), `ListCache.swift` (kategoriene og kanalene på disk), `Guide.swift`
-  (`GuideTime`: seks timer fra halvtimen før denne), `Names.swift` (`nameParts`, `initials`, `hhmm`), `L10n.swift`.
-- `App/`: `AppModel` (@Observable: innlogging i nøkkelringen (`Keychain.swift`), listene (fra disk først, så hentet
-  på nytt), favoritter og sist sett via `libraryVersion`) og `ProgramStore` (programinfo for kortene som vises, høyst
-  fire om gangen, nyeste først, fem minutter). `RootView` → `LoginView` eller `HomeView` (TabView: TV, TV-guide, Søk,
-  Innstillinger; spilleren som `fullScreenCover`). `ChannelsView` (sidemeny med valg ved trykk, ikke ved fokus, og
-  `ChannelGrid` med `ChannelCard`: `.buttonStyle(.card)`, hold inne = favoritt), `GuideView` (6 timer, 3,8 pt/min, så
-  det får plass uten vannrett rulling; egen `GuideCellStyle` med `@Environment(\.isFocused)`), `SearchView`
-  (`.searchable`), `SettingsView`, `PlayerView` (`PlayerModel` med AVPlayer, User-Agent som VLC, nye forsøk tre i
+  `normalize`, `id` = `stableHash(server|bruker)` uten passordet, `nowAndNext`, `cleanPrograms`; `Channel.hasEpg` fra
+  `epg_channel_id` (egen `init(from:)`, så lister lagret uten den leses), `wantsEpg` = har EPG og er ikke eventkanal),
+  `Xtream.swift` (`XtreamClient`: player_api.php, `liveURL` = `/live/<bruker>/<passord>/<id>.m3u8`, `redact`, løse
+  typer fra leverandøren, EPG i base64; `Fetch` byttes ut i testene), `ChannelIndex.swift` (oppslagene for en liste:
+  `byId`, `byCategory`, kategoriene med kanaler, `channels(favoring:)` = favorittkategoriene først, `search(_:favoring:
+  limit:)` med navnene i små bokstaver ferdig, `hasSameLists`; lages i bakgrunnen, 25 000 kanaler ≈ 50 ms på Linux),
+  `Store.swift` (`Library`: favoritter, favorittkategorier (`moveFavoriteCategory` bytter med naboen som vises, som i
+  Windows-appen) og sist sett per innlogging, i minnet og skrevet til UserDefaults ved endring; `search`),
+  `ListCache.swift` (kategoriene og kanalene på disk), `Guide.swift` (`GuideTime`: seks timer fra halvtimen før denne),
+  `Names.swift` (`nameParts` (regex bare når navnet begynner med et siffer), `logoText` = tre første tegn som i
+  Windows-appen, `initials`, `hhmm`), `L10n.swift`.
+- `App/`: `AppModel` (@Observable: innlogging i nøkkelringen (`Keychain.swift`), `index` (`ChannelIndex`; lista fra
+  disk leses i bakgrunnen før `phase = .ready`, den hentede byttes bare inn når den er endret), `allChannels`
+  (favorittkategoriene først), `generation` så svar for en tidligere innlogging ikke brukes, favoritter,
+  favorittkategorier og sist sett via `libraryVersion`) og `ProgramStore` (ikke observerbar selv: én `ChannelPrograms`
+  per kanal, så bare kortet for kanalen tegnes på nytt; 150 ms før henting, høyst fire om gangen, nyeste først, fem
+  minutter, tomt svar huskes, feil prøves igjen; ikke for `!wantsEpg`). `RootView` → `LoginView` eller `HomeView`
+  (TabView: TV, TV-guide, Søk, Innstillinger; valgt hylle og søket står i HomeView; spilleren som `fullScreenCover`).
+  `ChannelsView` (sidemeny 340 pt: Alle kanaler, Favoritter, Sist sett med ikoner, så «Dine kategorier» og «Alle
+  kategorier», eller «Kategorier» med et hint når ingen er lagt øverst; hold inne på en kategori = «Legg øverst» /
+  «Flytt opp» / «Flytt ned» / «Fjern fra toppen»; valg ved trykk, ikke ved fokus; `.clipped()` så rullelistene ikke går
+  inn under fanelinja; `hidesScrollIndex()` i `ScrollIndex.swift` skrur av hurtigrullingen (`indexDisplayMode`), som
+  la seg over tallene og tok fokus), `ChannelGrid` (adaptiv, minst 320 pt: fire kolonner ved siden av sidemenyen) med
+  `ChannelCard` (96 pt høyt som Windows-kortet: `ChannelLogo`, klokkeslett i gult, navnet, kampen eller det som går nå
+  (`NowPlaying`, `.everyMinute`), nummeret og stjernen; `CardStyle` med lyseblå kant `Theme.focus` og 1,05 i fokus;
+  hold inne = favoritt), `GuideView` (6 timer, 4 pt/min, rader 66 pt, så det får plass uten vannrett rulling; fokus
+  settes i `GuideSelection`, som bare `GuideHeader` leser, så guiden ikke tegnes på nytt ved hvert steg; egen
+  `GuideCellStyle` med `@Environment(\.isFocused)`), `SearchView` (`.searchable`, favorittkategoriene først),
+  `SettingsView`, `PlayerView` (`PlayerModel` med AVPlayer, User-Agent som VLC, nye forsøk tre i
   minuttet, så forklaring: alle tilkoblinger i bruk, HTTP-koden fra leverandøren eller AVPlayers melding;
   `AVPlayerViewController` med neste/forrige/favoritt i `transportBarCustomMenuItems` og kanallista i
   `customInfoViewControllers`; programinfo i `externalMetadata`). `Images.swift` (logoer med eget mellomlager,
@@ -79,9 +106,15 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   interne testgruppen). 0.1.1 (bygg 5) er den første som kom fram (VALID, IN_BETA_TESTING); 0.1.1 rettet at
   TV-siden hoppet til Favoritter ved første favoritt. Ikke prøvd på ekte Apple TV ennå, heller ikke ekte strømmer
   fra leverandøren hans (simulatoren spiller Apples eksempelstrøm).
-- Åpent (31.10): ikke bekreftet at Fyrlys kan installeres og spilles fra TestFlight på hans Apple TV. Han får en
-  e-post «Your Certificate Has Been Revoked» for hvert bygg (fra `asc.py cleanup`); tilbudt et fast sertifikat i
-  stedet (han lager nøkkel og forespørsel med openssl, laster opp på developer.apple.com, legger p12 + passord inn som
-  hemmeligheter `DIST_P12`/`DIST_P12_PASSWORD`, og `asc.py prepare` bruker det når Apple fortsatt har det), ikke
-  besvart ennå. Ikke laget.
+- 31.10.2026: 0.1.1 installert fra TestFlight på hans Apple TV 4K (virker), med leverandøren hans: 25 153 kanaler.
+  Treg start og hakking, og han syntes den var «så zoomet inn» og ville ha den så lik Windows-appen som mulig, med
+  favorittkategorier («land») han velger rekkefølgen på; bilder viste sidemenyen rulle inn under fanelinja og
+  hurtigrullingen oppå tallene. 0.1.2 retter det (se CHANGELOG). En topplinje som i Windows-appen ble skrevet, men
+  forkastet: han vil beholde fanelinja til Apple TV.
+- Åpent (31.10): 0.1.2 er ikke prøvd på Apple TV-en hans ennå (fart med 25 000 kanaler, de nye kortene, «Dine
+  kategorier», at ingenting går inn under fanelinja). «Hjem» (startsiden i Windows-appen) finnes ikke i Apple TV-appen.
+  Han får en e-post «Your Certificate Has Been Revoked» for hvert bygg (fra `asc.py cleanup`); anbefalt 31.10 i stedet
+  for p12-forslaget: bare en privat nøkkel som hemmelighet `DIST_KEY` (`openssl genrsa -out fyrlys-dist.key 2048`), så
+  lager `asc.py prepare` sertifikatet med den første gang og finner det igjen hos Apple (lik offentlig nøkkel), og
+  `cleanup` sletter bare profilen; uten hemmeligheten som i dag. Ikke besvart, ikke laget.
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.

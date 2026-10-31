@@ -67,13 +67,18 @@ jobs:
 
       - name: Bygg og test
         run: |
+          # den vanlige falske leverandøren, og en stor (25 000 kanaler) til testen av farten
           nohup python3 tools/fake_xtream.py --port 8899 > build/falsk.log 2>&1 &
-          for i in 1 2 3 4 5; do
-            curl -sf "http://127.0.0.1:8899/player_api.php?username=test&password=test" > /dev/null && break
-            sleep 1
+          nohup python3 tools/fake_xtream.py --port 8898 --kanaler 25000 --kategorier 450 > build/stor.log 2>&1 &
+          for port in 8899 8898; do
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              curl -sf "http://127.0.0.1:$port/player_api.php?username=test&password=test" > /dev/null && break
+              sleep 1
+            done
           done
           set +e
-          TEST_RUNNER_FYRLYS_TEST_SERVER=http://127.0.0.1:8899 xcodebuild test \
+          TEST_RUNNER_FYRLYS_TEST_SERVER=http://127.0.0.1:8899 \
+          TEST_RUNNER_FYRLYS_TEST_SERVER_STOR=http://127.0.0.1:8898 xcodebuild test \
             -project Fyrlys.xcodeproj -scheme Fyrlys \
             -destination "platform=tvOS Simulator,id=$SIM_ID" \
             -resultBundlePath build/Resultat.xcresult \
@@ -81,6 +86,9 @@ jobs:
             > build/xcodebuild.log 2>&1
           code=$?
           grep -E "^Test (Case|Suite)|error:|\*\* .* \*\*" build/xcodebuild.log | tail -n 200
+          # tidene fra testen med den store lista, som merknad (loggen kan ikke lastes ned fra Claude-økta)
+          ytelse=$(grep -h "YTELSE:" build/xcodebuild.log | grep -v "print(" | sed 's/.*YTELSE: //' | head -n 2)
+          if [ -n "$ytelse" ]; then echo "::notice title=ytelse::$ytelse"; fi
           exit $code
 
       - name: Skjermbilder

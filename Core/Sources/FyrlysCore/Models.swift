@@ -22,16 +22,39 @@ public struct Channel: Codable, Hashable, Identifiable, Sendable {
     public let logo: String?
     /// dager i TV-arkivet (0: ingen)
     public let archiveDays: Int
+    /// leverandøren har programinfo for kanalen (epg_channel_id); uten den hentes ingen
+    public let hasEpg: Bool
 
     public init(id: String, name: String, categoryId: String, number: Int? = nil, logo: String? = nil,
-                archiveDays: Int = 0) {
+                archiveDays: Int = 0, hasEpg: Bool = true) {
         self.id = id
         self.name = name
         self.categoryId = categoryId
         self.number = number
         self.logo = logo
         self.archiveDays = archiveDays
+        self.hasEpg = hasEpg
     }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, categoryId, number, logo, archiveDays, hasEpg
+    }
+
+    /// (lister lagret før hasEpg fantes, leses med programinfo for alle)
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        categoryId = try c.decode(String.self, forKey: .categoryId)
+        number = try c.decodeIfPresent(Int.self, forKey: .number)
+        logo = try c.decodeIfPresent(String.self, forKey: .logo)
+        archiveDays = try c.decodeIfPresent(Int.self, forKey: .archiveDays) ?? 0
+        hasEpg = try c.decodeIfPresent(Bool.self, forKey: .hasEpg) ?? true
+    }
+
+    /// Programinfo hentes bare for kanaler som har det, og ikke for eventkanaler (kampen står i navnet, som i Fyrlys
+    /// på Windows).
+    public var wantsEpg: Bool { hasEpg && nameParts(name).sub.isEmpty }
 }
 
 /// Et program i TV-guiden.

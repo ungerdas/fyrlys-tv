@@ -1,14 +1,14 @@
 import FyrlysCore
 import SwiftUI
 
-/// Søk i kanalnavnene (alle ordene må finnes).
+/// Søk i kanalnavnene (alle ordene må finnes), med kanalene i «Dine kategorier» først.
 struct SearchView: View {
     @Environment(AppModel.self) private var model
     let play: (Channel, [Channel]) -> Void
-    @State private var query = ""
+    @Binding var query: String
 
     var body: some View {
-        let results = FyrlysCore.search(query, in: model.channels, limit: 120)
+        let results = model.search(query, limit: 120)
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
@@ -21,7 +21,9 @@ struct SearchView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 30)
+                .hidesScrollIndex()
             }
+            .scrollIndicators(.never)
             .searchable(text: $query, prompt: L("Søk etter kanal"))
         }
     }

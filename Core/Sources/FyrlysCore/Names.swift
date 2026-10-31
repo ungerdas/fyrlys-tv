@@ -14,7 +14,10 @@ public struct NameParts: Equatable, Sendable {
 public func nameParts(_ name: String) -> NameParts {
     var n = name.trimmingCharacters(in: .whitespacesAndNewlines)
     var time = ""
-    if let m = n.range(of: #"^[0-9]{1,2}[:.][0-9]{2}\s*[-\x{2013}|:]?\s+"#, options: .regularExpression) {
+    // et klokkeslett først kan bare finnes når navnet begynner med et siffer (de fleste gjør ikke det, og et regulært
+    // uttrykk koster for hvert kort som tegnes)
+    if let first = n.utf8.first, (UInt8(ascii: "0")...UInt8(ascii: "9")).contains(first),
+       let m = n.range(of: #"^[0-9]{1,2}[:.][0-9]{2}\s*[-\x{2013}|:]?\s+"#, options: .regularExpression) {
         let head = n[m].trimmingCharacters(in: CharacterSet(charactersIn: " -–|:"))
         time = head.replacingOccurrences(of: ".", with: ":")
         n = String(n[m.upperBound...])
@@ -24,6 +27,13 @@ public func nameParts(_ name: String) -> NameParts {
                          sub: String(n[bar.upperBound...]).trimmingCharacters(in: .whitespaces))
     }
     return NameParts(time: time, main: n, sub: "")
+}
+
+/// Teksten i logofeltet til en kanal uten logo, som i Fyrlys på Windows: de tre første tegnene i navnet (hele tegn,
+/// så et flagg eller en emoji ikke deles): «Viaplay Sport» → «Via».
+public func logoText(_ name: String) -> String {
+    let main = nameParts(name).main
+    return main.isEmpty ? "?" : String(main.prefix(3))
 }
 
 /// To-tre bokstaver til en kanal uten logo: «NRK 1 HD» → «N1», «TV 2 Sport» → «T2».

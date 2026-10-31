@@ -48,6 +48,13 @@ public let english: [String: String] = [
     "Sist sett": "Recently watched",
     "Alle kanaler": "All channels",
     "Kategorier": "Categories",
+    "Dine kategorier": "Your categories",
+    "Alle kategorier": "All categories",
+    "Hold inne på en kategori for å legge den øverst.": "Press and hold a category to pin it to the top.",
+    "Legg øverst": "Pin to top",
+    "Fjern fra toppen": "Unpin from top",
+    "Flytt opp": "Move up",
+    "Flytt ned": "Move down",
     "Henter kanalene …": "Loading channels…",
     "Ingen kanaler her.": "No channels here.",
     "Ingen favoritter ennå. Hold inne på en kanal for å legge den til.":

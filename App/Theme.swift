@@ -11,6 +11,8 @@ enum Theme {
     static let signal = Color(hex: 0xF2B544)
     static let live = Color(hex: 0xFF5A4F)
     static let logoBg = Color(hex: 0x1B2C3B)
+    /// kanten rundt kortet som har fokus (som i Fyrlys på Windows)
+    static let focus = Color(hex: 0x8CC8FF)
 }
 
 extension Color {

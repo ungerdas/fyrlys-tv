@@ -1,4 +1,5 @@
 import FyrlysCore
+import Observation
 import SwiftUI
 
 /// Et program i guiden (kanal og start), det fokus står på.
@@ -7,87 +8,69 @@ struct GuideSlot: Hashable {
     let start: Date
 }
 
-/// TV-guiden: seks timer fra halvtimen før denne halvtimen, favorittkanalene (ellers de første kanalene), med en
-/// rød strek for nå. Øverst står programmet du står på.
+/// Programmet fokus står på, som vises øverst. Egen observerbar, så bare overskriften tegnes på nytt når fokus flytter
+/// seg (før ble hele guiden tegnet på nytt for hvert steg).
+@MainActor
+@Observable
+final class GuideSelection {
+    var slot: GuideSlot?
+}
+
+/// TV-guiden: seks timer fra halvtimen før denne halvtimen, favorittkanalene (ellers de første kanalene, med «Dine
+/// kategorier» først), med en rød strek for nå. Øverst står programmet du står på.
 struct GuideView: View {
     @Environment(AppModel.self) private var model
     let play: (Channel, [Channel]) -> Void
-    @FocusState private var focus: GuideSlot?
+    @State private var selection = GuideSelection()
 
-    static let perMinute: CGFloat = 3.8
-    static let nameWidth: CGFloat = 330
-    static let rowHeight: CGFloat = 78
+    static let perMinute: CGFloat = 4
+    static let nameWidth: CGFloat = 290
+    static let rowHeight: CGFloat = 66
     static var width: CGFloat { CGFloat(GuideTime.totalMinutes) * perMinute }
 
     private var rows: [Channel] {
         let favorites = model.favorites
-        return favorites.isEmpty ? Array(model.channels.prefix(60)) : favorites
+        return favorites.isEmpty ? Array(model.allChannels.prefix(60)) : favorites
     }
 
     var body: some View {
         if model.channels.isEmpty {
             ListsStatus()
         } else {
-            TimelineView(.periodic(from: .now, by: 60)) { context in
+            TimelineView(.everyMinute) { context in
                 let start = GuideTime.start(context.date)
                 let shown = rows
-                VStack(alignment: .leading, spacing: 16) {
-                    header
-                        .frame(height: 170, alignment: .topLeading)
+                VStack(alignment: .leading, spacing: 12) {
+                    GuideHeader(selection: selection)
+                        .frame(height: 124, alignment: .topLeading)
                     ruler(start)
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 12) {
+                        LazyVStack(alignment: .leading, spacing: 10) {
                             ForEach(shown) { channel in
-                                GuideRow(channel: channel, start: start, now: context.date, focus: $focus) {
+                                GuideRow(channel: channel, start: start, now: context.date, selection: selection) {
                                     play(channel, shown)
                                 }
                             }
                         }
-                        .padding(.vertical, 16)
+                        .padding(.vertical, 12)
+                        .hidesScrollIndex()
                     }
+                    .scrollIndicators(.never)
                 }
+                .padding(.top, 12)
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("guide")
         }
     }
 
-    @ViewBuilder
-    private var header: some View {
-        if let slot = focus, let channel = model.byId[slot.channel],
-           let program = model.programs.programs(for: channel).first(where: { $0.start == slot.start }) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(verbatim: "\(nameParts(channel.name).main) · \(hhmm(program.start))–\(hhmm(program.stop))")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(Theme.signal)
-                Text(program.title)
-                    .font(.system(size: 42, weight: .bold))
-                    .lineLimit(1)
-                if !program.description.isEmpty {
-                    Text(program.description)
-                        .font(.system(size: 24))
-                        .foregroundStyle(Theme.muted)
-                        .lineLimit(2)
-                }
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L("TV-guide"))
-                    .font(.system(size: 42, weight: .bold))
-                Text(L("Viser favorittene dine. Har du ingen, vises de første kanalene."))
-                    .font(.system(size: 24))
-                    .foregroundStyle(Theme.muted)
-            }
-        }
-    }
-
     private func ruler(_ start: Date) -> some View {
         HStack(spacing: 12) {
-            Color.clear.frame(width: Self.nameWidth, height: 30)
+            Color.clear.frame(width: Self.nameWidth, height: 26)
             ZStack(alignment: .leading) {
                 ForEach(GuideTime.marks(start), id: \.self) { mark in
                     Text(verbatim: hhmm(mark))
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(Theme.muted)
                         .padding(.leading, CGFloat(GuideTime.minutes(from: start, to: mark)) * Self.perMinute)
                 }
@@ -97,25 +80,58 @@ struct GuideView: View {
     }
 }
 
-/// Én kanal i guiden: navnet (spill) og programmene bortover.
+/// Overskriften: programmet fokus står på, ellers en forklaring.
+private struct GuideHeader: View {
+    @Environment(AppModel.self) private var model
+    let selection: GuideSelection
+
+    var body: some View {
+        if let slot = selection.slot, let channel = model.byId[slot.channel],
+           let program = model.programs.programs(for: channel).first(where: { $0.start == slot.start }) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(verbatim: "\(nameParts(channel.name).main) · \(hhmm(program.start))–\(hhmm(program.stop))")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(Theme.signal)
+                Text(program.title)
+                    .font(.system(size: 36, weight: .bold))
+                    .lineLimit(1)
+                if !program.description.isEmpty {
+                    Text(program.description)
+                        .font(.system(size: 21))
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(2)
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L("TV-guide"))
+                    .font(.system(size: 36, weight: .bold))
+                Text(L("Viser favorittene dine. Har du ingen, vises de første kanalene."))
+                    .font(.system(size: 21))
+                    .foregroundStyle(Theme.muted)
+            }
+        }
+    }
+}
+
+/// Én kanal i guiden: logoen og navnet (spill) og programmene bortover.
 private struct GuideRow: View {
     @Environment(AppModel.self) private var model
     let channel: Channel
     let start: Date
     let now: Date
-    let focus: FocusState<GuideSlot?>.Binding
+    let selection: GuideSelection
     let play: () -> Void
 
     var body: some View {
         let programs = model.programs.programs(for: channel)
         HStack(spacing: 12) {
             Button(action: play) {
-                HStack(spacing: 14) {
-                    ChannelTile(channel: channel, compact: true)
-                        .frame(width: 96, height: 54)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                HStack(spacing: 12) {
+                    ChannelLogo(channel: channel, textSize: 15)
+                        .frame(width: 64, height: 46)
                     Text(nameParts(channel.name).main)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.system(size: 19, weight: .semibold))
                         .lineLimit(2)
                 }
             }
@@ -126,27 +142,17 @@ private struct GuideRow: View {
                 Color.clear
                 ForEach(programs, id: \.start) { program in
                     if let span = GuideTime.span(of: program, start: start) {
-                        let live = program.start <= now && now < program.stop
-                        Button(action: play) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(program.title)
-                                    .font(.system(size: 21, weight: .semibold))
-                                    .lineLimit(1)
-                                Text(verbatim: hhmm(program.start))
-                                    .font(.system(size: 17))
-                                    .opacity(0.7)
-                            }
-                        }
-                        .buttonStyle(GuideCellStyle(live: live))
-                        .frame(width: max(4, CGFloat(span.length) * GuideView.perMinute - 6),
-                               height: GuideView.rowHeight)
-                        .focused(focus, equals: GuideSlot(channel: channel.id, start: program.start))
-                        .padding(.leading, CGFloat(span.from) * GuideView.perMinute)
+                        GuideProgramCell(program: program, channelId: channel.id,
+                                         live: program.start <= now && now < program.stop,
+                                         selection: selection, play: play)
+                            .frame(width: max(4, CGFloat(span.length) * GuideView.perMinute - 6),
+                                   height: GuideView.rowHeight)
+                            .padding(.leading, CGFloat(span.from) * GuideView.perMinute)
                     }
                 }
                 if programs.isEmpty {
                     Text(L("Ingen programinfo"))
-                        .font(.system(size: 21))
+                        .font(.system(size: 19))
                         .foregroundStyle(Theme.muted)
                         .padding(.leading, 20)
                 }
@@ -161,6 +167,39 @@ private struct GuideRow: View {
         }
         .onAppear { model.programs.want(channel) }
         .onDisappear { model.programs.forget(channel) }
+    }
+}
+
+/// Et program i guiden. Får det fokus, vises det øverst (bare overskriften tegnes på nytt).
+private struct GuideProgramCell: View {
+    let program: Program
+    let channelId: String
+    let live: Bool
+    let selection: GuideSelection
+    let play: () -> Void
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        Button(action: play) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(program.title)
+                    .font(.system(size: 19, weight: .semibold))
+                    .lineLimit(1)
+                Text(verbatim: hhmm(program.start))
+                    .font(.system(size: 15))
+                    .opacity(0.7)
+            }
+        }
+        .buttonStyle(GuideCellStyle(live: live))
+        .focused($focused)
+        .onChange(of: focused) { _, isFocused in
+            let slot = GuideSlot(channel: channelId, start: program.start)
+            if isFocused {
+                selection.slot = slot
+            } else if selection.slot == slot {
+                selection.slot = nil
+            }
+        }
     }
 }
 
@@ -180,7 +219,7 @@ private struct GuideCell<Label: View>: View {
 
     var body: some View {
         label
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .foregroundStyle(focused ? Theme.bg : Theme.ink)
             .background(

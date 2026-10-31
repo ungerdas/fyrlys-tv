@@ -2,9 +2,13 @@
 """En falsk Xtream Codes-leverandør for testene (bare oppdiktede kanaler).
 
     python3 tools/fake_xtream.py --port 8899
+    python3 tools/fake_xtream.py --port 8898 --kanaler 25000 --kategorier 450
 
 Innlogging test/test. player_api.php svarer med abonnement, kategorier, kanaler og programinfo (base64, rundt nå);
 /live/test/test/<id>.m3u8 sendes videre til Apples eksempelstrøm, unntatt kanal 90, som svarer 404.
+
+Med --kanaler lages en stor liste som hos en ekte leverandør: mange kategorier etter land og slag, eventkanaler
+(«18:30 Lag - Lag | Liga») uten programinfo, noen vanlige kanaler uten programinfo, og logoer med hver sin adresse.
 """
 import argparse
 import base64
@@ -85,6 +89,43 @@ def png(rgb, size=(240, 140)):
 
 
 LOGO_PNG = {cid: png(rgb) for cid, rgb in LOGOS.items()}
+# kanal-id → logoen den har (i den store lista: én av de tre, men hver kanal med sin egen adresse)
+LOGO_OF = {cid: cid for cid in LOGOS}
+# kanalene uten epg_channel_id (eventkanaler og noen vanlige i den store lista)
+NO_EPG = set()
+
+COUNTRIES = ["Norge", "Sverige", "Danmark", "Finland", "Island", "Storbritannia", "Tyskland", "Frankrike", "Spania",
+             "Italia", "Polen", "Nederland", "Portugal", "Hellas", "Canada"]
+KINDS = ["", " Sport", " Film", " Barn", " Nyheter", " Dokumentar", " Musikk", " Events", " 4K", " Serier"]
+TEAMS = ["Bergby", "Fjordheim", "Nordvik", "Sørhavn", "Austbø", "Vestli", "Lysaker", "Midtbyen", "Elvedal", "Skogås"]
+
+
+def make_big(channels, categories):
+    """En stor, oppdiktet liste: kategoriene etter land og slag, kanalene i blokker per kategori."""
+    global CATEGORIES, CHANNELS
+    cats = []
+    for i in range(categories):
+        country = COUNTRIES[i % len(COUNTRIES)]
+        kind = KINDS[(i // len(COUNTRIES)) % len(KINDS)]
+        round_ = i // (len(COUNTRIES) * len(KINDS))
+        cats.append((str(100 + i), f"{country}{kind}" + (f" {round_ + 1}" if round_ else "")))
+    chans = []
+    for i in range(channels):
+        cid = 1000 + i
+        cat_id, cat_name = cats[i * categories // channels]
+        if ("Events" in cat_name or "Sport" in cat_name) and i % 3 == 0:
+            hour, minute = 12 + i % 10, (i * 5) % 60
+            name = (f"{hour:02d}:{minute:02d} {TEAMS[i % 10]} - {TEAMS[(i * 7 + 3) % 10]} | "
+                    f"Eksempelligaen {i % 12 + 1}")
+            NO_EPG.add(cid)
+        else:
+            name = f"{cat_name.split()[0][:3].upper()} Kanal {i} HD"
+            if i % 5 == 0:
+                NO_EPG.add(cid)
+        if i % 4:
+            LOGO_OF[cid] = list(LOGOS)[cid % len(LOGOS)]
+        chans.append((cid, name, cat_id))
+    CATEGORIES, CHANNELS = cats, chans
 
 
 def b64(text):
@@ -94,7 +135,7 @@ def b64(text):
 def programs(cid, cat, now):
     """Programmer fra to timer før nå til tolv timer etter, likt for samme kanal."""
     t = int(now // 1800 * 1800) - 7200 - (cid % 3) * 600
-    titles = TITLES.get(cat, ["Program"])
+    titles = TITLES.get(cat, ["Nyhetene", "Dokumentar", "Filmkveld", "Serie", "Sportsnytt", "Magasinet"])
     out = []
     i = cid
     while t < now + 12 * 3600:
@@ -160,14 +201,14 @@ class Handler(BaseHTTPRequestHandler):
                 cat = q.get("category_id")
                 return self.json([{
                     "num": n + 1, "name": name, "stream_type": "live", "stream_id": cid,
-                    "stream_icon": f"http://{host}/logo/{cid}.png" if cid in LOGO_PNG else "",
-                    "epg_channel_id": f"kanal{cid}", "category_id": c,
+                    "stream_icon": f"http://{host}/logo/{cid}.png" if cid in LOGO_OF else "",
+                    "epg_channel_id": None if cid in NO_EPG else f"kanal{cid}", "category_id": c,
                     "tv_archive": 1 if cid in (1, 11) else 0, "tv_archive_duration": 7 if cid in (1, 11) else 0,
                 } for n, (cid, name, c) in enumerate(CHANNELS) if cat is None or cat == c])
             if action == "get_short_epg":
                 cid = int(q.get("stream_id", "0"))
-                cat = next((c for i, _, c in CHANNELS if i == cid), None)
-                if cat is None or cat == "9":
+                cat = CATEGORY_OF.get(cid)
+                if cat is None or cat == "9" or cid in NO_EPG:
                     return self.json({"epg_listings": []})
                 limit = int(q.get("limit", "4"))
                 listing = [p for p in programs(cid, cat, now) if int(p["stop_timestamp"]) > now][:limit]
@@ -176,28 +217,38 @@ class Handler(BaseHTTPRequestHandler):
 
         if len(parts) == 2 and parts[0] == "logo":
             cid = int(parts[1].split(".")[0]) if parts[1].split(".")[0].isdigit() else 0
-            if cid in LOGO_PNG:
-                return self.send(200, LOGO_PNG[cid], "image/png")
+            if cid in LOGO_OF:
+                return self.send(200, LOGO_PNG[LOGO_OF[cid]], "image/png")
             return self.send(404, b"", "text/plain")
 
         if len(parts) == 4 and parts[0] == "live":
             if parts[1] != USER or parts[2] != PASSWORD:
                 return self.send(401, b"", "text/plain")
             cid = parts[3].split(".")[0]
-            if cid == "90" or not any(str(i) == cid for i, _, _ in CHANNELS):
+            if cid == "90" or not cid.isdigit() or int(cid) not in CATEGORY_OF:
                 return self.send(404, b"", "text/plain")
             return self.send(302, b"", "text/plain", {"Location": SAMPLE})
 
         self.send(404, b"", "text/plain")
 
 
+CATEGORY_OF = {}
+
+
 def main():
+    global CATEGORY_OF
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8899)
     parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--kanaler", type=int, default=0, help="en stor, oppdiktet liste med så mange kanaler")
+    parser.add_argument("--kategorier", type=int, default=450)
     args = parser.parse_args()
+    if args.kanaler:
+        make_big(args.kanaler, args.kategorier)
+    CATEGORY_OF = {cid: c for cid, _, c in CHANNELS}
     server = ThreadingHTTPServer((args.host, args.port), Handler)
-    print(f"Falsk Xtream-leverandør på http://{args.host}:{args.port} (test/test)", flush=True)
+    print(f"Falsk Xtream-leverandør på http://{args.host}:{args.port} (test/test, {len(CHANNELS)} kanaler i "
+          f"{len(CATEGORIES)} kategorier)", flush=True)
     server.serve_forever()
 
 

@@ -8,7 +8,7 @@ struct PlayRequest: Identifiable {
     let list: [Channel]
 }
 
-/// Fanene øverst: TV, TV-guide, Søk og Innstillinger. Spilleren legger seg over alt.
+/// Fanene øverst (fanelinja til Apple TV): TV, TV-guide, Søk og Innstillinger. Spilleren legger seg over alt.
 struct HomeView: View {
     enum Tab: Hashable { case tv, guide, search, settings }
 
@@ -16,6 +16,9 @@ struct HomeView: View {
     @State private var tab: Tab
     @State private var playing: PlayRequest?
     @State private var testPlayed = false
+    /// det som er valgt i sidemenyen, og søket
+    @State private var shelf: Shelf?
+    @State private var query = ""
 
     init() {
         switch TestSupport.screen {
@@ -28,13 +31,13 @@ struct HomeView: View {
 
     var body: some View {
         TabView(selection: $tab) {
-            ChannelsView(play: play)
+            ChannelsView(play: play, chosen: $shelf)
                 .tabItem { Text(L("TV")) }
                 .tag(Tab.tv)
             GuideView(play: play)
                 .tabItem { Text(L("TV-guide")) }
                 .tag(Tab.guide)
-            SearchView(play: play)
+            SearchView(play: play, query: $query)
                 .tabItem { Image(systemName: "magnifyingglass").accessibilityLabel(L("Søk")) }
                 .tag(Tab.search)
             SettingsView()

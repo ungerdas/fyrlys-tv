@@ -161,8 +161,9 @@ public func parseChannels(_ json: Any) -> [Channel] {
         guard !id.isEmpty, !name.isEmpty, seen.insert(id).inserted else { return nil }
         let logo = text(c["stream_icon"]).trimmingCharacters(in: .whitespaces)
         let archive = int(c["tv_archive"]) == 1 ? max(1, int(c["tv_archive_duration"]) ?? 1) : 0
+        let epgId = text(c["epg_channel_id"]).trimmingCharacters(in: .whitespaces)
         return Channel(id: id, name: name, categoryId: text(c["category_id"]), number: int(c["num"]),
-                       logo: logo.isEmpty ? nil : logo, archiveDays: archive)
+                       logo: logo.isEmpty ? nil : logo, archiveDays: archive, hasEpg: !epgId.isEmpty)
     }
 }
 

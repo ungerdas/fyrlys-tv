@@ -18,45 +18,84 @@ public final class MemoryStore: KeyValueStore {
     public func set(_ value: [String], for key: String) { values[key] = value }
 }
 
-/// Favoritter og «sist sett» for én innlogging (kanal-id-ene er ulike hos ulike leverandører).
+/// Favoritter, favorittkategorier og «sist sett» for én innlogging (id-ene er ulike hos ulike leverandører). Holdes i
+/// minnet og skrives til lagringen ved hver endring: å lese lagringen for hvert kort som tegnes, er for tregt.
 public final class Library {
     let store: KeyValueStore
     let loginId: String
     public static let recentMax = 20
 
+    /// kanal-id-ene i favorittene, i den rekkefølgen de ble lagt til
+    public private(set) var favorites: [String]
+    private var favoriteSet: Set<String>
+    /// kategori-id-ene i favorittkategoriene, øverste først
+    public private(set) var favoriteCategories: [String]
+    /// sist sett først
+    public private(set) var recent: [String]
+
     public init(store: KeyValueStore, loginId: String) {
         self.store = store
         self.loginId = loginId
+        favorites = store.strings(Library.key("favorites", loginId))
+        favoriteSet = Set(favorites)
+        favoriteCategories = store.strings(Library.key("favoriteCategories", loginId))
+        recent = store.strings(Library.key("recent", loginId))
     }
 
-    func key(_ name: String) -> String { "\(name)@\(loginId)" }
+    static func key(_ name: String, _ loginId: String) -> String { "\(name)@\(loginId)" }
 
-    /// kanal-id-ene i favorittene, i den rekkefølgen de ble lagt til
-    public var favorites: [String] { store.strings(key("favorites")) }
+    func key(_ name: String) -> String { Library.key(name, loginId) }
 
-    public func isFavorite(_ id: String) -> Bool { favorites.contains(id) }
+    public func isFavorite(_ id: String) -> Bool { favoriteSet.contains(id) }
 
     /// Legger til eller fjerner; svaret er om den er favoritt etterpå.
     @discardableResult
     public func toggleFavorite(_ id: String) -> Bool {
-        var list = favorites
-        if let i = list.firstIndex(of: id) {
-            list.remove(at: i)
-            store.set(list, for: key("favorites"))
+        if let i = favorites.firstIndex(of: id) {
+            favorites.remove(at: i)
+            favoriteSet.remove(id)
+        } else {
+            favorites.append(id)
+            favoriteSet.insert(id)
+        }
+        store.set(favorites, for: key("favorites"))
+        return favoriteSet.contains(id)
+    }
+
+    public func isFavoriteCategory(_ id: String) -> Bool { favoriteCategories.contains(id) }
+
+    /// Legger til (nederst blant favorittkategoriene) eller fjerner; svaret er om den er favoritt etterpå.
+    @discardableResult
+    public func toggleFavoriteCategory(_ id: String) -> Bool {
+        if let i = favoriteCategories.firstIndex(of: id) {
+            favoriteCategories.remove(at: i)
+            store.set(favoriteCategories, for: key("favoriteCategories"))
             return false
         }
-        list.append(id)
-        store.set(list, for: key("favorites"))
+        favoriteCategories.append(id)
+        store.set(favoriteCategories, for: key("favoriteCategories"))
         return true
     }
 
-    /// sist sett først
-    public var recent: [String] { store.strings(key("recent")) }
+    /// Bytter plass med kategorien over (-1) eller under (1), som i Fyrlys på Windows. Med [shown] hoppes kategorier
+    /// som ikke vises (ikke finnes hos leverandøren lenger) over, så flyttingen alltid synes.
+    public func moveFavoriteCategory(_ id: String, by step: Int, shown: Set<String>? = nil) {
+        guard step != 0, let i = favoriteCategories.firstIndex(of: id) else { return }
+        let direction = step < 0 ? -1 : 1
+        var j = i + direction
+        while favoriteCategories.indices.contains(j), let shown, !shown.contains(favoriteCategories[j]) {
+            j += direction
+        }
+        guard favoriteCategories.indices.contains(j) else { return }
+        favoriteCategories.swapAt(i, j)
+        store.set(favoriteCategories, for: key("favoriteCategories"))
+    }
 
     public func addRecent(_ id: String) {
         var list = recent.filter { $0 != id }
         list.insert(id, at: 0)
-        store.set(Array(list.prefix(Library.recentMax)), for: key("recent"))
+        recent = Array(list.prefix(Library.recentMax))
+        store.set(recent, for: key("recent"))
     }
 }
 

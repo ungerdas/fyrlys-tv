@@ -36,8 +36,9 @@ final class XtreamTests: XCTestCase {
 
         let chans = parseChannels(try json("""
             [{"stream_id": 101, "name": "NRK 1 HD", "category_id": "1", "num": "1", "stream_icon": "http://logo/1.png",
-              "tv_archive": 1, "tv_archive_duration": "7"},
-             {"stream_id": "102", "name": "TV 2", "category_id": 1, "num": 2, "stream_icon": "", "tv_archive": "0"},
+              "tv_archive": 1, "tv_archive_duration": "7", "epg_channel_id": "nrk1.no"},
+             {"stream_id": "102", "name": "TV 2", "category_id": 1, "num": 2, "stream_icon": "", "tv_archive": "0",
+              "epg_channel_id": null},
              {"stream_id": "103", "name": "", "category_id": "1"}]
             """))
         XCTAssertEqual(chans.count, 2)
@@ -46,6 +47,25 @@ final class XtreamTests: XCTestCase {
         XCTAssertEqual(chans[1].logo, nil)
         XCTAssertEqual(chans[1].categoryId, "1")
         XCTAssertEqual(chans[1].archiveDays, 0)
+        // uten epg_channel_id hentes ingen programinfo
+        XCTAssertTrue(chans[0].hasEpg)
+        XCTAssertFalse(chans[1].hasEpg)
+        XCTAssertFalse(chans[1].wantsEpg)
+    }
+
+    func testEventChannelsWantNoEpg() {
+        XCTAssertTrue(Channel(id: "1", name: "NRK 1 HD", categoryId: "1").wantsEpg)
+        XCTAssertFalse(Channel(id: "2", name: "18:30 Bergby IL - Fjordheim FK | Eksempelligaen", categoryId: "1").wantsEpg)
+    }
+
+    /// Lister lagret av 0.1.1 (uten hasEpg) leses fortsatt.
+    func testReadsChannelsSavedBeforeHasEpg() throws {
+        let old = #"{"id": "101", "name": "NRK 1", "categoryId": "1", "number": 1, "archiveDays": 0}"#
+        let channel = try JSONDecoder().decode(Channel.self, from: Data(old.utf8))
+        XCTAssertEqual(channel, Channel(id: "101", name: "NRK 1", categoryId: "1", number: 1))
+        let again = try JSONDecoder().decode(Channel.self, from: JSONEncoder().encode(
+            Channel(id: "102", name: "TV 2", categoryId: "1", hasEpg: false)))
+        XCTAssertFalse(again.hasEpg)
     }
 
     func testParsesShortEPG() throws {
@@ -155,6 +175,15 @@ final class NameTests: XCTestCase {
         XCTAssertEqual(nameParts("NRK 1 HD"), NameParts(time: "", main: "NRK 1 HD", sub: ""))
         XCTAssertEqual(initials("NRK 1 HD"), "N1")
         XCTAssertEqual(initials("TV 2 Sport"), "T2")
+        // navn som begynner med et siffer, men ikke et klokkeslett
+        XCTAssertEqual(nameParts("24 Nyheter"), NameParts(time: "", main: "24 Nyheter", sub: ""))
+        XCTAssertEqual(nameParts("4K | Kinokanalen"), NameParts(time: "", main: "4K", sub: "Kinokanalen"))
+        XCTAssertEqual(nameParts("  20:00 Nordvik - Sørhavn | Cupen "),
+                       NameParts(time: "20:00", main: "Nordvik - Sørhavn", sub: "Cupen"))
+        XCTAssertEqual(logoText("Viaplay Sport"), "Via")
+        XCTAssertEqual(logoText("18:30 Bergby IL - Fjordheim FK | Liga"), "Ber")
+        XCTAssertEqual(logoText("TV"), "TV")
+        XCTAssertEqual(logoText(" "), "?")
         XCTAssertEqual(hhmm(Date(timeIntervalSince1970: 3600 * 5 + 60 * 7), timeZone: TimeZone(identifier: "UTC")!), "05:07")
     }
 }
@@ -176,6 +205,38 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(home.recent.count, Library.recentMax)
         XCTAssertEqual(home.recent.first, "3")
         XCTAssertEqual(home.recent.filter { $0 == "3" }.count, 1)
+
+        // holdes i minnet, men er lagret: en ny Library for samme innlogging ser det samme
+        let again = Library(store: store, loginId: "a")
+        XCTAssertEqual(again.favorites, ["102"])
+        XCTAssertTrue(again.isFavorite("102"))
+        XCTAssertFalse(again.isFavorite("101"))
+        XCTAssertEqual(again.recent.first, "3")
+    }
+
+    func testFavoriteCategoriesAreOrdered() {
+        let store = MemoryStore()
+        let lib = Library(store: store, loginId: "a")
+        XCTAssertTrue(lib.toggleFavoriteCategory("no"))
+        XCTAssertTrue(lib.toggleFavoriteCategory("se"))
+        XCTAssertTrue(lib.toggleFavoriteCategory("dk"))
+        XCTAssertEqual(lib.favoriteCategories, ["no", "se", "dk"])
+        lib.moveFavoriteCategory("dk", by: -1)
+        XCTAssertEqual(lib.favoriteCategories, ["no", "dk", "se"])
+        lib.moveFavoriteCategory("no", by: -1) // øverst alt
+        lib.moveFavoriteCategory("se", by: 1) // nederst alt
+        XCTAssertEqual(lib.favoriteCategories, ["no", "dk", "se"])
+        XCTAssertFalse(lib.toggleFavoriteCategory("dk"))
+        XCTAssertFalse(lib.isFavoriteCategory("dk"))
+        XCTAssertEqual(Library(store: store, loginId: "a").favoriteCategories, ["no", "se"])
+        XCTAssertTrue(Library(store: store, loginId: "b").favoriteCategories.isEmpty)
+
+        // en kategori som er borte hos leverandøren, hoppes over når det flyttes
+        lib.toggleFavoriteCategory("borte")
+        lib.toggleFavoriteCategory("fi")
+        XCTAssertEqual(lib.favoriteCategories, ["no", "se", "borte", "fi"])
+        lib.moveFavoriteCategory("fi", by: -1, shown: ["no", "se", "fi"])
+        XCTAssertEqual(lib.favoriteCategories, ["no", "fi", "borte", "se"])
     }
 
     func testSearch() {
@@ -198,6 +259,92 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(cache.read("a")?.channels, lists.channels)
         cache.remove("a")
         XCTAssertNil(cache.read("a"))
+    }
+}
+
+final class ChannelIndexTests: XCTestCase {
+    let lists = Lists(
+        categories: [ChannelCategory(id: "se", name: "Sverige"), ChannelCategory(id: "no", name: "Norge"),
+                     ChannelCategory(id: "tom", name: "Tom"), ChannelCategory(id: "dk", name: "Danmark")],
+        channels: [Channel(id: "1", name: "SVT 1", categoryId: "se"),
+                   Channel(id: "2", name: "NRK 1 HD", categoryId: "no"),
+                   Channel(id: "3", name: "SVT Sport", categoryId: "se"),
+                   Channel(id: "4", name: "TV 2 Sport", categoryId: "no"),
+                   Channel(id: "5", name: "DR 1", categoryId: "dk"),
+                   Channel(id: "6", name: "Uten kategori", categoryId: "x")])
+
+    func testLookups() {
+        let index = ChannelIndex(lists)
+        XCTAssertEqual(index.channels.map(\.id), ["1", "2", "3", "4", "5", "6"])
+        XCTAssertEqual(index.byId["4"]?.name, "TV 2 Sport")
+        XCTAssertEqual(index.channels(in: "no").map(\.id), ["2", "4"])
+        XCTAssertTrue(index.channels(in: "tom").isEmpty)
+        // bare kategorier med kanaler, i leverandørens rekkefølge
+        XCTAssertEqual(index.categories.map(\.id), ["se", "no", "dk"])
+        XCTAssertEqual(index.category("no")?.name, "Norge")
+        XCTAssertNil(index.category("tom"))
+        XCTAssertTrue(ChannelIndex.empty.channels.isEmpty)
+    }
+
+    func testFavoriteCategoriesFirst() {
+        let index = ChannelIndex(lists)
+        XCTAssertEqual(index.channels(favoring: []).map(\.id), ["1", "2", "3", "4", "5", "6"])
+        XCTAssertEqual(index.channels(favoring: ["no"]).map(\.id), ["2", "4", "1", "3", "5", "6"])
+        // ukjente og doble hoppes over
+        XCTAssertEqual(index.channels(favoring: ["dk", "borte", "no", "dk"]).map(\.id), ["5", "2", "4", "1", "3", "6"])
+    }
+
+    func testSearch() {
+        let index = ChannelIndex(lists)
+        XCTAssertEqual(index.search("sport").map(\.id), ["3", "4"])
+        XCTAssertEqual(index.search("sport", favoring: ["no"]).map(\.id), ["4", "3"])
+        XCTAssertEqual(index.search("SPORT tv").map(\.id), ["4"])
+        XCTAssertEqual(index.search("1", favoring: ["no"], limit: 2).map(\.id), ["2", "1"])
+        XCTAssertTrue(index.search("   ").isEmpty)
+        // det samme som det gamle søket
+        XCTAssertEqual(index.search("nrk").map(\.id), search("nrk", in: lists.channels).map(\.id))
+    }
+
+    func testSameLists() {
+        let index = ChannelIndex(lists)
+        let later = Lists(categories: lists.categories, channels: lists.channels, saved: Date().addingTimeInterval(60))
+        XCTAssertTrue(index.hasSameLists(as: later))
+        let changed = Lists(categories: lists.categories, channels: Array(lists.channels.dropLast()))
+        XCTAssertFalse(index.hasSameLists(as: changed))
+    }
+
+    /// En stor leverandør (25 000 kanaler): lages og søkes i på kort tid.
+    func testLargeList() {
+        var cats: [ChannelCategory] = []
+        var chans: [Channel] = []
+        for c in 0..<450 { cats.append(ChannelCategory(id: "\(c)", name: "Kategori \(c)")) }
+        for i in 0..<25_000 {
+            let name = i % 7 == 0 ? "18:30 Lag \(i) - Lag \(i + 1) | Liga \(i % 40)" : "Kanal \(i) HD"
+            chans.append(Channel(id: "\(i)", name: name, categoryId: "\(i % 450)", number: i + 1,
+                                 logo: "http://iptv.example.com/logo/\(i).png"))
+        }
+        let big = Lists(categories: cats, channels: chans)
+        var start = Date()
+        let index = ChannelIndex(big)
+        let built = Date().timeIntervalSince(start)
+        start = Date()
+        let hits = index.search("kanal 12", favoring: ["3", "7"], limit: 120)
+        let searched = Date().timeIntervalSince(start)
+        start = Date()
+        let ordered = index.channels(favoring: ["3", "7"])
+        let reordered = Date().timeIntervalSince(start)
+        start = Date()
+        _ = index.hasSameLists(as: big)
+        let compared = Date().timeIntervalSince(start)
+        print(String(format: "25 000 kanaler: indeks %.0f ms, søk %.0f ms, rekkefølge %.0f ms, sammenligning %.0f ms",
+                     built * 1000, searched * 1000, reordered * 1000, compared * 1000))
+        XCTAssertEqual(index.channels.count, 25_000)
+        XCTAssertEqual(ordered.count, 25_000)
+        XCTAssertEqual(ordered.first?.categoryId, "3")
+        XCTAssertFalse(hits.isEmpty)
+        XCTAssertEqual(hits.first?.categoryId, "3")
+        XCTAssertLessThan(built, 5)
+        XCTAssertLessThan(searched, 2)
     }
 }
 
