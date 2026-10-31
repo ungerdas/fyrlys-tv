@@ -146,7 +146,7 @@ jobs:
   ios:
     name: iPhone og iPad (simulator)
     runs-on: macos-15
-    timeout-minutes: 75
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v7
 
@@ -178,30 +178,77 @@ jobs:
             curl -sf "http://127.0.0.1:8899/player_api.php?username=test&password=test" > /dev/null && break
             sleep 1
           done
+          # en vakthund stopper xcodebuild før jobben går ut på tid (da blir steget en feil med merknad, ikke avbrutt)
+          limited() {
+            minutes=$1; log=$2; shift 2
+            echo "$(date -u +%H:%M:%S) start: $*" >> build/tider.txt
+            "$@" > "$log" 2>&1 &
+            pid=$!
+            ( sleep $((minutes * 60)); echo "STOPPET etter $minutes min" >> "$log"; kill -INT $pid 2>/dev/null
+              sleep 30; kill -9 $pid 2>/dev/null ) &
+            dog=$!
+            wait $pid; code=$?
+            kill $dog 2>/dev/null
+            echo "$(date -u +%H:%M:%S) ferdig ($code): $log" >> build/tider.txt
+            return $code
+          }
+          # testene leser leverandøren fra miljøet (TEST_RUNNER_ gir den videre til testprosessen)
+          export TEST_RUNNER_FYRLYS_TEST_SERVER=http://127.0.0.1:8899
+          common="-project Fyrlys.xcodeproj -scheme FyrlysMobil -derivedDataPath build/dd"
+          timeouts="-test-timeouts-enabled YES -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 360"
           set +e
-          TEST_RUNNER_FYRLYS_TEST_SERVER=http://127.0.0.1:8899 xcodebuild test \
-            -project Fyrlys.xcodeproj -scheme FyrlysMobil \
-            -destination "platform=iOS Simulator,id=$IPHONE_ID" \
-            -destination "platform=iOS Simulator,id=$IPAD_ID" \
-            -resultBundlePath build/Resultat.xcresult \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-            > build/xcodebuild.log 2>&1
+          # bygget én gang, så testene på iPhone og så på iPad (én simulator om gangen)
+          limited 25 build/bygg.log xcodebuild build-for-testing $common \
+            -destination "platform=iOS Simulator,id=$IPHONE_ID" CURRENT_PROJECT_VERSION=${{ github.run_number }}
           code=$?
-          grep -E "^Test (Case|Suite)|error:|\*\* .* \*\*" build/xcodebuild.log | tail -n 200
-          exit $code
+          grep -E "error:|\*\* .* \*\*" build/bygg.log | tail -n 40
+          [ $code -eq 0 ] || exit $code
+          limited 25 build/test-iphone.log \
+            xcodebuild test-without-building $common $timeouts \
+            -destination "platform=iOS Simulator,id=$IPHONE_ID" -resultBundlePath build/iphone.xcresult
+          iphone=$?
+          xcrun simctl shutdown "$IPHONE_ID" 2>/dev/null
+          only=""
+          for t in test01Login test02TV test04DineKategorier test05Guide test07Player test09Settings; do
+            only="$only -only-testing:FyrlysMobilUITests/FyrlysMobilUITests/$t"
+          done
+          limited 20 build/test-ipad.log \
+            xcodebuild test-without-building $common $timeouts $only \
+            -destination "platform=iOS Simulator,id=$IPAD_ID" -resultBundlePath build/ipad.xcresult
+          ipad=$?
+          cat build/tider.txt
+          for d in iphone ipad; do
+            f=build/test-$d.log
+            [ -f "$f" ] || continue
+            echo "== $d"; grep -E "^Test (Case|Suite)|error:|\*\* .* \*\*|STOPPET" "$f" | tail -n 80
+            # hver test og tiden den brukte, som merknad (loggen kan ikke lastes ned fra Claude-økta)
+            echo "::notice title=tester $d::$(grep -E "^Test Case .*(passed|failed)|STOPPET" "$f" | sed -E "s/^Test Case '-\[FyrlysMobilUITests\.FyrlysMobilUITests //; s/\]'//" | tail -n 20 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
+          done
+          [ $iphone -eq 0 ] && [ $ipad -eq 0 ]
 
       - name: Skjermbilder
         if: always()
         run: |
-          [ -d build/Resultat.xcresult ] || exit 0
-          python3 tools/screenshots.py build/Resultat.xcresult build/bilder
+          set +e
+          for r in build/iphone.xcresult build/ipad.xcresult; do
+            [ -d "$r" ] && python3 tools/screenshots.py "$r" build/bilder
+          done
+          # utdrag av loggene til feilsøking (testene bruker bare den falske leverandøren, ingen hemmeligheter)
+          mkdir -p build/bilder
+          [ -f build/tider.txt ] && cp build/tider.txt build/bilder/
+          for f in build/bygg.log build/test-iphone.log build/test-ipad.log; do
+            [ -f "$f" ] || continue
+            { grep -E "error:|warning: .*FyrlysMobil|Test (Case|Suite)|XCTAssert|Failed|failed|STOPPET|t = " "$f" | tail -n 400
+              echo; echo "== slutten"; tail -n 120 "$f"; } | sed "s#$GITHUB_WORKSPACE/##g" | cut -c1-400 > "build/bilder/$(basename "$f" .log)-utdrag.txt"
+          done
+          exit 0
 
       - name: Legg skjermbildene i grenen skjermbilder-mobil
         if: always()
         env:
           TOKEN: ${{ github.token }}
         run: |
-          ls build/bilder/*.png > /dev/null 2>&1 || { echo "Ingen skjermbilder"; exit 0; }
+          ls build/bilder/* > /dev/null 2>&1 || { echo "Ingen skjermbilder"; exit 0; }
           cd build/bilder
           {
             echo "# Skjermbilder fra iPhone og iPad"
@@ -209,7 +256,7 @@ jobs:
             echo "Fra iPhone- og iPad-simulatoren i bygg ${{ github.run_number }} (${GITHUB_SHA::7}), mot den falske"
             echo "leverandøren i \`tools/fake_xtream.py\` (oppdiktede kanaler). Lages på nytt av hvert bygg."
             echo
-            for f in *.png; do echo "## ${f%.png}"; echo; echo "![${f%.png}]($f)"; echo; done
+            for f in *.png; do [ -f "$f" ] && { echo "## ${f%.png}"; echo; echo "![${f%.png}]($f)"; echo; }; done
           } > README.md
           git init -q
           git checkout -q -b skjermbilder-mobil
@@ -227,17 +274,18 @@ jobs:
               echo "::error title=$f::$(tail -n 40 "$f" | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')"
             fi
           done
-          f=build/xcodebuild.log
-          [ -f "$f" ] || exit 0
+          for f in build/bygg.log build/test-iphone.log build/test-ipad.log; do
+          [ -f "$f" ] || continue
           {
-            echo "Feil:"
+            echo "Feil i $f:"
             grep -E "error:|failed \(|\*\* (BUILD|TEST) FAILED|Testing failed|XCTAssert|Fatal" "$f" \
               | sed "s#$GITHUB_WORKSPACE/##g" | awk 'length($0) < 600 && !seen[$0]++' | head -n 60
             echo
             echo "Slutten av loggen:"
             tail -n 25 "$f" | cut -c1-300
           } > build/feil.txt
-          echo "::error title=xcodebuild::$(awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}' build/feil.txt)"
+          echo "::error title=$f::$(awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}' build/feil.txt)"
+          done
 
   # TestFlight: bare når hemmelighetene for App Store Connect finnes (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8,
   # APPLE_TEAM_ID). Arkivene (Apple TV og iPhone/iPad, samme app) bygges usignert og signeres ad hoc; eksporten
