@@ -3,11 +3,13 @@
 ASC_KEY_PATH (.p8-fila), ASC_KEY_ID, ASC_ISSUER_ID og APPLE_TEAM_ID.
 
     python3 tools/asc.py check                  sjekker nøkkelen, app-id-en og appen i App Store Connect
-    python3 tools/asc.py options <mappe>        ExportOptions.plist for skysignering (Apples egne sertifikater)
+    python3 tools/asc.py options <mappe>        ExportOptions.plist for skysignering (Apples egne sertifikater);
+                                                eksporten laster bygget rett opp til App Store Connect
     python3 tools/asc.py prepare <mappe>        reserve: lager et distribusjonssertifikat og en App Store-profil
                                                 for denne kjøringen (nøkkel, sertifikat, profil og ExportOptions)
     python3 tools/asc.py cleanup <mappe>        sletter profilen og trekker tilbake sertifikatet prepare laget
     python3 tools/asc.py builds                 de siste byggene i App Store Connect og om de er klare for TestFlight
+    python3 tools/asc.py wait <byggnummer>      venter (høyst 20 min) til bygget dukker opp i App Store Connect
 
 Skriver aldri ut nøkler eller tokens. Bare standardbiblioteket og openssl.
 """
@@ -144,7 +146,7 @@ def export_options(folder, manual_profile=None):
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>method</key><string>app-store-connect</string>
-  <key>destination</key><string>export</string>
+  <key>destination</key><string>upload</string>
   <key>teamID</key><string>{team}</string>
   {signing}
   <key>manageAppVersionAndBuildNumber</key><false/>
@@ -257,6 +259,35 @@ def builds():
     print("::notice title=App Store Connect::" + "%0A".join(lines))
 
 
+def app_id(asc):
+    apps = asc.call("GET", "/v1/apps?filter[bundleId]=" + BUNDLE_ID).get("data", [])
+    apps = [a for a in apps if a["attributes"].get("bundleId") == BUNDLE_ID]
+    if not apps:
+        sys.exit(f"Ingen app med {BUNDLE_ID} i App Store Connect")
+    return apps[0]["id"]
+
+
+def wait(number, minutes=20):
+    """Venter til bygget med [number] finnes i App Store Connect (og helst er ferdig behandlet)."""
+    asc = Asc()
+    app = app_id(asc)
+    deadline = time.time() + minutes * 60
+    state = None
+    while time.time() < deadline:
+        found = asc.call("GET", f"/v1/builds?filter[app]={app}&filter[version]={number}&limit=5").get("data", [])
+        if found:
+            state = found[0]["attributes"].get("processingState")
+            if state != "PROCESSING":
+                break
+        time.sleep(30)
+    if state is None:
+        sys.exit(f"Bygg {number} kom ikke fram til App Store Connect på {minutes} minutter "
+                 "(se e-posten fra App Store Connect)")
+    print(f"::notice title=App Store Connect::Bygg {number}: {state}")
+    if state in ("FAILED", "INVALID"):
+        sys.exit(f"App Store Connect avviste bygg {number} ({state}); grunnen står i e-posten fra App Store Connect")
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
@@ -271,6 +302,8 @@ def main():
         cleanup(sys.argv[2])
     elif command == "builds":
         builds()
+    elif command == "wait" and len(sys.argv) == 3:
+        wait(sys.argv[2])
     else:
         sys.exit(__doc__)
 
