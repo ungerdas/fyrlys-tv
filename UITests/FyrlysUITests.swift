@@ -66,10 +66,13 @@ final class FyrlysUITests: XCTestCase {
             wait(1)
         }
         XCTAssertTrue(card.hasFocus, "fikk ikke fokus på det første kortet")
-        remote.press(.select, forDuration: 1.6)
-        let add = app.buttons["Legg til i favoritter"]
-        XCTAssertTrue(add.waitForExistence(timeout: 10), "hurtigmenyen kom ikke")
+        remote.press(.select, forDuration: 2)
+        wait(2)
         shot("03-hurtigmeny")
+        // menyvalgene er ikke alltid knapper i elementtreet
+        let add = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", "Legg til i favoritter")).firstMatch
+        XCTAssertTrue(add.waitForExistence(timeout: 8), "hurtigmenyen kom ikke")
         remote.press(.select)
         XCTAssertTrue(find(app, "favoritt-1").waitForExistence(timeout: 10), "stjernen kom ikke")
         wait(1)
