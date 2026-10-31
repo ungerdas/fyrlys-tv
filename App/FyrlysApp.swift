@@ -1,3 +1,4 @@
+import AVFoundation
 import FyrlysCore
 import SwiftUI
 
@@ -7,6 +8,10 @@ struct FyrlysApp: App {
 
     init() {
         appLanguage = TestSupport.language ?? language(ofPreferred: Locale.preferredLanguages)
+        #if os(iOS)
+        // lyd når telefonen står på lydløs, og bilde-i-bilde og lyd når appen ligger i bakgrunnen
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+        #endif
     }
 
     var body: some Scene {

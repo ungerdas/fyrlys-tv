@@ -91,6 +91,15 @@ public final class Library {
         store.set(favoriteCategories, for: key("favoriteCategories"))
     }
 
+    /// Ny rekkefølge for favorittkategoriene som vises (dra og slipp på iPhone); de som ikke vises (ikke finnes hos
+    /// leverandøren lenger), legges bakerst, og ingen kategorier legges til eller fjernes her.
+    public func setFavoriteCategoryOrder(_ shown: [String]) {
+        var seen = Set<String>()
+        let ordered = shown.filter { isFavoriteCategory($0) && seen.insert($0).inserted }
+        favoriteCategories = ordered + favoriteCategories.filter { !seen.contains($0) }
+        store.set(favoriteCategories, for: key("favoriteCategories"))
+    }
+
     public func addRecent(_ id: String) {
         var list = recent.filter { $0 != id }
         list.insert(id, at: 0)

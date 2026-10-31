@@ -1,3 +1,4 @@
+#if os(tvOS)
 import FyrlysCore
 import SwiftUI
 
@@ -79,3 +80,4 @@ struct SettingsView: View {
             .font(.system(size: 30))
     }
 }
+#endif

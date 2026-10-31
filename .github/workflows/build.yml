@@ -143,9 +143,106 @@ jobs:
             echo "::warning title=falsk leverandør::$(tail -n 30 build/falsk.log | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
           fi
 
+  ios:
+    name: iPhone og iPad (simulator)
+    runs-on: macos-15
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Velg Xcode
+        run: |
+          mkdir -p build
+          XCODE=$(python3 -c "
+          import glob, re
+          apps = [a for a in glob.glob('/Applications/Xcode_*.app') if re.fullmatch(r'.*/Xcode_[0-9.]+\.app', a)]
+          print(sorted(apps, key=lambda a: [int(x) for x in re.findall(r'\d+', a.split('Xcode_')[1])])[-1])")
+          echo "Xcode: $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version 2>&1 | tee build/xcode.log
+
+      - name: Lag prosjektet (XcodeGen)
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen 2>&1 | tail -n 3
+          xcodegen generate 2>&1 | tee build/xcodegen.log
+
+      - name: Finn simulatorene
+        run: |
+          python3 tools/simulator.py iOS iPhone IPHONE_ID 2> >(tee build/simulator.log >&2) >> "$GITHUB_ENV"
+          python3 tools/simulator.py iOS iPad IPAD_ID 2> >(tee -a build/simulator.log >&2) >> "$GITHUB_ENV"
+
+      - name: Bygg og test
+        run: |
+          nohup python3 tools/fake_xtream.py --port 8899 > build/falsk.log 2>&1 &
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            curl -sf "http://127.0.0.1:8899/player_api.php?username=test&password=test" > /dev/null && break
+            sleep 1
+          done
+          set +e
+          TEST_RUNNER_FYRLYS_TEST_SERVER=http://127.0.0.1:8899 xcodebuild test \
+            -project Fyrlys.xcodeproj -scheme FyrlysMobil \
+            -destination "platform=iOS Simulator,id=$IPHONE_ID" \
+            -destination "platform=iOS Simulator,id=$IPAD_ID" \
+            -resultBundlePath build/Resultat.xcresult \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            > build/xcodebuild.log 2>&1
+          code=$?
+          grep -E "^Test (Case|Suite)|error:|\*\* .* \*\*" build/xcodebuild.log | tail -n 200
+          exit $code
+
+      - name: Skjermbilder
+        if: always()
+        run: |
+          [ -d build/Resultat.xcresult ] || exit 0
+          python3 tools/screenshots.py build/Resultat.xcresult build/bilder
+
+      - name: Legg skjermbildene i grenen skjermbilder-mobil
+        if: always()
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          ls build/bilder/*.png > /dev/null 2>&1 || { echo "Ingen skjermbilder"; exit 0; }
+          cd build/bilder
+          {
+            echo "# Skjermbilder fra iPhone og iPad"
+            echo
+            echo "Fra iPhone- og iPad-simulatoren i bygg ${{ github.run_number }} (${GITHUB_SHA::7}), mot den falske"
+            echo "leverandøren i \`tools/fake_xtream.py\` (oppdiktede kanaler). Lages på nytt av hvert bygg."
+            echo
+            for f in *.png; do echo "## ${f%.png}"; echo; echo "![${f%.png}]($f)"; echo; done
+          } > README.md
+          git init -q
+          git checkout -q -b skjermbilder-mobil
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Skjermbilder fra iPhone og iPad, bygg ${{ github.run_number }} [skip ci]"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" skjermbilder-mobil
+
+      - name: Merknad ved feil
+        if: failure()
+        run: |
+          for f in build/xcode.log build/xcodegen.log build/simulator.log; do
+            [ -f "$f" ] || continue
+            if grep -qiE "error|fatal|not found|unable" "$f"; then
+              echo "::error title=$f::$(tail -n 40 "$f" | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')"
+            fi
+          done
+          f=build/xcodebuild.log
+          [ -f "$f" ] || exit 0
+          {
+            echo "Feil:"
+            grep -E "error:|failed \(|\*\* (BUILD|TEST) FAILED|Testing failed|XCTAssert|Fatal" "$f" \
+              | sed "s#$GITHUB_WORKSPACE/##g" | awk 'length($0) < 600 && !seen[$0]++' | head -n 60
+            echo
+            echo "Slutten av loggen:"
+            tail -n 25 "$f" | cut -c1-300
+          } > build/feil.txt
+          echo "::error title=xcodebuild::$(awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}' build/feil.txt)"
+
   # TestFlight: bare når hemmelighetene for App Store Connect finnes (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8,
-  # APPLE_TEAM_ID). Arkivet bygges usignert og signeres ad hoc; eksporten signerer med et sertifikat og en profil for
-  # kjøringen (slettes etterpå) og laster opp selv, og jobben venter til App Store Connect har bygget.
+  # APPLE_TEAM_ID). Arkivene (Apple TV og iPhone/iPad, samme app) bygges usignert og signeres ad hoc; eksporten
+  # signerer med et sertifikat og en profil per plattform for kjøringen (slettes etterpå) og laster opp selv, og jobben
+  # venter til App Store Connect har begge byggene.
   oppsett:
     name: TestFlight satt opp?
     runs-on: ubuntu-latest
@@ -167,7 +264,7 @@ jobs:
 
   testflight:
     name: TestFlight
-    needs: [kjerne, tvos, oppsett]
+    needs: [kjerne, tvos, ios, oppsett]
     if: needs.oppsett.outputs.klar == 'true' && github.ref == 'refs/heads/main'
     runs-on: macos-15
     timeout-minutes: 45
@@ -216,6 +313,14 @@ jobs:
           grep -E "error:|\*\* .* \*\*" build/arkiv.log | tail -n 40
           [ $code -eq 0 ] || exit $code
           tools/adhoc_sign.sh build/Fyrlys.xcarchive
+          # iPhone og iPad: samme app, eget arkiv
+          xcodebuild archive -project Fyrlys.xcodeproj -scheme FyrlysMobil -configuration Release \
+            -destination generic/platform=iOS -archivePath build/FyrlysMobil.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=${{ github.run_number }} > build/arkiv-ios.log 2>&1
+          code=$?
+          grep -E "error:|\*\* .* \*\*" build/arkiv-ios.log | tail -n 40
+          [ $code -eq 0 ] || exit $code
+          tools/adhoc_sign.sh build/FyrlysMobil.xcarchive
 
       # Apples skysignering (-allowProvisioningUpdates med API-nøkkelen) ga et bygg App Store Connect avviste
       # stille («Invalid Signature» for Fyrlys.app/Fyrlys), så bygget signeres med et sertifikat og en profil som
@@ -240,16 +345,20 @@ jobs:
             mkdir -p "$d"
             cp build/signering/*.mobileprovision "$d/"
           done
-          rm -rf build/export
+          rm -rf build/export-*
           set +e
-          xcodebuild -exportArchive -archivePath build/Fyrlys.xcarchive \
-            -exportOptionsPlist build/signering/ExportOptions.plist -exportPath build/export \
-            -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" > build/eksport.log 2>&1
-          code=$?
-          tail -n 30 build/eksport.log
-          [ $code -eq 0 ] && echo "::notice title=opplasting::$(grep -iE "upload|export succeeded|warning" build/eksport.log | awk '!seen[$0]++' | tail -n 8 | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
-          exit $code
+          # Apple TV og iPhone/iPad, hver med sin profil; eksporten laster opp selv
+          for pair in "tvOS:Fyrlys:eksport" "iOS:FyrlysMobil:eksport-ios"; do
+            platform=${pair%%:*}; rest=${pair#*:}; archive=${rest%%:*}; log=build/${rest#*:}.log
+            xcodebuild -exportArchive -archivePath "build/$archive.xcarchive" \
+              -exportOptionsPlist "build/signering/ExportOptions-$platform.plist" -exportPath "build/export-$platform" \
+              -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" \
+              -authenticationKeyIssuerID "$ASC_ISSUER_ID" > "$log" 2>&1
+            code=$?
+            echo "== $platform"; tail -n 30 "$log"
+            [ $code -eq 0 ] || exit $code
+            echo "::notice title=opplasting $platform::$(grep -iE "upload|export succeeded|warning" "$log" | awk '!seen[$0]++' | tail -n 6 | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
+          done
 
       - name: Vent på at Apple har tatt imot bygget
         run: python3 tools/asc.py wait ${{ github.run_number }}
@@ -267,7 +376,7 @@ jobs:
       - name: Merknad ved feil
         if: failure()
         run: |
-          for f in build/asc.log build/arkiv.log build/eksport.log; do
+          for f in build/asc.log build/arkiv.log build/arkiv-ios.log build/eksport.log build/eksport-ios.log; do
             [ -f "$f" ] || continue
             msg=$( { grep -E "error|rror:|ERROR|failed" "$f" | awk 'length($0) < 500 && !seen[$0]++' | tail -n 30; echo; tail -n 15 "$f"; } \
               | sed "s#$GITHUB_WORKSPACE/##g" | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')

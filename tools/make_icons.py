@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Lager ikonene til Apple TV (App Icon & Top Shelf Image) fra fyret i Fyrlys-ikonet.
+"""Lager ikonene til Apple TV (App Icon & Top Shelf Image) og iPhone/iPad (AppIcon) fra fyret i Fyrlys-ikonet.
 
-    pip install cairosvg && python3 tools/make_icons.py
+    pip install cairosvg pillow && python3 tools/make_icons.py          (alle)
+    python3 tools/make_icons.py --ios                                    (bare iPhone/iPad-ikonet)
 
-Ikonene har tre lag for parallakse-effekten på Apple TV: bakgrunn (helt dekkende), lysstrålene og fyret.
+Ikonene til Apple TV har tre lag for parallakse-effekten: bakgrunn (helt dekkende), lysstrålene og fyret. Ikonet til
+iPhone og iPad er ett bilde på 1024 × 1024 uten alfakanal (App Store avviser ikoner med alfa).
 """
 import json
+import sys
 from pathlib import Path
 
 import cairosvg
@@ -13,6 +16,7 @@ import cairosvg
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "App" / "Assets.xcassets"
 BRAND = ASSETS / "App Icon & Top Shelf Image.brandassets"
+MOBILE = ROOT / "App" / "Mobil.xcassets"
 
 BG, BG2, SIGNAL, TOWER, INK = "#07121C", "#183450", "#F2B544", "#B3C1CD", "#EDF1F4"
 INFO = {"author": "xcode", "version": 1}
@@ -113,7 +117,30 @@ def merge(w, h, layers):
     return f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">{inner}</svg>'
 
 
+def ios_icon():
+    """AppIcon for iPhone og iPad: fyret med strålene på den mørke bakgrunnen, 1024 × 1024, RGB uten alfa."""
+    from PIL import Image  # bare her: Apple TV-ikonene trenger ikke pillow
+
+    size = 1024
+    # mindre enn i TV-ikonene (5:3): lampa litt over midten, tårnet ut av bunnen
+    lx, ly, k = size / 2, size * 0.42, size / 73
+    folder = MOBILE / "AppIcon.appiconset"
+    file = folder / "icon-1024.png"
+    render(merge(size, size, [back(size, size, lx, ly, k), beams(size, size, lx, ly, k), tower(size, size, lx, ly, k)]),
+           file, size, size)
+    Image.open(file).convert("RGB").save(file, optimize=True)
+    write_json(MOBILE / "Contents.json", {"info": INFO})
+    write_json(folder / "Contents.json", {
+        "images": [{"filename": "icon-1024.png", "idiom": "universal", "platform": "ios", "size": "1024x1024"}],
+        "info": INFO,
+    })
+
+
 def main():
+    if "--ios" in sys.argv:
+        ios_icon()
+        return
+    ios_icon()
     write_json(ASSETS / "Contents.json", {"info": INFO})
     write_json(BRAND / "Contents.json", {"assets": [
         {"filename": "App Icon - App Store.imagestack", "idiom": "tv", "role": "primary-app-icon", "size": "1280x768"},

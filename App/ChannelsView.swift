@@ -45,9 +45,14 @@ enum SidebarRow: Identifiable {
 }
 
 /// TV-fanen som i Fyrlys på Windows: sidemenyen med alle kanaler, favoritter, sist sett, «Dine kategorier» (lagt
-/// øverst, i din rekkefølge) og resten av kategoriene, og kanalkortene til høyre.
+/// øverst, i din rekkefølge) og resten av kategoriene, og kanalkortene til høyre. På iPhone står kategorien øverst og
+/// åpner et ark med kategoriene (som nedtrekkslista i et smalt Windows-vindu).
 struct ChannelsView: View {
     @Environment(AppModel.self) private var model
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var picking = false
+    #endif
     let play: (Channel, [Channel]) -> Void
     /// det som er valgt i sidemenyen (står i HomeView, så det huskes når du er innom en annen side)
     @Binding var chosen: Shelf?
@@ -59,26 +64,46 @@ struct ChannelsView: View {
             ListsStatus()
         } else {
             let shelf = current
-            HStack(alignment: .top, spacing: 0) {
-                sidebar(rows(), current: shelf)
-                    .frame(width: 340)
-                    .focusSection()
-                Rectangle()
-                    .fill(Theme.line)
-                    .frame(width: 1)
-                    .padding(.vertical, 12)
-                grid(shelf)
-                    .focusSection()
-            }
-            .padding(.horizontal, Theme.edge)
-            // rullelistene strekker seg ellers opp under fanelinja, og det som rulles forbi, havnet bak den
-            .clipped()
-            // nærmere sidene og helt ned (den trygge sonen til Apple TV ga for mye luft); toppen står under fanelinja
-            .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
-            // det som vises først, står til man velger noe annet (ellers hopper siden til Favoritter når den
-            // første favoritten legges til)
-            .onAppear { if chosen == nil { chosen = shelf } }
+            content(shelf)
+                // det som vises først, står til man velger noe annet (ellers hopper siden til Favoritter når den
+                // første favoritten legges til)
+                .onAppear { if chosen == nil { chosen = shelf } }
         }
+    }
+
+    @ViewBuilder
+    private func content(_ shelf: Shelf) -> some View {
+        #if os(iOS)
+        if sizeClass == .compact {
+            phone(shelf)
+        } else {
+            split(shelf)
+        }
+        #else
+        split(shelf)
+        #endif
+    }
+
+    /// Sidemenyen og rutenettet (Apple TV og iPad).
+    private func split(_ shelf: Shelf) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            sidebar(rows(), current: shelf)
+                .frame(width: Metrics.sidebarWidth)
+                .tvFocusSection()
+            Rectangle()
+                .fill(Theme.line)
+                .frame(width: 1)
+                .padding(.vertical, 12)
+            grid(shelf)
+                .tvFocusSection()
+        }
+        #if os(tvOS)
+        .padding(.horizontal, Theme.edge)
+        // rullelistene strekker seg ellers opp under fanelinja, og det som rulles forbi, havnet bak den
+        .clipped()
+        // nærmere sidene og helt ned (den trygge sonen til Apple TV ga for mye luft); toppen står under fanelinja
+        .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
+        #endif
     }
 
     // ── sidemenyen ──
@@ -118,19 +143,19 @@ struct ChannelsView: View {
                     switch row {
                     case .header(let id, let text):
                         Text(text.uppercased())
-                            .font(.system(size: 16, weight: .bold))
-                            .tracking(1.2)
+                            .font(.system(size: Metrics.sectionFont, weight: .bold))
+                            .tracking(Metrics.sectionFont * 0.075)
                             .foregroundStyle(Theme.muted)
-                            .padding(.horizontal, 24)
-                            .padding(.top, 24)
+                            .padding(.horizontal, Metrics.sidebarFont + 1)
+                            .padding(.top, Metrics.sidebarFont)
                             .padding(.bottom, 6)
                             .accessibilityIdentifier("seksjon-\(id)")
                     case .hint(let text):
                         Text(text)
-                            .font(.system(size: 17))
+                            .font(.system(size: Metrics.smallFont))
                             .foregroundStyle(Theme.muted)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 24)
+                            .padding(.horizontal, Metrics.sidebarFont + 1)
                             .padding(.bottom, 8)
                     case .item(let item):
                         SidebarButton(item: item, selected: item.shelf == current) { chosen = item.shelf }
@@ -142,7 +167,9 @@ struct ChannelsView: View {
             .hidesScrollIndex()
         }
         .scrollIndicators(.never)
+        #if os(tvOS)
         .safeAreaPadding(.bottom, Theme.bottomFocus)
+        #endif
     }
 
     // ── rutenettet ──
@@ -165,40 +192,234 @@ struct ChannelsView: View {
         }
     }
 
+    private func emptyText(_ shelf: Shelf) -> String {
+        shelf == .favorites ? L("Ingen favoritter ennå. Hold inne på en kanal for å legge den til.")
+            : shelf == .recent ? L("Du har ikke sett noen kanaler ennå.") : L("Ingen kanaler her.")
+    }
+
     private func grid(_ shelf: Shelf) -> some View {
         let channels = list(shelf)
         return ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: Metrics.gridSpacing + 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 20) {
                     Text(title(shelf))
-                        .font(.system(size: 34, weight: .bold))
+                        .font(.system(size: Metrics.pageTitle, weight: .bold))
                         .lineLimit(1)
                     Spacer(minLength: 0)
                     Text(verbatim: "\(channels.count)")
-                        .font(.system(size: 22))
+                        .font(.system(size: Metrics.pageCount))
                         .foregroundStyle(Theme.muted)
                 }
                 if channels.isEmpty {
-                    Text(shelf == .favorites ? L("Ingen favoritter ennå. Hold inne på en kanal for å legge den til.")
-                         : shelf == .recent ? L("Du har ikke sett noen kanaler ennå.") : L("Ingen kanaler her."))
-                        .font(.system(size: 26))
+                    Text(emptyText(shelf))
+                        .font(.system(size: Metrics.pageCount + 4))
                         .foregroundStyle(Theme.muted)
                 }
                 ChannelGrid(channels: channels, play: play)
             }
-            .padding(.horizontal, 22)
+            .padding(.horizontal, Metrics.pagePadding)
             .padding(.top, 6)
             .padding(.bottom, 24)
             .hidesScrollIndex()
         }
         .scrollIndicators(.never)
+        #if os(tvOS)
         .safeAreaPadding(.bottom, Theme.bottomFocus)
+        #else
+        .refreshable { await model.reload() }
+        #endif
         .id(shelf)
     }
+
+    #if os(iOS)
+    /// iPhone: kategorien øverst (trykk for å velge en annen) og kortene i en liste under.
+    private func phone(_ shelf: Shelf) -> some View {
+        let channels = list(shelf)
+        return ScrollView {
+            LazyVStack(alignment: .leading, spacing: Metrics.gridSpacing - 2) {
+                Button {
+                    picking = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(title(shelf))
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(Theme.ink)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(Theme.signal)
+                        Spacer(minLength: 8)
+                        Text(verbatim: "\(channels.count)")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Theme.muted)
+                    }
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("kategori-velger")
+                if channels.isEmpty {
+                    Text(emptyText(shelf))
+                        .font(.system(size: 16))
+                        .foregroundStyle(Theme.muted)
+                }
+                ForEach(channels) { channel in
+                    ChannelCard(channel: channel) { play(channel, channels) }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 20)
+        }
+        .refreshable { await model.reload() }
+        .id(shelf)
+        .sheet(isPresented: $picking) {
+            CategoryPicker(chosen: $chosen, current: shelf)
+                .environment(model)
+        }
+    }
+    #endif
 }
 
+#if os(iOS)
+/// Kategoriene på iPhone, som et ark: alle kanaler, favoritter og sist sett, «Dine kategorier» (dra for å sortere,
+/// stjernen tar dem bort fra toppen) og resten av kategoriene (stjernen legger dem øverst), med søk.
+struct CategoryPicker: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @Binding var chosen: Shelf?
+    let current: Shelf
+    @State private var filter = ""
+
+    private func matches(_ category: ChannelCategory) -> Bool {
+        let text = filter.trimmingCharacters(in: .whitespaces)
+        return text.isEmpty || category.name.localizedCaseInsensitiveContains(text)
+    }
+
+    var body: some View {
+        let pinned = model.favoriteCategories
+        let pinnedIds = Set(pinned.map(\.id))
+        NavigationStack {
+            List {
+                if filter.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Section {
+                        row(.all, L("Alle kanaler"), model.channels.count, icon: "square.grid.2x2")
+                        row(.favorites, L("Favoritter"), model.favorites.count, icon: "star")
+                        row(.recent, L("Sist sett"), model.recent.count, icon: "clock.arrow.circlepath")
+                    }
+                }
+                if !pinned.isEmpty {
+                    Section {
+                        ForEach(pinned.filter(matches)) { category in
+                            categoryRow(category, pinned: true)
+                        }
+                        .onMove(perform: filter.isEmpty ? move : nil)
+                    } header: {
+                        Text(L("Dine kategorier"))
+                            .accessibilityIdentifier("seksjon-dine")
+                    }
+                }
+                Section {
+                    ForEach(model.categories.filter { !pinnedIds.contains($0.id) && matches($0) }) { category in
+                        categoryRow(category, pinned: false)
+                    }
+                } header: {
+                    Text(pinned.isEmpty ? L("Kategorier") : L("Alle kategorier"))
+                } footer: {
+                    if pinned.isEmpty {
+                        Text(L("Trykk på stjernen for å legge en kategori øverst."))
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Theme.bg)
+            .searchable(text: $filter, prompt: L("Søk i kategoriene"))
+            .navigationTitle(L("Kategorier"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if !pinned.isEmpty {
+                    ToolbarItem(placement: .topBarLeading) { EditButton() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(L("Ferdig")) { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+        .presentationDetents([.large])
+    }
+
+    private func choose(_ shelf: Shelf) {
+        chosen = shelf
+        dismiss()
+    }
+
+    /// Dine kategorier i ny rekkefølge (dra og slipp).
+    private func move(_ from: IndexSet, _ to: Int) {
+        var ids = model.favoriteCategories.map(\.id)
+        ids.move(fromOffsets: from, toOffset: to)
+        model.setFavoriteCategoryOrder(ids)
+    }
+
+    private func row(_ shelf: Shelf, _ title: String, _ count: Int, icon: String) -> some View {
+        Button {
+            choose(shelf)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundStyle(shelf == current ? Theme.signal : Theme.muted)
+                    .frame(width: 24)
+                Text(title)
+                    .fontWeight(shelf == current ? .bold : .regular)
+                    .foregroundStyle(shelf == current ? Theme.signal : Theme.ink)
+                Spacer()
+                Text(verbatim: "\(count)")
+                    .foregroundStyle(Theme.muted)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(shelf.testId)
+        .listRowBackground(Theme.surface)
+    }
+
+    private func categoryRow(_ category: ChannelCategory, pinned: Bool) -> some View {
+        let shelf = Shelf.category(category.id)
+        return HStack(spacing: 12) {
+            Button {
+                choose(shelf)
+            } label: {
+                HStack(spacing: 12) {
+                    Text(category.name)
+                        .fontWeight(shelf == current ? .bold : .regular)
+                        .foregroundStyle(shelf == current ? Theme.signal : Theme.ink)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(verbatim: "\(model.channels(in: category.id).count)")
+                        .foregroundStyle(Theme.muted)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(shelf.testId)
+            Button {
+                model.toggleFavoriteCategory(category.id)
+            } label: {
+                Image(systemName: pinned ? "star.fill" : "star")
+                    .foregroundStyle(pinned ? Theme.signal : Theme.muted)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityIdentifier("stjerne-\(category.id)")
+            .accessibilityLabel(pinned ? L("Fjern fra toppen") : L("Legg øverst"))
+        }
+        .listRowBackground(Theme.surface)
+    }
+}
+#endif
+
 /// En linje i sidemenyen: ikon, navn, antall, og for kategoriene stjernen. Hold inne på en kategori for å legge den
-/// øverst, flytte den eller ta den bort fra toppen.
+/// øverst, flytte den eller ta den bort fra toppen; på iPad kan du også trykke på stjernen.
 private struct SidebarButton: View {
     @Environment(AppModel.self) private var model
     let item: ShelfItem
@@ -206,27 +427,8 @@ private struct SidebarButton: View {
     let choose: () -> Void
 
     var body: some View {
-        let button = Button(action: choose) {
-            HStack(spacing: 14) {
-                if let icon = item.icon {
-                    SidebarIcon(name: icon, selected: selected)
-                }
-                Text(item.title)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                Text(verbatim: "\(item.count)")
-                    .font(.system(size: 17, weight: .regular))
-                    .opacity(0.6)
-                if item.pinnable {
-                    PinStar(pinned: item.pinned)
-                }
-            }
-        }
-        .buttonStyle(SidebarStyle(selected: selected))
-        .accessibilityIdentifier(item.shelf.testId)
-
         if case .category(let id) = item.shelf {
-            button.contextMenu {
+            row.contextMenu {
                 if item.pinned {
                     if !item.first {
                         Button { model.moveFavoriteCategory(id, by: -1) } label: {
@@ -248,9 +450,73 @@ private struct SidebarButton: View {
                 }
             }
         } else {
-            button
+            row
         }
     }
+
+    private var label: some View {
+        HStack(spacing: Metrics.sidebarIcon * 0.65) {
+            if let icon = item.icon {
+                SidebarIcon(name: icon, selected: selected)
+            }
+            Text(item.title)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Text(verbatim: "\(item.count)")
+                .font(.system(size: Metrics.smallFont, weight: .regular))
+                .opacity(0.6)
+        }
+    }
+
+    #if os(tvOS)
+    /// Hele linja er én knapp som får fokus; stjernen viser bare om kategorien er lagt øverst.
+    private var row: some View {
+        Button(action: choose) {
+            HStack(spacing: 14) {
+                label
+                if item.pinnable {
+                    PinStar(pinned: item.pinned)
+                }
+            }
+        }
+        .buttonStyle(SidebarStyle(selected: selected))
+        .accessibilityIdentifier(item.shelf.testId)
+    }
+    #else
+    /// Trykk på linja velger, trykk på stjernen legger kategorien øverst eller tar den bort.
+    private var row: some View {
+        HStack(spacing: 4) {
+            Button(action: choose) {
+                label
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(item.shelf.testId)
+            if case .category(let id) = item.shelf {
+                Button {
+                    model.toggleFavoriteCategory(id)
+                } label: {
+                    PinStar(pinned: item.pinned)
+                        .frame(width: 30, height: Metrics.sidebarRow)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("stjerne-\(id)")
+                .accessibilityLabel(item.pinned ? L("Fjern fra toppen") : L("Legg øverst"))
+            }
+        }
+        .font(.system(size: Metrics.sidebarFont, weight: selected ? .bold : .medium))
+        .foregroundStyle(selected ? Theme.signal : Theme.ink)
+        .padding(.leading, 12)
+        .padding(.trailing, item.pinnable ? 2 : 12)
+        .frame(height: Metrics.sidebarRow)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(selected ? Theme.surface2 : Color.clear)
+        )
+        .padding(.horizontal, 8)
+    }
+    #endif
 }
 
 /// Ikonet foran alle kanaler, favoritter og sist sett: dempet, gult når den er valgt.
@@ -261,9 +527,9 @@ private struct SidebarIcon: View {
 
     var body: some View {
         Image(systemName: name)
-            .font(.system(size: 21, weight: .medium))
+            .font(.system(size: Metrics.sidebarIcon, weight: .medium))
             .foregroundStyle(focused ? Theme.bg : (selected ? Theme.signal : Theme.muted))
-            .frame(width: 28)
+            .frame(width: Metrics.sidebarIcon * 1.35)
     }
 }
 
@@ -274,7 +540,7 @@ private struct PinStar: View {
 
     var body: some View {
         Image(systemName: pinned ? "star.fill" : "star")
-            .font(.system(size: 18, weight: pinned ? .semibold : .regular))
+            .font(.system(size: Metrics.sidebarIcon * 0.86, weight: pinned ? .semibold : .regular))
             .foregroundStyle(focused ? Theme.bg : (pinned ? Theme.signal : Theme.muted))
             .accessibilityIdentifier(pinned ? "lagt-overst" : "")
     }
@@ -285,17 +551,18 @@ struct ListsStatus: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: Metrics.pageTitle * 0.9) {
             if model.loading || !model.triedOnce {
                 ProgressView()
                 Text(L("Henter kanalene …"))
-                    .font(.system(size: 30))
+                    .font(.system(size: Metrics.pageCount + 8))
                     .foregroundStyle(Theme.muted)
             } else {
                 Text(model.error ?? L("Ingen kanaler her."))
-                    .font(.system(size: 30))
+                    .font(.system(size: Metrics.pageCount + 8))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 1100)
+                    .padding(.horizontal, 20)
                 Button(L("Prøv igjen")) {
                     Task { await model.reload() }
                 }
@@ -305,8 +572,8 @@ struct ListsStatus: View {
     }
 }
 
-/// Linjene i sidemenyen: lys flate når de har fokus, gul tekst på en litt lysere flate for den som er valgt (som i
-/// Fyrlys på Windows).
+/// Linjene i sidemenyen på Apple TV: lys flate når de har fokus, gul tekst på en litt lysere flate for den som er
+/// valgt (som i Fyrlys på Windows).
 struct SidebarStyle: ButtonStyle {
     let selected: Bool
 
@@ -323,10 +590,10 @@ private struct SidebarLabel<Label: View>: View {
 
     var body: some View {
         label
-            .font(.system(size: 23, weight: selected ? .bold : .medium))
+            .font(.system(size: Metrics.sidebarFont, weight: selected ? .bold : .medium))
             .foregroundStyle(focused ? Theme.bg : (selected ? Theme.signal : Theme.ink))
             .padding(.horizontal, 16)
-            .frame(height: 54)
+            .frame(height: Metrics.sidebarRow)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)

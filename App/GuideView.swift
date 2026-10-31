@@ -1,3 +1,4 @@
+#if os(tvOS)
 import FyrlysCore
 import Observation
 import SwiftUI
@@ -240,3 +241,4 @@ private struct GuideCell<Label: View>: View {
             .animation(.easeOut(duration: 0.12), value: focused)
     }
 }
+#endif

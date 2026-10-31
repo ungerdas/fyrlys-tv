@@ -1,5 +1,17 @@
 # Endringer
 
+## v0.1.4
+
+Fyrlys for iPhone og iPad, i samme app som Apple TV (samme TestFlight-lenke):
+
+- iPhone: faner nederst. På TV-siden åpner tittelen kategoriene, med stjerner for «Dine kategorier», som du kan dra i
+  den rekkefølgen du vil. Kanalkortene står i en liste med stjerne du kan trykke på. Dra ned for å hente listene på
+  nytt.
+- iPad: sidemenyen og rutenettet som på Apple TV, med stjerner du kan trykke på.
+- TV-guiden ruller sidelengs. Trykk på kanalen eller det som går nå for å spille, eller på et annet program for info.
+- Spilleren: bildet øverst med bilde-i-bilde og AirPlay, kanalen og programmet, forrige, neste og favoritt, og
+  kanallista under. Liggende iPhone viser bare bildet, og på en iPad på tvers står lista ved siden av.
+
 ## v0.1.3
 
 - Mindre luft mot kantene av TV-en: TV-siden, guiden, søket og innstillingene går nærmere sidene (40 pt i stedet for

@@ -3,12 +3,19 @@ import UIKit
 
 extension View {
     /// Legges på innholdet i en ScrollView: skrur av hurtigrullingen til Apple TV (prikker langs kanten og et lite felt
-    /// som kan få fokus). I sidemenyen la den seg oppå tallene og tok fokus når man trykket til høyre.
+    /// som kan få fokus). I sidemenyen la den seg oppå tallene og tok fokus når man trykket til høyre. (Ingenting på
+    /// iPhone og iPad.)
+    @ViewBuilder
     func hidesScrollIndex() -> some View {
+        #if os(tvOS)
         background(ScrollIndexHider().allowsHitTesting(false).accessibilityHidden(true))
+        #else
+        self
+        #endif
     }
 }
 
+#if os(tvOS)
 /// Finner UIScrollView-en rundt seg og skrur av hurtigrullingen og rullefeltet.
 private struct ScrollIndexHider: UIViewRepresentable {
     func makeUIView(context: Context) -> HiderView { HiderView() }
@@ -34,3 +41,4 @@ private struct ScrollIndexHider: UIViewRepresentable {
         }
     }
 }
+#endif

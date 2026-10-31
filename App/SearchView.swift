@@ -11,23 +11,38 @@ struct SearchView: View {
         let results = model.search(query, limit: 120)
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 30) {
+                VStack(alignment: .leading, spacing: Metrics.gridSpacing + 12) {
                     if !query.trimmingCharacters(in: .whitespaces).isEmpty && results.isEmpty {
                         Text(L("Ingen treff."))
-                            .font(.system(size: 30))
+                            .font(.system(size: Metrics.pageCount + 8))
                             .foregroundStyle(Theme.muted)
                     }
                     ChannelGrid(channels: results, play: play)
                 }
+                #if os(tvOS)
                 .padding(.horizontal, Theme.edge)
                 .padding(.vertical, 30)
+                #else
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+                #endif
                 .hidesScrollIndex()
             }
             .scrollIndicators(.never)
+            #if os(tvOS)
             .safeAreaPadding(.bottom, Theme.bottomFocus)
             // like nær sidene som TV-siden, og helt ned
             .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
+            #else
+            .scrollDismissesKeyboard(.immediately)
+            .navigationTitle(L("Søk"))
+            #endif
+            #if os(iOS)
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                        prompt: L("Søk etter kanal"))
+            #else
             .searchable(text: $query, prompt: L("Søk etter kanal"))
+            #endif
         }
     }
 }

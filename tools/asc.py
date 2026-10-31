@@ -2,13 +2,16 @@
 """App Store Connect fra GitHub Actions (uten Mac og uten Xcode-konto), med API-nøkkelen i miljøet:
 ASC_KEY_PATH (.p8-fila), ASC_KEY_ID, ASC_ISSUER_ID og APPLE_TEAM_ID.
 
-    python3 tools/asc.py check                  sjekker nøkkelen, app-id-en og appen i App Store Connect
-    python3 tools/asc.py prepare <mappe>        lager et distribusjonssertifikat og en App Store-profil for denne
-                                                kjøringen (nøkkel, sertifikat, profil og ExportOptions.plist, der
-                                                eksporten laster bygget rett opp til App Store Connect)
-    python3 tools/asc.py cleanup <mappe>        sletter profilen og trekker tilbake sertifikatet prepare laget
+    python3 tools/asc.py check                  sjekker nøkkelen, app-id-en og appen i App Store Connect, og legger
+                                                til iOS i appen første gang (Apple TV, iPhone og iPad er én app)
+    python3 tools/asc.py prepare <mappe>        lager et distribusjonssertifikat og en App Store-profil per plattform
+                                                for denne kjøringen (nøkkel, sertifikat, profiler og
+                                                ExportOptions-tvOS.plist/-iOS.plist, der eksporten laster bygget rett
+                                                opp til App Store Connect)
+    python3 tools/asc.py cleanup <mappe>        sletter profilene og trekker tilbake sertifikatet prepare laget
     python3 tools/asc.py builds                 de siste byggene i App Store Connect og om de er klare for TestFlight
-    python3 tools/asc.py wait <byggnummer>      venter (høyst 20 min) til bygget dukker opp i App Store Connect
+    python3 tools/asc.py wait <byggnummer>      venter (høyst 25 min) til bygget for begge plattformene dukker opp i
+                                                App Store Connect
 
 Skriver aldri ut nøkler eller tokens. Bare standardbiblioteket og openssl.
 """
@@ -26,6 +29,8 @@ API = "https://api.appstoreconnect.apple.com"
 BUNDLE_ID = "no.fyrlys.tv"
 APP_NAME = "Fyrlys"
 OPENSSL = "/usr/bin/openssl" if Path("/usr/bin/openssl").exists() else "openssl"
+# plattformene: navnet i filene, profiltypen og plattformen i App Store Connect
+PLATFORMS = [("tvOS", "TVOS_APP_STORE", "TV_OS"), ("iOS", "IOS_APP_STORE", "IOS")]
 
 
 def env(name):
@@ -130,9 +135,23 @@ def check():
     if not apps:
         sys.exit(f"Ingen app med {BUNDLE_ID} i App Store Connect (Apps → + → New App, tvOS)")
     print(f"Nøkkelen virker, og appen «{apps[0]['attributes'].get('name')}» finnes i App Store Connect")
+    ensure_platform(asc, apps[0]["id"], "IOS")
 
 
-def export_options(folder, manual_profile=None):
+def ensure_platform(asc, app, platform):
+    """Legger plattformen til i appen (en App Store-versjon for den), så bygg for den kan lastes opp til samme app."""
+    versions = asc.call("GET", f"/v1/apps/{app}/appStoreVersions?limit=200").get("data", [])
+    if any(v["attributes"].get("platform") == platform for v in versions):
+        return
+    code, res = asc.request("POST", "/v1/appStoreVersions", data("appStoreVersions", {
+        "platform": platform, "versionString": "1.0"}, {"app": {"data": {"type": "apps", "id": app}}}))
+    if code not in (200, 201):
+        sys.exit(f"Fikk ikke lagt {platform} til appen i App Store Connect: HTTP {code} {errors(res)} "
+                 "(legg den til for hånd: appen → + ved plattformene)")
+    print(f"La til {platform} i appen i App Store Connect")
+
+
+def export_options(folder, manual_profile=None, file="ExportOptions.plist"):
     team = env("APPLE_TEAM_ID")
     if manual_profile:
         signing = ("<key>signingStyle</key><string>manual</string>"
@@ -141,7 +160,7 @@ def export_options(folder, manual_profile=None):
     else:
         signing = "<key>signingStyle</key><string>automatic</string>"
     Path(folder).mkdir(parents=True, exist_ok=True)
-    (Path(folder) / "ExportOptions.plist").write_text(f'''<?xml version="1.0" encoding="UTF-8"?>
+    (Path(folder) / file).write_text(f'''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>method</key><string>app-store-connect</string>
@@ -187,17 +206,18 @@ def prepare(folder):
     print(f"Laget et distribusjonssertifikat for denne kjøringen (utløper {cert['attributes'].get('expirationDate')})")
 
     run = f"{os.environ.get('GITHUB_RUN_ID', int(time.time()))}-{os.environ.get('GITHUB_RUN_ATTEMPT', 1)}"
-    name = f"{APP_NAME} CI {run}"
-    profile = asc.call("POST", "/v1/profiles", data("profiles", {"name": name, "profileType": "TVOS_APP_STORE"}, {
-        "bundleId": {"data": {"type": "bundleIds", "id": row["id"]}},
-        "certificates": {"data": [{"type": "certificates", "id": cert["id"]}]},
-    }))["data"]
-    state["profiles"].append({"id": profile["id"], "name": name})
-    save()
-    (folder / f"{profile['attributes']['uuid']}.mobileprovision").write_bytes(
-        base64.b64decode(profile["attributes"]["profileContent"]))
-    export_options(folder, manual_profile=name)
-    print(f"Laget App Store-profilen «{name}»")
+    for platform, kind, _ in PLATFORMS:
+        name = f"{APP_NAME} CI {run} {platform}"
+        profile = asc.call("POST", "/v1/profiles", data("profiles", {"name": name, "profileType": kind}, {
+            "bundleId": {"data": {"type": "bundleIds", "id": row["id"]}},
+            "certificates": {"data": [{"type": "certificates", "id": cert["id"]}]},
+        }))["data"]
+        state["profiles"].append({"id": profile["id"], "name": name})
+        save()
+        (folder / f"{profile['attributes']['uuid']}.mobileprovision").write_bytes(
+            base64.b64decode(profile["attributes"]["profileContent"]))
+        export_options(folder, manual_profile=name, file=f"ExportOptions-{platform}.plist")
+        print(f"Laget App Store-profilen «{name}»")
 
 
 def cleanup(folder):
@@ -218,7 +238,7 @@ def cleanup(folder):
             print(f"::warning::Sertifikatet ble ikke trukket tilbake: HTTP {code} {errors(res)}")
             failed = True
     if not failed:
-        print("Slettet profilen og trakk tilbake sertifikatet fra denne kjøringen")
+        print("Slettet profilene og trakk tilbake sertifikatet fra denne kjøringen")
     sys.exit(1 if failed else 0)
 
 
@@ -266,25 +286,35 @@ def app_id(asc):
     return apps[0]["id"]
 
 
-def wait(number, minutes=20):
-    """Venter til bygget med [number] finnes i App Store Connect (og helst er ferdig behandlet)."""
+def wait(number, minutes=25):
+    """Venter til bygget med [number] finnes i App Store Connect for alle plattformene (og helst er ferdig behandlet)."""
     asc = Asc()
     app = app_id(asc)
+    wanted = [store for _, _, store in PLATFORMS]
     deadline = time.time() + minutes * 60
-    state = None
+    states = {}
     while time.time() < deadline:
-        found = asc.call("GET", f"/v1/builds?filter[app]={app}&filter[version]={number}&limit=5").get("data", [])
-        if found:
-            state = found[0]["attributes"].get("processingState")
-            if state != "PROCESSING":
-                break
+        res = asc.call("GET", f"/v1/builds?filter[app]={app}&filter[version]={number}&include=preReleaseVersion"
+                              "&limit=10")
+        versions = {i["id"]: i for i in res.get("included", []) if i["type"] == "preReleaseVersions"}
+        states = {}
+        for build in res.get("data", []):
+            pre = (build.get("relationships", {}).get("preReleaseVersion", {}).get("data") or {}).get("id")
+            platform = versions.get(pre, {}).get("attributes", {}).get("platform", "?")
+            states[platform] = build["attributes"].get("processingState")
+        if all(p in states and states[p] != "PROCESSING" for p in wanted):
+            break
         time.sleep(30)
-    if state is None:
-        sys.exit(f"Bygg {number} kom ikke fram til App Store Connect på {minutes} minutter "
+    lines = [f"Bygg {number} ({p}): {states.get(p, 'kom ikke fram')}" for p in wanted]
+    print("::notice title=App Store Connect::" + "%0A".join(lines))
+    missing = [p for p in wanted if p not in states]
+    if missing:
+        sys.exit(f"Bygg {number} kom ikke fram til App Store Connect for {', '.join(missing)} på {minutes} minutter "
                  "(se e-posten fra App Store Connect)")
-    print(f"::notice title=App Store Connect::Bygg {number}: {state}")
-    if state in ("FAILED", "INVALID"):
-        sys.exit(f"App Store Connect avviste bygg {number} ({state}); grunnen står i e-posten fra App Store Connect")
+    bad = [p for p in wanted if states[p] in ("FAILED", "INVALID")]
+    if bad:
+        sys.exit(f"App Store Connect avviste bygg {number} for {', '.join(bad)}; grunnen står i e-posten fra App Store "
+                 "Connect")
 
 
 def main():

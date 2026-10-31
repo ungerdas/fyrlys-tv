@@ -55,6 +55,16 @@ public let english: [String: String] = [
     "Fjern fra toppen": "Unpin from top",
     "Flytt opp": "Move up",
     "Flytt ned": "Move down",
+    // iPhone og iPad
+    "Innloggingen fra IPTV-leverandøren din (Xtream Codes). Den lagres kryptert på denne enheten.":
+        "The login from your IPTV provider (Xtream Codes). It is stored encrypted on this device.",
+    "Søk i kategoriene": "Search categories",
+    "Ferdig": "Done",
+    "Trykk på stjernen for å legge en kategori øverst.": "Tap the star to pin a category to the top.",
+    "Se kanalen": "Watch channel",
+    "Forrige": "Previous",
+    "Neste": "Next",
+    "Favoritt": "Favorite",
     "Henter kanalene …": "Loading channels…",
     "Ingen kanaler her.": "No channels here.",
     "Ingen favoritter ennå. Hold inne på en kanal for å legge den til.":

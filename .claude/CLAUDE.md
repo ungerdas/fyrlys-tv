@@ -1,7 +1,8 @@
-# Fyrlys for Apple TV – arbeidsnotater for Claude
+# Fyrlys for Apple TV, iPhone og iPad – arbeidsnotater for Claude
 
-Egen app for Apple TV (tvOS 17+), Swift/SwiftUI med AVPlayer, i tillegg til Fyrlys for Windows (eget repo). Logger inn
-med Xtream Codes og henter alt rett fra leverandøren. Repoet er **offentlig**: hold appen, koden, testene,
+Egen app for Apple TV (tvOS 17+) og iPhone/iPad (iOS 17+), Swift/SwiftUI med AVPlayer, i tillegg til Fyrlys for Windows
+(eget repo). Apple TV, iPhone og iPad er **én app** i App Store Connect og TestFlight (samme bundle-id, eierens valg
+31.10). Logger inn med Xtream Codes og henter alt rett fra leverandøren. Repoet er **offentlig**: hold appen, koden, testene,
 commit-meldingene og disse notatene fri for navn, hjemmenett, maskinnavn, leverandør, brukernavn, hemmeligheter og
 e-postadresser (eksempeladresser som iptv.example.com og 192.168.1.10 er greit). Testene bruker bare den falske
 leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er forsiden på GitHub, skrevet for brukere.
@@ -16,14 +17,17 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   artefaktene kan ikke lastes ned herfra; ved feil legger workflowen feilene og slutten av loggen som merknad:
   `gh api repos/ungerdas/fyrlys-tv/check-runs/<jobb-id>/annotations` (jobb-id fra `gh run view <id> --json jobs`).
 - **Skjermbilder**: UI-testene (`UITests/FyrlysUITests.swift`) tar bilder i simulatoren, og workflowen legger dem i
-  grenen `skjermbilder` (overskrives hver gang). Hent med `git fetch origin skjermbilder` og
+  grenen `skjermbilder` (overskrives hver gang); iPhone og iPad (`UITestsMobil/FyrlysMobilUITests.swift`, «NN-iphone-…»
+  og «NN-ipad-…») i grenen `skjermbilder-mobil`. Den grunne klonen trenger en refspec:
+  `git fetch --depth 1 origin skjermbilder:refs/remotes/origin/skjermbilder`. Hent med `git fetch origin skjermbilder` og
   `git show origin/skjermbilder:02-tv.png > …`, og se på dem med Read. Bilder XCTest tok ved feil heter `feil-*.png`.
 - Appen i testmodus: miljøvariablene `FYRLYS_TEST_SERVER` (falsk leverandør, test/test, ingen nøkkelring, egne
   innstillinger og kanalliste som tømmes, unntatt med `FYRLYS_TEST_KEEP`), `FYRLYS_TEST_SCREEN` (login, tv, guide,
   search, settings, player, player-error = kanal 90 som svarer 404) og `FYRLYS_TEST_LANG` (`App/TestSupport.swift`).
   Elementene testene finner, har `accessibilityIdentifier` (`kanal-<id>`, `hylle-…`, `favoritt-<id>`, `seksjon-dine`/
   `-alle`/`-kategorier`, `lagt-overst`, `spiller-feil`, `guide`, `innstillinger`). `focus(app, mål)` i UI-testene
-  flytter fokus dit uansett hvor det står. Testen av farten (`test11StorListe`) bruker en stor falsk leverandør
+  flytter fokus dit uansett hvor det står. På iPhone/iPad også `kategori-velger`, `stjerne-<kategori>`,
+  `stjerne-kanal-<id>`, `spiller`, `lukk-spiller`, `neste-kanal`. Testen av farten (`test11StorListe`) bruker en stor falsk leverandør
   (`fake_xtream.py --kanaler 25000 --kategorier 450` på port 8898, `FYRLYS_TEST_SERVER_STOR`); tidene står som merknad
   «ytelse» på bygget (simulatoren på en Mac er raskere enn en Apple TV).
 - **Utseendet følger Fyrlys på Windows** (eieren 31.10: «så lik som mulig windows appen»), men **fanelinja til Apple TV
@@ -44,9 +48,20 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   gjennomsiktighet.
 
 ## Arkitektur
-- `project.yml` (XcodeGen; prosjektet og Info.plist lages i bygget og ligger ikke i repoet): målet `Fyrlys`
-  (bundle-id `no.fyrlys.tv`, http tillatt fordi leverandørene bruker det, `ITSAppUsesNonExemptEncryption` false) og
-  `FyrlysUITests`.
+- `project.yml` (XcodeGen; prosjektet og Info.plist lages i bygget og ligger ikke i repoet): målene `Fyrlys` (tvOS) og
+  `FyrlysMobil` (iPhone og iPad, `TARGETED_DEVICE_FAMILY` 1,2), begge med bundle-id `no.fyrlys.tv` og produktnavn
+  Fyrlys, http tillatt fordi leverandørene bruker det, `ITSAppUsesNonExemptEncryption` false; iOS i tillegg alle
+  retninger på iPad (kreves for delt skjerm), `UIBackgroundModes` audio (bilde-i-bilde) og ikonet i
+  `App/Mobil.xcassets` (1024 × 1024 uten alfa, `tools/make_icons.py --ios`; tvOS bruker `Assets.xcassets`, og hvert
+  mål utelater det andres). `FyrlysUITests` og `FyrlysMobilUITests`, ett skjema per plattform.
+- **Felles kode med `#if os(tvOS)`/`#if os(iOS)`**: begge målene tar med hele `App/`. Bare tvOS: `GuideView.swift`,
+  `SettingsView.swift`, `PlayerView.swift` (AVPlayerViewController med `transportBarCustomMenuItems`/
+  `customInfoViewControllers`), hurtigrullingen i `ScrollIndex.swift`. Bare iOS: `GuideViewMobil.swift` (rull
+  sidelengs, info-ark med «Se kanalen»), `SettingsViewMobil.swift` (Form), `PlayerViewMobil.swift` (bildet øverst med
+  bilde-i-bilde, panel og kanalliste under; liggende iPhone bare bildet; iPad på tvers lista ved siden av). Felles:
+  `PlayerModel.swift`, `AppModel`, kortene og TV-siden, med mål i `Metrics` (`Theme.swift`; tvOS ≈ 1,4 × Windows,
+  iOS som Windows) og `tvFocusSection()`. `focusSection`, `indexDisplayMode` og AVKits tvOS-kontroller finnes ikke på
+  iOS.
 - `Core/Sources/FyrlysCore/`: `Models.swift` (`ChannelCategory`, `Channel`, `Program`, `Account`, `Login` med
   `normalize`, `id` = `stableHash(server|bruker)` uten passordet, `nowAndNext`, `cleanPrograms`; `Channel.hasEpg` fra
   `epg_channel_id` (egen `init(from:)`, så lister lagret uten den leses), `wantsEpg` = har EPG og er ikke eventkanal),
@@ -82,16 +97,19 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `customInfoViewControllers`; programinfo i `externalMetadata`). `Images.swift` (logoer med eget mellomlager,
   `ChannelTile`), `FyrlysMark.swift` (fyret tegnet i Canvas), `Theme.swift` («Fyrlys om natta»).
 - `.github/workflows/build.yml`: kjernen på Linux; appen på `macos-15` med høyeste Xcode, XcodeGen, simulator fra
-  `tools/simulator.py` (laster ned tvOS-plattformen om den mangler), falsk leverandør, `xcodebuild test`,
-  skjermbildene ut med `tools/screenshots.py` (`xcresulttool export attachments`) og inn i grenen `skjermbilder`.
+  `tools/simulator.py` (`[plattform] [slag] [variabel]`, f.eks. `iOS iPad IPAD_ID`; laster ned plattformen om den
+  mangler), falsk leverandør, `xcodebuild test`, skjermbildene ut med `tools/screenshots.py` (`xcresulttool export
+  attachments`) og inn i grenen `skjermbilder`. Jobben `ios` gjør det samme for iPhone og iPad (to `-destination` i
+  samme kjøring) og legger bildene i `skjermbilder-mobil`.
 - **TestFlight** (jobbene `oppsett` og `testflight`, bare på main og når hemmelighetene `ASC_KEY_ID`, `ASC_ISSUER_ID`,
   `ASC_KEY_P8` og `APPLE_TEAM_ID` finnes; Admin-nøkkel laget av eieren): `tools/asc.py check` (nøkkelen, app-id-en
-  `no.fyrlys.tv`, appen i App Store Connect), arkiv uten signering (`CODE_SIGNING_ALLOWED=NO`: å signere for en
+  `no.fyrlys.tv`, appen i App Store Connect; `ensure_platform` legger IOS til appen med `POST /v1/appStoreVersions`
+  første gang), arkiv uten signering for begge plattformene (`CODE_SIGNING_ALLOWED=NO`: å signere for en
   Apple TV krever en utviklerprofil, og den krever en registrert enhet), `tools/adhoc_sign.sh` (ad hoc med
-  application-identifier og team), `asc.py prepare` (distribusjonssertifikat og `TVOS_APP_STORE`-profil for
-  kjøringen gjennom REST-API-et, JWT med openssl, bare standardbiblioteket; egen nøkkelring), `xcodebuild
-  -exportArchive` med `destination upload` og API-nøkkelen (laster opp selv), `asc.py wait <byggnummer>` (feiler hvis
-  bygget ikke dukker opp i App Store Connect, eller blir INVALID), og `asc.py cleanup` (sletter profilen og trekker
+  application-identifier og team), `asc.py prepare` (distribusjonssertifikat og en profil per plattform,
+  `TVOS_APP_STORE` og `IOS_APP_STORE`, med `ExportOptions-tvOS.plist`/`-iOS.plist`, for kjøringen gjennom REST-API-et, JWT med openssl, bare standardbiblioteket; egen nøkkelring), `xcodebuild
+  -exportArchive` med `destination upload` og API-nøkkelen per plattform (laster opp selv), `asc.py wait <byggnummer>`
+  (venter på bygget for både TV_OS og IOS; feiler hvis ett ikke dukker opp i App Store Connect, eller blir INVALID), og `asc.py cleanup` (sletter profilen og trekker
   tilbake sertifikatet; eieren får en e-post om det for hvert bygg). Prøvd og forlatt 31.10: Apples skysignering
   (`-allowProvisioningUpdates` med API-nøkkelen) eksporterte uten feil, men App Store Connect avviste bygget
   («Invalid Signature … Fyrlys.app/Fyrlys»); med `altool --upload-app` forsvant byggene stille (bygg 3 og 4).
@@ -122,4 +140,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   for p12-forslaget: bare en privat nøkkel som hemmelighet `DIST_KEY` (`openssl genrsa -out fyrlys-dist.key 2048`), så
   lager `asc.py prepare` sertifikatet med den første gang og finner det igjen hos Apple (lik offentlig nøkkel), og
   `cleanup` sletter bare profilen; uten hemmeligheten som i dag. Ikke besvart, ikke laget.
+- 31.10.2026: eieren laget en ekstern TestFlight-gruppe med offentlig lenke; 0.1.3 (bygg 7) ble sendt til Apples
+  beta-gjennomgang (Waiting for Review). Nye versjoner kommer ikke av seg selv til den eksterne gruppa (må legges til
+  og gjennomgås); tilbudt å automatisere det i bygget, og en demo-innlogging hvis gjennomgangen stopper på innloggingen.
+- 31.10.2026: eieren ville ha en iPhone-app også; valgte samme app som Apple TV og iPhone + iPad. 0.1.4 er den første
+  med iOS (sidene og spilleren over, iOS-jobben og TestFlight for begge). iPhone/iPad er bare prøvd i simulatoren.
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.

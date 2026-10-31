@@ -216,6 +216,13 @@ final class AppModel {
         reorder()
     }
 
+    /// Ny rekkefølge for favorittkategoriene som vises (dra og slipp på iPhone).
+    func setFavoriteCategoryOrder(_ ids: [String]) {
+        library?.setFavoriteCategoryOrder(ids)
+        libraryVersion += 1
+        reorder()
+    }
+
     /// Søk i kanalnavnene, med kanalene i favorittkategoriene først.
     func search(_ query: String, limit: Int) -> [Channel] {
         _ = libraryVersion

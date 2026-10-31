@@ -32,16 +32,22 @@ struct HomeView: View {
     var body: some View {
         TabView(selection: $tab) {
             ChannelsView(play: play, chosen: $shelf)
-                .tabItem { Text(L("TV")) }
+                .tabItem { tabLabel(L("TV"), "tv") }
                 .tag(Tab.tv)
             GuideView(play: play)
-                .tabItem { Text(L("TV-guide")) }
+                .tabItem { tabLabel(L("TV-guide"), "calendar.day.timeline.left") }
                 .tag(Tab.guide)
             SearchView(play: play, query: $query)
-                .tabItem { Image(systemName: "magnifyingglass").accessibilityLabel(L("Søk")) }
+                .tabItem {
+                    #if os(tvOS)
+                    Image(systemName: "magnifyingglass").accessibilityLabel(L("Søk"))
+                    #else
+                    Label(L("Søk"), systemImage: "magnifyingglass")
+                    #endif
+                }
                 .tag(Tab.search)
             SettingsView()
-                .tabItem { Text(L("Innstillinger")) }
+                .tabItem { tabLabel(L("Innstillinger"), "gearshape") }
                 .tag(Tab.settings)
         }
         .fullScreenCover(item: $playing) { request in
@@ -50,6 +56,16 @@ struct HomeView: View {
         }
         .onAppear(perform: playForTest)
         .onChange(of: model.channels.count) { playForTest() }
+    }
+
+    /// Fanene: bare tekst på Apple TV (som fanelinja der), ikon og tekst nederst på iPhone og iPad.
+    @ViewBuilder
+    private func tabLabel(_ title: String, _ icon: String) -> some View {
+        #if os(tvOS)
+        Text(title)
+        #else
+        Label(title, systemImage: icon)
+        #endif
     }
 
     private func play(_ channel: Channel, _ list: [Channel]) {

@@ -237,6 +237,11 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(lib.favoriteCategories, ["no", "se", "borte", "fi"])
         lib.moveFavoriteCategory("fi", by: -1, shown: ["no", "se", "fi"])
         XCTAssertEqual(lib.favoriteCategories, ["no", "fi", "borte", "se"])
+
+        // dra og slipp: de som vises i ny rekkefølge, de som ikke vises bakerst, ingen nye
+        lib.setFavoriteCategoryOrder(["se", "no", "fi", "ukjent", "se"])
+        XCTAssertEqual(lib.favoriteCategories, ["se", "no", "fi", "borte"])
+        XCTAssertEqual(Library(store: store, loginId: "a").favoriteCategories, ["se", "no", "fi", "borte"])
     }
 
     func testSearch() {

@@ -1,16 +1,19 @@
 # Xcode-prosjektet lages av XcodeGen («xcodegen generate»), så det står ikke i repoet.
+# To mål med samme kode (App/, med #if os(tvOS)/os(iOS) der de skiller seg) og samme bundle-id, så Apple TV, iPhone og
+# iPad er én app i App Store Connect og TestFlight: Fyrlys (tvOS) og FyrlysMobil (iPhone og iPad).
 name: Fyrlys
 options:
   bundleIdPrefix: no.fyrlys
   deploymentTarget:
     tvOS: "17.0"
+    iOS: "17.0"
   createIntermediateGroups: true
   developmentLanguage: nb
 
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.3"
+    MARKETING_VERSION: "0.1.4"
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: ""
 
@@ -24,6 +27,8 @@ targets:
     platform: tvOS
     sources:
       - path: App
+        excludes:
+          - "Mobil.xcassets"
     dependencies:
       - package: FyrlysCore
     info:
@@ -64,6 +69,69 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TARGETED_DEVICE_FAMILY: "3"
 
+  FyrlysMobil:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes:
+          - "Assets.xcassets"
+    dependencies:
+      - package: FyrlysCore
+    info:
+      path: build/FyrlysMobil-Info.plist
+      properties:
+        CFBundleDisplayName: Fyrlys
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: nb
+        CFBundleLocalizations: [nb, en]
+        UILaunchScreen: {}
+        UIUserInterfaceStyle: Dark
+        UIRequiredDeviceCapabilities: [arm64]
+        # iPhone: ikke opp ned; iPad: alle (kreves for delt skjerm)
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # lyd og bilde-i-bilde når appen ligger i bakgrunnen
+        UIBackgroundModes: [audio]
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: no.fyrlys.tv
+        PRODUCT_NAME: Fyrlys
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_PREVIEWS: NO
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+
+  FyrlysMobilUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITestsMobil
+    dependencies:
+      - target: FyrlysMobil
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: no.fyrlys.tv.mobil.uitests
+        TEST_TARGET_NAME: FyrlysMobil
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+
 schemes:
   Fyrlys:
     build:
@@ -73,4 +141,13 @@ schemes:
     test:
       targets:
         - FyrlysUITests
+      gatherCoverageData: false
+  FyrlysMobil:
+    build:
+      targets:
+        FyrlysMobil: all
+        FyrlysMobilUITests: [test]
+    test:
+      targets:
+        - FyrlysMobilUITests
       gatherCoverageData: false
