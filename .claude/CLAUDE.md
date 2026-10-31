@@ -65,8 +65,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `customInfoViewControllers`), hurtigrullingen i `ScrollIndex.swift`. Bare iOS: `GuideViewMobil.swift` (som nettsiden:
   valg av favoritter/alle/kategori lagret som `guide`, «Til nå» via `scrollPosition(id:)` på halvtimene, tidslinja
   øverst flyttes etter sporene via en preference og `GuideScroll`, sporene har fast bredde (rammen minus
-  kanalkolonnen; uten den tok den vannrette ScrollView-en hele bredden på seks timer, og radene havnet utenfor
-  skjermen i 0.1.6), kanalkolonnen er lat og henter programinfoen,
+  kanalkolonnen), og tidslinja `frame(minWidth: 0, maxWidth: .infinity)`: med bare `maxWidth` blir en ramme aldri
+  smalere enn innholdet (seks timer), så hele guiden ble bredere enn skjermen og radene havnet utenfor i 0.1.6;
+  kanalkolonnen er lat og henter programinfoen,
   info-ark med «Se kanalen»), `SettingsViewMobil.swift` (Form, bare iPad; med lys/mørk), `PlayerViewMobil.swift` (bildet
   øverst med bilde-i-bilde, panel og kanalliste under; liggende iPhone bare bildet; iPad på tvers lista ved siden av;
   alltid mørk; dra bildet ned for å lukke: en `UIPanGestureRecognizer` (`DragDown`) på AVPlayerViewController-visningen
@@ -115,6 +116,15 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `AVPlayerViewController` med neste/forrige/favoritt i `transportBarCustomMenuItems` og kanallista i
   `customInfoViewControllers`; programinfo i `externalMetadata`). `Images.swift` (logoer med eget mellomlager,
   `ChannelTile`), `FyrlysMark.swift` (fyret tegnet i Canvas), `Theme.swift` («Fyrlys om natta»).
+- **Apple TV fra 0.1.7 som iPhone** (eieren 1.11: «samme tema på Apple TV», valgte store kort og forside med rader):
+  `TVHome.swift` (`TVChannels` med `NavigationStack` og stien i HomeView; forsiden med «Nå på favorittene» og «Sist
+  sett» som rader (helt ut til kantene, `contentMargins`, `scrollClipDisabled`, `focusSection` per rad) og flisene
+  (`TVTiles`, hold inne = legg øverst/flytt/fjern); `TVShelfPage` med tittel, antall, knappen `kategori-stjerne` og
+  `BigCardGrid`, som søket også bruker). `BigCard.swift` er felles: på Apple TV er hele kortet én knapp
+  (`BigCardStyle`, fokus som de smale kortene), stjernen bare et merke (`favoritt-<id>`). Målene står i `Metrics`
+  (`big…`, `tile…`, `row…`). `ChannelsView` (sidemenyen) og de smale kortene brukes nå bare på iPad. UI-testene for
+  Apple TV flytter fokus mot målet med rammene (`focus`), og `test11StorListe` måler flisene, «Alle kanaler» og
+  stegene.
 - `.github/workflows/build.yml`: kjernen på Linux; appen på `macos-15` med høyeste Xcode, XcodeGen, simulator fra
   `tools/simulator.py` (`[plattform] [slag] [variabel]`, f.eks. `iOS iPad IPAD_ID`; laster ned plattformen om den
   mangler), falsk leverandør, `xcodebuild test`, skjermbildene ut med `tools/screenshots.py` (`xcresulttool export
@@ -180,6 +190,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   kategorifliser, store kort med logofarge, fanene nederst. Laget som over (se Arkitektur), også lys modus. Nettsiden
   har Filmer og Serier i fanelinja; de finnes ikke i Apple-appen ennå (avtalt senere). Samme kveld (bilde fra hans
   iPhone med ekte strømmer, spilleren virket): «dra med video vinduet for å lukke» – laget i 0.1.6.
-- 0.1.7: guiden på iPhone var tom i 0.1.6 (se Arkitektur). `UIUserInterfaceStyle: Dark` er tatt ut av iOS-målet, så
-  appen følger enheten til man velger lys eller mørk (Apple TV har den fortsatt).
+- 0.1.7: guiden på iPhone var tom i 0.1.6 (se Arkitektur; det første forsøket traff feil sted, og det bygget feilet
+  også på at et trykk på en flis ikke tok i simulatoren, så testene trykker nå én gang til). `UIUserInterfaceStyle:
+  Dark` er tatt ut av iOS-målet, så appen følger enheten til man velger lys eller mørk (Apple TV har den fortsatt).
+  Apple TV fikk forsiden og de store kortene (se Arkitektur).
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.

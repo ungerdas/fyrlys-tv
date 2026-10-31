@@ -1,30 +1,80 @@
-#if os(iOS)
 import FyrlysCore
 import SwiftUI
 import UIKit
 
-/// Kanalkortet på iPhone, som på Fyrlys-nettsiden: stor logo på logoens egen farge, en strek for hvor langt
-/// programmet har kommet, det som går nå (eller kampen) og kanalnavnet under. Stjernen oppe til høyre legger kanalen
-/// til i favorittene (eller hold inne på kortet).
+/// Det store kanalkortet, som på Fyrlys-nettsiden (iPhone og Apple TV): stor logo på logoens egen farge, en strek for
+/// hvor langt programmet har kommet, det som går nå (eller kampen) og kanalnavnet under. På iPhone legger stjernen
+/// oppe til høyre kanalen til i favorittene; på Apple TV er hele kortet én knapp som får fokus, og stjernen viser bare
+/// at kanalen er favoritt. Hold inne for å legge til eller fjerne.
 struct BigChannelCard: View {
     @Environment(AppModel.self) private var model
     let channel: Channel
     let action: () -> Void
+    #if os(tvOS)
+    @FocusState private var focused: Bool
+    #endif
 
     var body: some View {
         let favorite = model.isFavorite(channel)
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 0) {
-                Color.clear
-                    .aspectRatio(16 / 8.5, contentMode: .fit)
-                    .overlay { LogoArea(channel: channel) }
-                    .clipped()
-                CardInfo(channel: channel)
+        card(favorite)
+            .contextMenu {
+                Button {
+                    model.toggleFavorite(channel)
+                } label: {
+                    Label(favorite ? L("Fjern fra favoritter") : L("Legg til i favoritter"),
+                          systemImage: favorite ? "star.slash" : "star")
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            #if os(iOS)
+            // ett element med de to knappene i, så «kanal-…» ikke skriver over id-en til stjerneknappen
+            .accessibilityElement(children: .contain)
+            #endif
+            .accessibilityIdentifier("kanal-\(channel.id)")
+            .onAppear { model.programs.want(channel) }
+            .onDisappear { model.programs.forget(channel) }
+    }
+
+    /// Logoen øverst og teksten under.
+    private var face: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Color.clear
+                .aspectRatio(16 / 8.5, contentMode: .fit)
+                .overlay { LogoArea(channel: channel) }
+                .clipped()
+            CardInfo(channel: channel)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    #if os(tvOS)
+    private func card(_ favorite: Bool) -> some View {
+        Button(action: action) {
+            face
+                .overlay(alignment: .topTrailing) {
+                    if favorite {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: Metrics.bigStar, weight: .semibold))
+                            .foregroundStyle(Theme.gold)
+                            .frame(width: Metrics.bigStarBox, height: Metrics.bigStarBox)
+                            .background(Circle().fill(Color.black.opacity(0.4)))
+                            .padding(10)
+                            .accessibilityIdentifier("favoritt-\(channel.id)")
+                    }
+                }
+        }
+        .buttonStyle(BigCardStyle())
+        .focused($focused)
+        // over naboene, så skyggen og kanten ikke havner under dem
+        .zIndex(focused ? 1 : 0)
+    }
+    #else
+    private func card(_ favorite: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Metrics.bigRadius, style: .continuous)
+        return Button(action: action) {
+            face
+                .background(Theme.surface)
+                .clipShape(shape)
+                .contentShape(shape)
         }
         .buttonStyle(PressStyle())
         .overlay(alignment: .topTrailing) {
@@ -32,9 +82,9 @@ struct BigChannelCard: View {
                 model.toggleFavorite(channel)
             } label: {
                 Image(systemName: favorite ? "star.fill" : "star")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: Metrics.bigStar, weight: .semibold))
                     .foregroundStyle(favorite ? Theme.gold : Color.white)
-                    .frame(width: 36, height: 36)
+                    .frame(width: Metrics.bigStarBox, height: Metrics.bigStarBox)
                     .background(Circle().fill(Color.black.opacity(0.4)))
                     .contentShape(Circle())
             }
@@ -43,27 +93,43 @@ struct BigChannelCard: View {
             .accessibilityIdentifier("stjerne-kanal-\(channel.id)")
             .accessibilityLabel(favorite ? L("Fjern fra favoritter") : L("Legg til i favoritter"))
         }
-        .contextMenu {
-            Button {
-                model.toggleFavorite(channel)
-            } label: {
-                Label(favorite ? L("Fjern fra favoritter") : L("Legg til i favoritter"),
-                      systemImage: favorite ? "star.slash" : "star")
-            }
-        }
-        // ett element med de to knappene i, så «kanal-…» ikke skriver over id-en til stjerneknappen
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("kanal-\(channel.id)")
-        .onAppear { model.programs.want(channel) }
-        .onDisappear { model.programs.forget(channel) }
+    }
+    #endif
+}
+
+#if os(tvOS)
+/// De store kortene på Apple TV: med fokus lyseblå kant, litt større, lysere flate og skygge (som de smale kortene).
+struct BigCardStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        BigCardBody(label: configuration.label, pressed: configuration.isPressed)
     }
 }
+
+private struct BigCardBody<Label: View>: View {
+    let label: Label
+    let pressed: Bool
+    @Environment(\.isFocused) private var focused
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Metrics.bigRadius, style: .continuous)
+        label
+            .background(focused ? Theme.surface2 : Theme.surface)
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(Theme.focus, lineWidth: 4).opacity(focused ? 1 : 0))
+            .scaleEffect(focused ? (pressed ? 1.0 : 1.06) : 1)
+            .shadow(color: .black.opacity(focused ? 0.55 : 0), radius: focused ? 20 : 0, y: focused ? 12 : 0)
+            .animation(.easeOut(duration: 0.16), value: focused)
+    }
+}
+#endif
 
 /// Streken, det som går nå og navnet. Eventkanaler: kampen står i navnet (klokkeslettet i gult), og konkurransen
 /// øverst. Kanaler uten programinfo: bare navnet, større.
 private struct CardInfo: View {
     @Environment(AppModel.self) private var model
     let channel: Channel
+
+    private var pad: CGFloat { Metrics.bigPad }
 
     var body: some View {
         let parts = nameParts(channel.name)
@@ -82,12 +148,12 @@ private struct CardInfo: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Capsule()
                                 .fill(Theme.surface2)
-                                .frame(width: 92, height: 9)
-                                .padding(.top, 15)
-                                .padding(.bottom, 5)
+                                .frame(width: Metrics.bigTitle * 6, height: Metrics.bigTitle * 0.6)
+                                .padding(.top, pad * 1.25)
+                                .padding(.bottom, pad * 0.4)
                             name(parts, big: false)
                         }
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, pad)
                     } else {
                         name(parts, big: true)
                     }
@@ -96,19 +162,19 @@ private struct CardInfo: View {
                 name(parts, big: true)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 64, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: Metrics.bigInfoMin, alignment: .topLeading)
     }
 
     private func lines(top: Text, parts: NameParts) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             top
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: Metrics.bigTitle, weight: .bold))
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1)
-                .padding(.top, 10)
+                .padding(.top, pad * 0.85)
             name(parts, big: false)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, pad)
     }
 
     /// Navnet: lite og dempet under programmet, eller stort når det står alene.
@@ -126,14 +192,14 @@ private struct CardInfo: View {
                 .foregroundStyle(big ? Theme.ink : Theme.muted)
                 .lineLimit(big ? 2 : 1)
         }
-        .font(.system(size: big ? 15 : 13))
-        .padding(.top, big ? 12 : 0)
-        .padding(.bottom, 13)
-        .padding(.horizontal, big ? 12 : 0)
+        .font(.system(size: big ? Metrics.bigTitle : Metrics.bigSub))
+        .padding(.top, big ? pad : 0)
+        .padding(.bottom, pad * 1.1)
+        .padding(.horizontal, big ? pad : 0)
     }
 }
 
-/// Streken under logoen for hvor langt programmet har kommet (hele bredden, 3 pt).
+/// Streken under logoen for hvor langt programmet har kommet (hele bredden).
 private struct ProgressLine: View {
     let value: Double
 
@@ -141,7 +207,7 @@ private struct ProgressLine: View {
         let clamped = min(1, max(0, value))
         Rectangle()
             .fill(Theme.ink.opacity(0.16))
-            .frame(height: 3)
+            .frame(height: Metrics.bigBar)
             .overlay(alignment: .leading) {
                 Rectangle()
                     .fill(Theme.signal)
@@ -176,11 +242,11 @@ struct LogoArea: View {
                     .scaleEffect(0.69)
             } else {
                 Text(verbatim: logoText(channel.name))
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.system(size: Metrics.bigLogoText, weight: .bold))
                     .foregroundStyle(Color.white.opacity(0.85))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, Metrics.bigPad)
             }
         }
         .task(id: url) {
@@ -272,4 +338,3 @@ struct PressStyle: ButtonStyle {
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
-#endif

@@ -47,6 +47,16 @@ final class FyrlysMobilUITests: XCTestCase {
         _ = XCTWaiter.wait(for: [XCTestExpectation(description: "vent")], timeout: seconds)
     }
 
+    /// Trykker på [id] og venter på [target]; trykker én gang til hvis siden ikke kom (et trykk tas av og til ikke i
+    /// simulatoren).
+    @discardableResult
+    func openPage(_ app: XCUIApplication, _ id: String, then target: String, timeout: TimeInterval = 10) -> Bool {
+        find(app, id).tap()
+        if find(app, target).waitForExistence(timeout: timeout / 2) { return true }
+        if find(app, id).exists { find(app, id).tap() }
+        return find(app, target).waitForExistence(timeout: timeout)
+    }
+
     /// Venter til [element] er borte.
     func gone(_ element: XCUIElement, timeout: TimeInterval) -> Bool {
         let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
@@ -79,8 +89,7 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(find(app, "konto").exists, "Konto mangler i topplinja")
         wait(2)
         shot("02-tv")
-        find(app, "hylle-alle").tap()
-        XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 10), "Alle kanaler ble ikke vist")
+        XCTAssertTrue(openPage(app, "hylle-alle", then: "kanal-1"), "Alle kanaler ble ikke vist")
         wait(3)
         shot("14-alle")
     }
@@ -122,8 +131,7 @@ final class FyrlysMobilUITests: XCTestCase {
             return
         }
         XCTAssertTrue(find(app, "hylle-2").waitForExistence(timeout: 30), "flisen for Sport mangler")
-        find(app, "hylle-2").tap()
-        XCTAssertTrue(find(app, "kanal-11").waitForExistence(timeout: 10), "Sport ble ikke vist")
+        XCTAssertTrue(openPage(app, "hylle-2", then: "kanal-11"), "Sport ble ikke vist")
         XCTAssertFalse(find(app, "kanal-1").exists, "viser mer enn Sport")
         let pin = find(app, "kategori-stjerne")
         XCTAssertTrue(pin.exists, "stjernen for kategorien mangler")
@@ -242,8 +250,7 @@ final class FyrlysMobilUITests: XCTestCase {
         find(app, "tema").tap()
         wait(2)
         shot("16-lys")
-        find(app, "hylle-alle").tap()
-        XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 10))
+        XCTAssertTrue(openPage(app, "hylle-alle", then: "kanal-1"), "Alle kanaler ble ikke vist")
         wait(3)
         shot("17-lys-alle")
     }

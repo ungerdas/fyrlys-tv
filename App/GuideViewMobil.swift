@@ -232,7 +232,7 @@ struct GuideView: View {
                             shown += Self.page
                         } label: {
                             Text(L("Vis flere kanaler ({n} av {total})",
-                                   ["n": PhoneTVFormat.count(rows.count), "total": PhoneTVFormat.count(total)]))
+                                   ["n": CountText.of(rows.count), "total": CountText.of(total)]))
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(Theme.ink)
                                 .padding(.horizontal, 16)
@@ -335,7 +335,9 @@ private struct GuideTimes: View {
         }
         .frame(width: GuideView.width, height: GuideView.headHeight, alignment: .topLeading)
         .offset(x: scroll.x)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // minWidth 0: ellers blir rammen like bred som tidslinja (seks timer), og hele guiden ble bredere enn skjermen,
+        // med radene utenfor
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .clipped()
     }
 }

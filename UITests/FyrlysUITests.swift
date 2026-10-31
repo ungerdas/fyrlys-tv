@@ -28,18 +28,16 @@ final class FyrlysUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
-    /// Flytter fokus til [target] (et kanalkort, «kanal-…», eller en linje i sidemenyen, «hylle-…»), uansett hvor
-    /// fokus står: fra fanelinja ned, mellom sidemenyen og rutenettet, og så opp, ned eller til siden mot målet.
+    /// Flytter fokus til [target] (en flis, «hylle-…», et kort, «kanal-…», eller en knapp), uansett hvor fokus står:
+    /// fra fanelinja ned, og så opp, ned eller til siden mot målet (det rulles fram underveis).
     @discardableResult
-    func focus(_ app: XCUIApplication, _ target: XCUIElement, tries: Int = 16) -> Bool {
-        let wantsCard = target.identifier.hasPrefix("kanal-")
+    func focus(_ app: XCUIApplication, _ target: XCUIElement, tries: Int = 30) -> Bool {
         for _ in 0..<tries {
             if target.hasFocus { return true }
             let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
-            let id = focused.exists ? focused.identifier : ""
-            let onCard = id.hasPrefix("kanal-")
-            let inSidebar = id.hasPrefix("hylle-")
-            if (wantsCard && onCard) || (!wantsCard && inSidebar) {
+            if !focused.exists || focused.frame.isEmpty {
+                remote.press(.down)
+            } else {
                 let here = focused.frame
                 let goal = target.frame
                 if goal.midY < here.minY - 4 {
@@ -49,14 +47,15 @@ final class FyrlysUITests: XCTestCase {
                 } else {
                     remote.press(goal.midX < here.midX ? .left : .right)
                 }
-            } else if wantsCard {
-                remote.press(inSidebar ? .right : .down)
-            } else {
-                remote.press(onCard ? .left : .down)
             }
             wait(0.8)
         }
         return target.hasFocus
+    }
+
+    /// [a] står foran [b]: høyere opp, eller på samme linje og til venstre.
+    func before(_ a: XCUIElement, _ b: XCUIElement) -> Bool {
+        a.frame.minY < b.frame.minY - 4 || (abs(a.frame.minY - b.frame.minY) <= 4 && a.frame.minX < b.frame.minX)
     }
 
     func shot(_ name: String) {
@@ -78,17 +77,28 @@ final class FyrlysUITests: XCTestCase {
         shot("01-innlogging")
     }
 
+    /// Forsiden: kategoriene som fliser (ingen favoritter eller «Sist sett» ennå), så «Alle kanaler» med de store
+    /// kortene.
     func test02TV() {
         let app = launch("tv")
-        XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 30), "kanalkortene kom ikke")
-        XCTAssertTrue(find(app, "hylle-2").exists, "kategorien Sport mangler")
+        let all = find(app, "hylle-alle")
+        XCTAssertTrue(all.waitForExistence(timeout: 30), "flisene kom ikke")
+        XCTAssertTrue(find(app, "hylle-2").exists, "flisen for Sport mangler")
         XCTAssertFalse(find(app, "hylle-6").exists, "tomme kategorier skal ikke vises")
-        wait(4) // logoer og programinfo
+        XCTAssertTrue(find(app, "seksjon-kategorier").exists, "«Kategorier» mangler")
+        wait(2)
         shot("02-tv")
+        XCTAssertTrue(focus(app, all), "fikk ikke fokus på «Alle kanaler»")
+        remote.press(.select)
+        XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 10), "«Alle kanaler» ble ikke vist")
+        wait(4) // logoer og programinfo
+        shot("02-tv-alle")
     }
 
+    /// Hold inne på et kort i «Alle kanaler»: «Legg til i favoritter». Tilbake på forsiden står kanalen under «Nå på
+    /// favorittene».
     func test03Favorite() {
-        let app = launch("tv")
+        let app = launch("all")
         let card = find(app, "kanal-1")
         XCTAssertTrue(card.waitForExistence(timeout: 30))
         // fokus starter i fanene øverst
@@ -106,30 +116,39 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(find(app, "favoritt-1").waitForExistence(timeout: 10), "stjernen kom ikke")
         wait(1)
         shot("04-favoritt")
+        remote.press(.menu)
+        XCTAssertTrue(find(app, "seksjon-favoritter").waitForExistence(timeout: 10), "«Nå på favorittene» kom ikke")
+        wait(3)
+        shot("04-favoritt-forside")
     }
 
-    /// «Dine kategorier»: hold inne på Sport i sidemenyen, «Legg øverst»; da står den øverst med stjerne, og «Alle
+    /// «Dine kategorier»: hold inne på Sport, «Legg øverst»; da står Sport foran Nyheter blant flisene, og «Alle
     /// kanaler» begynner med kanalene i Sport.
     func test10DineKategorier() {
         let app = launch("tv")
         let sport = find(app, "hylle-2")
         XCTAssertTrue(sport.waitForExistence(timeout: 30))
-        XCTAssertTrue(find(app, "seksjon-kategorier").exists, "«Kategorier» mangler i sidemenyen")
-        XCTAssertTrue(focus(app, sport), "fikk ikke fokus på Sport i sidemenyen")
+        XCTAssertTrue(focus(app, sport), "fikk ikke fokus på Sport")
         remote.press(.select, forDuration: 2)
         wait(2)
         shot("14-kategori-meny")
         let pin = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Legg øverst")).firstMatch
         XCTAssertTrue(pin.waitForExistence(timeout: 8), "menyen kom ikke")
         remote.press(.select)
-        XCTAssertTrue(find(app, "seksjon-dine").waitForExistence(timeout: 10), "«Dine kategorier» kom ikke")
-        XCTAssertTrue(find(app, "lagt-overst").exists, "stjernen ved kategorien mangler")
-        let sportFirst = find(app, "kanal-11")
-        let news = find(app, "kanal-1")
-        XCTAssertTrue(sportFirst.waitForExistence(timeout: 10) && news.exists)
-        XCTAssertLessThan(sportFirst.frame.minY, news.frame.minY, "«Alle kanaler» begynner ikke med Sport")
-        wait(1)
+        wait(2)
+        let news = find(app, "hylle-1")
+        XCTAssertTrue(news.exists)
+        XCTAssertTrue(before(sport, news), "Sport står ikke foran Nyheter")
         shot("15-dine-kategorier")
+        let all = find(app, "hylle-alle")
+        XCTAssertTrue(focus(app, all), "fikk ikke fokus på «Alle kanaler»")
+        remote.press(.select)
+        let sportFirst = find(app, "kanal-11")
+        let first = find(app, "kanal-1")
+        XCTAssertTrue(sportFirst.waitForExistence(timeout: 10) && first.waitForExistence(timeout: 5))
+        XCTAssertTrue(before(sportFirst, first), "«Alle kanaler» begynner ikke med Sport")
+        wait(2)
+        shot("15-dine-kategorier-alle")
     }
 
     /// Den store, oppdiktede lista (25 000 kanaler i 450 kategorier fra tools/fake_xtream.py --kanaler): hvor lang tid
@@ -141,33 +160,42 @@ final class FyrlysUITests: XCTestCase {
         }
         var start = Date()
         var app = launch("tv", server: big)
-        let first = find(app, "kanal-1000")
-        XCTAssertTrue(first.waitForExistence(timeout: 120), "kortene kom ikke")
+        let all = find(app, "hylle-alle")
+        XCTAssertTrue(all.waitForExistence(timeout: 120), "flisene kom ikke")
         let cold = Date().timeIntervalSince(start)
-        wait(4)
+        wait(3)
         shot("16-stor-liste")
 
+        // flisene: 450 kategorier
+        XCTAssertTrue(focus(app, all), "fikk ikke fokus på «Alle kanaler»")
+        start = Date()
+        for _ in 0..<20 { remote.press(.down) }
+        let tiles = Date().timeIntervalSince(start)
+        wait(1)
+        shot("17-stor-liste-fliser")
+        XCTAssertTrue(focus(app, all), "kom ikke tilbake til «Alle kanaler»")
+
+        // «Alle kanaler»: 25 000 store kort
+        start = Date()
+        remote.press(.select)
+        let first = find(app, "kanal-1000")
+        XCTAssertTrue(first.waitForExistence(timeout: 60), "kortene kom ikke")
+        let open = Date().timeIntervalSince(start)
         XCTAssertTrue(focus(app, first), "fikk ikke fokus på det første kortet")
         start = Date()
         for _ in 0..<12 { remote.press(.down) }
         for _ in 0..<12 { remote.press(.up) }
         let grid = Date().timeIntervalSince(start)
-
-        remote.press(.left)
-        start = Date()
-        for _ in 0..<20 { remote.press(.down) }
-        let sidebar = Date().timeIntervalSince(start)
-        wait(1)
-        shot("17-stor-liste-sidemeny")
         app.terminate()
 
         // igjen, med lista fra sist på disk
         start = Date()
         app = launch("tv", server: big, keep: true)
-        XCTAssertTrue(find(app, "kanal-1000").waitForExistence(timeout: 60), "kortene kom ikke med lista fra sist")
+        XCTAssertTrue(find(app, "hylle-alle").waitForExistence(timeout: 60), "flisene kom ikke med lista fra sist")
         let warm = Date().timeIntervalSince(start)
-        print(String(format: "YTELSE: 25 000 kanaler i simulatoren: første kort etter %.1f s uten lista fra sist og "
-                     + "%.1f s med; 24 steg i rutenettet %.1f s; 20 steg i sidemenyen %.1f s", cold, warm, grid, sidebar))
+        print(String(format: "YTELSE: 25 000 kanaler i simulatoren: flisene etter %.1f s uten lista fra sist og %.1f s "
+                     + "med; «Alle kanaler» åpnet på %.1f s; 24 steg i kortene %.1f s; 20 steg i flisene %.1f s",
+                     cold, warm, open, grid, tiles))
     }
 
     func test04Guide() {
@@ -214,8 +242,10 @@ final class FyrlysUITests: XCTestCase {
         }
         XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 10), "kom ikke tilbake fra spilleren")
         XCTAssertEqual(app.state, .runningForeground)
-        // «Sist sett» har kanalen nå
-        XCTAssertTrue(find(app, "hylle-sist").exists, "«Sist sett» mangler")
+        // «Sist sett» på forsiden har kanalen nå
+        XCTAssertTrue(find(app, "seksjon-sist").exists, "«Sist sett» mangler")
+        wait(3)
+        shot("09-sist-sett")
     }
 
     func test07PlayerError() {
@@ -236,7 +266,7 @@ final class FyrlysUITests: XCTestCase {
 
     func test09English() {
         let app = launch("tv", language: "en")
-        XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 30))
+        XCTAssertTrue(find(app, "hylle-alle").waitForExistence(timeout: 30))
         XCTAssertTrue(app.buttons.containing(NSPredicate(format: "label CONTAINS 'All channels'")).firstMatch.exists)
         wait(3)
         shot("13-english")

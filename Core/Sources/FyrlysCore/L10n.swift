@@ -104,6 +104,9 @@ public let english: [String: String] = [
     "Ingen favoritter ennå. Trykk på stjernen på en kanal under TV, eller velg en kategori over.":
         "No favorites yet. Tap the star on a channel under TV, or choose a category above.",
     "Starter {time}": "Starts {time}",
+    // Apple TV som iPhone
+    "**Samle favorittene dine her.** Hold inne på en kanal og velg «Legg til i favoritter», så ligger den øverst med det som går nå. I TV-guiden ser du hva som kommer senere.":
+        "**Gather your favorites here.** Press and hold a channel and choose “Add to favorites”, and it'll be at the top with what's on now. The TV guide shows what's coming up later.",
     // spilleren
     "Neste kanal": "Next channel",
     "Forrige kanal": "Previous channel",

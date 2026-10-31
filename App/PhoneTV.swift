@@ -63,7 +63,7 @@ private struct PhoneTVHome: View {
         let found = model.search(query, limit: 120)
         return VStack(alignment: .leading, spacing: 12) {
             RowHead(title: L("Treff")) {
-                Text(verbatim: PhoneTVFormat.count(found.count))
+                Text(verbatim: CountText.of(found.count))
                     .font(.system(size: 13.5))
                     .foregroundStyle(Theme.muted)
             }
@@ -140,7 +140,7 @@ private struct Tiles: View {
                             .lineLimit(2)
                             .minimumScaleFactor(0.85)
                         Spacer(minLength: 0)
-                        Text(verbatim: PhoneTVFormat.count(tile.count))
+                        Text(verbatim: CountText.of(tile.count))
                             .font(.system(size: 12.5, weight: .semibold))
                             .foregroundStyle(Theme.muted)
                     }
@@ -244,7 +244,7 @@ struct PhoneShelfPage: View {
                         .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(Theme.ink)
                         .lineLimit(1)
-                    Text(verbatim: PhoneTVFormat.count(count))
+                    Text(verbatim: CountText.of(count))
                         .font(.system(size: 13.5, weight: .semibold))
                         .foregroundStyle(Theme.muted)
                         .fixedSize()
@@ -431,15 +431,4 @@ private struct TipBox: View {
             .strokeBorder(Theme.line, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
     }
 }
-
-/// Antall med mellomrom mellom tusenene på norsk («24 224»), komma på engelsk.
-enum PhoneTVFormat {
-    static func count(_ n: Int) -> String {
-        let format = NumberFormatter()
-        format.numberStyle = .decimal
-        format.locale = Locale(identifier: appLanguage == "no" ? "nb_NO" : "en_GB")
-        return format.string(from: NSNumber(value: n)) ?? "\(n)"
-    }
-}
-
 #endif

@@ -10,10 +10,8 @@ final class Images: @unchecked Sendable {
     private let cache = NSCache<NSURL, UIImage>()
     private let lock = NSLock()
     private var failed: [URL: Date] = [:]
-    #if os(iOS)
-    /// bakgrunnsfargen bak hver logo (de store kortene på iPhone), regnet ut én gang
+    /// bakgrunnsfargen bak hver logo (de store kortene), regnet ut én gang
     private var tints: [URL: Color?] = [:]
-    #endif
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.urlCache = URLCache(memoryCapacity: 8 << 20, diskCapacity: 150 << 20)
@@ -27,12 +25,10 @@ final class Images: @unchecked Sendable {
 
     func cached(_ url: URL) -> UIImage? { cache.object(forKey: url as NSURL) }
 
-    #if os(iOS)
     /// Fargen bak logoen, når bildet er hentet (nil: ikke hentet ennå, eller standardflaten).
     func tint(for url: URL) -> Color? {
         lock.withLock { tints[url] ?? nil }
     }
-    #endif
 
     func load(_ url: URL, maxPixels: CGFloat = 360) async -> UIImage? {
         if let image = cached(url) { return image }
@@ -47,13 +43,11 @@ final class Images: @unchecked Sendable {
             let scale = min(1, maxPixels / max(image.size.width, image.size.height, 1))
             let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
             let small = await image.byPreparingThumbnail(ofSize: size) ?? image
-            #if os(iOS)
             let tint = logoTint(small)
             lock.withLock {
                 if tints.count > 1500 { tints.removeAll() }
                 tints[url] = .some(tint)
             }
-            #endif
             cache.setObject(small, forKey: url as NSURL)
             return small
         } catch {

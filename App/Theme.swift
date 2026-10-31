@@ -1,3 +1,4 @@
+import FyrlysCore
 import SwiftUI
 #if os(iOS)
 import UIKit
@@ -89,6 +90,27 @@ enum Metrics {
     static let pageTitle: CGFloat = 34
     static let pageCount: CGFloat = 22
     static let pagePadding: CGFloat = 22
+    // de store kortene og flisene (som på iPhone, rundt 1,4 ganger)
+    static let bigTitle: CGFloat = 22
+    static let bigSub: CGFloat = 18
+    static let bigLogoText: CGFloat = 34
+    static let bigRadius: CGFloat = 22
+    static let bigPad: CGFloat = 16
+    static let bigBar: CGFloat = 4
+    static let bigInfoMin: CGFloat = 92
+    static let bigStar: CGFloat = 24
+    static let bigStarBox: CGFloat = 48
+    static let bigGridMin: CGFloat = 320
+    static let bigStripWidth: CGFloat = 344
+    static let bigGap: CGFloat = 28
+    static let tileHeight: CGFloat = 136
+    static let tileTitle: CGFloat = 24
+    static let tileCount: CGFloat = 18
+    static let tilePad: CGFloat = 22
+    static let tileRadius: CGFloat = 22
+    static let tileMin: CGFloat = 300
+    static let rowTitle: CGFloat = 30
+    static let rowClock: CGFloat = 22
     #else
     static let sidebarWidth: CGFloat = 280
     static let sidebarFont: CGFloat = 16
@@ -106,7 +128,38 @@ enum Metrics {
     static let pageTitle: CGFloat = 24
     static let pageCount: CGFloat = 15
     static let pagePadding: CGFloat = 16
+    // de store kortene og flisene på iPhone (som på Fyrlys-nettsiden)
+    static let bigTitle: CGFloat = 15
+    static let bigSub: CGFloat = 13
+    static let bigLogoText: CGFloat = 24
+    static let bigRadius: CGFloat = 18
+    static let bigPad: CGFloat = 12
+    static let bigBar: CGFloat = 3
+    static let bigInfoMin: CGFloat = 64
+    static let bigStar: CGFloat = 17
+    static let bigStarBox: CGFloat = 36
+    static let bigGridMin: CGFloat = 150
+    static let bigStripWidth: CGFloat = 180
+    static let bigGap: CGFloat = 12
+    static let tileHeight: CGFloat = 98
+    static let tileTitle: CGFloat = 17
+    static let tileCount: CGFloat = 12.5
+    static let tilePad: CGFloat = 16
+    static let tileRadius: CGFloat = 18
+    static let tileMin: CGFloat = 150
+    static let rowTitle: CGFloat = 21
+    static let rowClock: CGFloat = 16
     #endif
+}
+
+/// Antall med mellomrom mellom tusenene på norsk («24 224»), komma på engelsk.
+enum CountText {
+    static func of(_ n: Int) -> String {
+        let format = NumberFormatter()
+        format.numberStyle = .decimal
+        format.locale = Locale(identifier: appLanguage == "no" ? "nb_NO" : "en_GB")
+        return format.string(from: NSNumber(value: n)) ?? "\(n)"
+    }
 }
 
 extension View {

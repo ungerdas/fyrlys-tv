@@ -2,9 +2,19 @@
 
 ## v0.1.7
 
+Apple TV som iPhone:
+
+- TV-fanen åpner med «Nå på favorittene» og «Sist sett» som rader med store kort, og kategoriene som fliser
+  (Favoritter, Alle kanaler, «Dine kategorier» i gult og resten). En kategori åpnes som egen side; Menu-knappen går
+  tilbake. Fanelinja øverst er som før.
+- Store kanalkort, også i søket: logoen på logoens egen farge, en strek for hvor langt programmet har kommet, det som
+  går nå og kanalnavnet. Hold inne på en kanal for å gjøre den til favoritt, og på en kategori for å legge den øverst
+  eller flytte den.
+
+iPhone og iPad:
+
 - TV-guiden på iPhone viste ingen kanaler (radene havnet utenfor skjermen), og på iPad sto de for langt til høyre.
-- iPhone og iPad følger lys eller mørk modus på enheten til du velger selv (0.1.6 var alltid mørk til du trykket på
-  sola).
+- Appen følger lys eller mørk modus på enheten til du velger selv (0.1.6 var alltid mørk til du trykket på sola).
 
 ## v0.1.6
 

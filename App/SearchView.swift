@@ -17,7 +17,11 @@ struct SearchView: View {
                             .font(.system(size: Metrics.pageCount + 8))
                             .foregroundStyle(Theme.muted)
                     }
+                    #if os(tvOS)
+                    BigCardGrid(channels: results, play: play)
+                    #else
                     ChannelGrid(channels: results, play: play)
+                    #endif
                 }
                 #if os(tvOS)
                 .padding(.horizontal, Theme.edge)
