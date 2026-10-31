@@ -11,6 +11,18 @@ import sys
 from pathlib import Path
 
 
+def kind_of(path):
+    """png, jpg eller txt etter innholdet, ellers None."""
+    head = path.read_bytes()[:8]
+    if head.startswith(b"\x89PNG"):
+        return "png"
+    if head.startswith(b"\xff\xd8"):
+        return "jpg"
+    if path.suffix == ".txt" and path.stat().st_size < 2_000_000:
+        return "txt"
+    return None
+
+
 def main():
     result, out = Path(sys.argv[1]), Path(sys.argv[2])
     if not result.exists():
@@ -27,12 +39,17 @@ def main():
         test_name = re.sub(r"\W+", "-", test.get("testIdentifier", "test")).strip("-")
         for n, attachment in enumerate(test.get("attachments", [])):
             source = raw / attachment["exportedFileName"]
-            suffix = source.suffix or ".png"
+            kind = kind_of(source)
+            human = attachment.get("suggestedHumanReadableName") or source.name
             if attachment.get("isAssociatedWithFailure"):
-                name = f"feil-{test_name}-{n}{suffix}"
+                # bilde av skjermen eller elementtreet da testen feilet (ikke opptak og binære plister)
+                if kind is None:
+                    continue
+                name = f"feil-{test_name}-{n}.{kind}"
+            elif re.match(r"\d\d-", human) and kind in ("png", "jpg"):
+                name = f"{human.split('_')[0]}.{kind}"
             else:
-                human = attachment.get("suggestedHumanReadableName") or source.name
-                name = human.split("_")[0] + suffix
+                continue  # Xcodes egne opptak og øyeblikksbilder
             shutil.copy(source, out / name)
             count += 1
     shutil.rmtree(raw, ignore_errors=True)

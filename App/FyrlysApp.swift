@@ -14,7 +14,6 @@ struct FyrlysApp: App {
             RootView()
                 .environment(model)
                 .preferredColorScheme(.dark)
-                .tint(Theme.signal)
         }
     }
 }
@@ -34,7 +33,6 @@ struct RootView: View {
                 HomeView()
             }
         }
-        .foregroundStyle(Theme.ink)
         .task { model.start() }
     }
 }

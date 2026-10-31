@@ -13,7 +13,7 @@ final class PlayerModel {
     let list: [Channel]
     private(set) var error: String?
 
-    @ObservationIgnored private let app: AppModel
+    private let app: AppModel
     @ObservationIgnored private var statusObservation: NSKeyValueObservation?
     @ObservationIgnored private var notes: [NSObjectProtocol] = []
     @ObservationIgnored private var failures: [Date] = []
@@ -228,7 +228,7 @@ private struct PlayerError: View {
                 Button(L("Lukk"), action: close)
             }
         }
-        .foregroundStyle(Theme.ink)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spiller-feil")
     }
 }

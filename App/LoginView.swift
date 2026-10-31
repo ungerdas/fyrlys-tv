@@ -59,6 +59,7 @@ struct LoginView: View {
         }
         .padding(80)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("innlogging")
     }
 

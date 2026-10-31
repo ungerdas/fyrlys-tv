@@ -17,7 +17,7 @@ struct GuideView: View {
     static let perMinute: CGFloat = 3.8
     static let nameWidth: CGFloat = 330
     static let rowHeight: CGFloat = 78
-    static var width: CGFloat { CGFloat(GuideTime.minutes) * perMinute }
+    static var width: CGFloat { CGFloat(GuideTime.totalMinutes) * perMinute }
 
     private var rows: [Channel] {
         let favorites = model.favorites
@@ -47,6 +47,7 @@ struct GuideView: View {
                     }
                 }
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("guide")
         }
     }

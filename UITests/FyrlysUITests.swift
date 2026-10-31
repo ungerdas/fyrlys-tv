@@ -58,8 +58,10 @@ final class FyrlysUITests: XCTestCase {
         let app = launch("tv")
         let card = find(app, "kanal-1")
         XCTAssertTrue(card.waitForExistence(timeout: 30))
-        // fra sidemenyen til det første kortet
-        for _ in 0..<4 where !card.hasFocus {
+        // fokus starter i fanene øverst: ned i sidemenyen, så til høyre til det første kortet
+        remote.press(.down)
+        wait(1)
+        for _ in 0..<3 where !card.hasFocus {
             remote.press(.right)
             wait(1)
         }
@@ -79,6 +81,8 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(find(app, "guide").waitForExistence(timeout: 30))
         wait(5)
         shot("05-guide")
+        remote.press(.down)
+        wait(1)
         remote.press(.right)
         wait(1)
         remote.press(.right)
@@ -88,7 +92,10 @@ final class FyrlysUITests: XCTestCase {
 
     func test05Search() {
         let app = launch("search")
-        wait(4)
+        wait(3)
+        // fra fanene ned til tastaturet
+        remote.press(.down)
+        wait(2)
         shot("07-sok")
         app.typeText("sport")
         XCTAssertTrue(find(app, "kanal-11").waitForExistence(timeout: 15), "fant ikke Nordlys Sport 1")

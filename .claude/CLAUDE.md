@@ -57,6 +57,16 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - `.github/workflows/build.yml`: kjernen på Linux; appen på `macos-15` med høyeste Xcode, XcodeGen, simulator fra
   `tools/simulator.py` (laster ned tvOS-plattformen om den mangler), falsk leverandør, `xcodebuild test`,
   skjermbildene ut med `tools/screenshots.py` (`xcresulttool export attachments`) og inn i grenen `skjermbilder`.
+- **TestFlight** (jobbene `oppsett` og `testflight`, bare på main og når hemmelighetene `ASC_KEY_ID`, `ASC_ISSUER_ID`,
+  `ASC_KEY_P8` og `APPLE_TEAM_ID` finnes; Admin-nøkkel laget av eieren): `tools/asc.py check` (nøkkelen, app-id-en
+  `no.fyrlys.tv`, appen i App Store Connect), arkiv uten signering (`CODE_SIGNING_ALLOWED=NO`: å signere for en
+  Apple TV krever en utviklerprofil, og den krever en registrert enhet), `tools/adhoc_sign.sh` (ad hoc med
+  application-identifier og team), eksport med Apples skysignering (`-allowProvisioningUpdates` og API-nøkkelen,
+  `asc.py options`); virker ikke den, lager `asc.py prepare` et distribusjonssertifikat og en `TVOS_APP_STORE`-profil
+  for kjøringen gjennom REST-API-et (JWT med openssl, bare standardbiblioteket), i en egen nøkkelring, og
+  `asc.py cleanup` sletter dem etterpå (eieren får da en e-post om tilbaketrukket sertifikat). Opplasting med
+  `xcrun altool --upload-app -t appletvos`. Tilnærmingen er hentet fra andre prosjekter på GitHub som gjør det samme
+  uten Mac; ikke prøvd mot Apple ennå.
 
 ## Status
 - 31.10.2026: v0.1.0 skrevet (TV, guide, søk, innstillinger, spiller). Utviklerkontoen hos Apple er aktiv (31.10).

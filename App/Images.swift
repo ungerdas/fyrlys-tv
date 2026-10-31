@@ -88,7 +88,7 @@ struct ChannelTile: View {
         let parts = nameParts(channel.name)
         ZStack {
             LinearGradient(colors: [channelTint(channel), Theme.logoBg], startPoint: .topLeading, endPoint: .bottomTrailing)
-            RemoteImage(url: channel.logo.flatMap(URL.init(string:))) {
+            RemoteImage(url: channel.logo.flatMap { URL(string: $0) }) {
                 Text(verbatim: initials(channel.name))
                     .font(.system(size: compact ? 24 : 52, weight: .bold))
                     .foregroundStyle(Theme.ink.opacity(0.9))

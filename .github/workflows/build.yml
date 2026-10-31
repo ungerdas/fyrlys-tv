@@ -134,3 +134,151 @@ jobs:
           if [ -f build/falsk.log ]; then
             echo "::warning title=falsk leverandør::$(tail -n 30 build/falsk.log | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
           fi
+
+  # TestFlight: bare når hemmelighetene for App Store Connect finnes (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8,
+  # APPLE_TEAM_ID). Arkivet bygges usignert og signeres ad hoc; eksporten prøver Apples skysignering først, og lager
+  # ellers et sertifikat og en profil for kjøringen (som slettes etterpå).
+  oppsett:
+    name: TestFlight satt opp?
+    runs-on: ubuntu-latest
+    outputs:
+      klar: ${{ steps.sjekk.outputs.klar }}
+    steps:
+      - id: sjekk
+        env:
+          A: ${{ secrets.ASC_KEY_ID }}
+          B: ${{ secrets.ASC_ISSUER_ID }}
+          C: ${{ secrets.ASC_KEY_P8 }}
+          D: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$A" ] && [ -n "$B" ] && [ -n "$C" ] && [ -n "$D" ]; then
+            echo "klar=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=TestFlight::Hemmelighetene for App Store Connect mangler, så bygget lastes ikke opp"
+          fi
+
+  testflight:
+    name: TestFlight
+    needs: [kjerne, tvos, oppsett]
+    if: needs.oppsett.outputs.klar == 'true' && github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Velg Xcode
+        run: |
+          mkdir -p build
+          XCODE=$(python3 -c "
+          import glob, re
+          apps = [a for a in glob.glob('/Applications/Xcode_*.app') if re.fullmatch(r'.*/Xcode_[0-9.]+\.app', a)]
+          print(sorted(apps, key=lambda a: [int(x) for x in re.findall(r'\d+', a.split('Xcode_')[1])])[-1])")
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Lag prosjektet (XcodeGen)
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen 2>&1 | tail -n 3
+          xcodegen generate
+
+      - name: API-nøkkelen
+        env:
+          P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          umask 077
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          key="$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s\n' "$P8" > "$key"
+          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+
+      - name: Sjekk App Store Connect
+        run: python3 tools/asc.py check 2>&1 | tee build/asc.log
+
+      - name: Arkiv
+        run: |
+          set +e
+          xcodebuild archive -project Fyrlys.xcodeproj -scheme Fyrlys -configuration Release \
+            -destination generic/platform=tvOS -archivePath build/Fyrlys.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=${{ github.run_number }} > build/arkiv.log 2>&1
+          code=$?
+          grep -E "error:|\*\* .* \*\*" build/arkiv.log | tail -n 40
+          [ $code -eq 0 ] || exit $code
+          tools/adhoc_sign.sh build/Fyrlys.xcarchive
+
+      - name: Eksport med Apples skysignering
+        id: sky
+        continue-on-error: true
+        run: |
+          python3 tools/asc.py options build/sky
+          xcodebuild -exportArchive -archivePath build/Fyrlys.xcarchive \
+            -exportOptionsPlist build/sky/ExportOptions.plist -exportPath build/export \
+            -allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            > build/eksport-sky.log 2>&1 || { tail -n 30 build/eksport-sky.log; exit 1; }
+          ls build/export
+
+      - name: Hvorfor skysigneringen ikke virket
+        if: steps.sky.outcome == 'failure'
+        run: |
+          echo "::warning title=skysignering::$(grep -E "error|rror:" build/eksport-sky.log | awk '!seen[$0]++' | tail -n 20 | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
+
+      - name: Reserve – sertifikat og profil for denne kjøringen
+        if: steps.sky.outcome == 'failure'
+        run: |
+          umask 077
+          python3 tools/asc.py prepare build/signering
+          kc="$RUNNER_TEMP/fyrlys.keychain-db"
+          pw=$(/usr/bin/openssl rand -hex 24)
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          curl -fsSL -o "$RUNNER_TEMP/wwdr.cer" https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
+          security import "$RUNNER_TEMP/wwdr.cer" -k "$kc" -t cert -f x509
+          security import build/signering/distribution.key -k "$kc" -t priv -f openssl -T /usr/bin/codesign
+          security import build/signering/distribution.cer -k "$kc" -t cert -f x509
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pw" "$kc" > /dev/null
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$kc"
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$d"
+            cp build/signering/*.mobileprovision "$d/"
+          done
+          rm -rf build/export
+          set +e
+          xcodebuild -exportArchive -archivePath build/Fyrlys.xcarchive \
+            -exportOptionsPlist build/signering/ExportOptions.plist -exportPath build/export > build/eksport.log 2>&1
+          code=$?
+          tail -n 30 build/eksport.log
+          exit $code
+
+      - name: Last opp til TestFlight
+        run: |
+          ipa=$(ls build/export/*.ipa | head -n 1)
+          echo "Laster opp $ipa (bygg ${{ github.run_number }})"
+          cd "$HOME/.appstoreconnect"
+          xcrun altool --upload-app -t appletvos -f "$GITHUB_WORKSPACE/$ipa" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" 2>&1 | tee "$GITHUB_WORKSPACE/build/opplasting.log"
+
+      - name: Rydd opp
+        if: always()
+        run: |
+          status=0
+          if [ -f build/signering/state.json ]; then python3 tools/asc.py cleanup build/signering || status=1; fi
+          [ -f "$RUNNER_TEMP/fyrlys.keychain-db" ] && security delete-keychain "$RUNNER_TEMP/fyrlys.keychain-db"
+          rm -rf "$HOME/.appstoreconnect" build/signering \
+            "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          exit $status
+
+      - name: Merknad ved feil
+        if: failure()
+        run: |
+          for f in build/asc.log build/arkiv.log build/eksport.log build/opplasting.log; do
+            [ -f "$f" ] || continue
+            msg=$( { grep -E "error|rror:|ERROR|failed" "$f" | awk 'length($0) < 500 && !seen[$0]++' | tail -n 30; echo; tail -n 15 "$f"; } \
+              | sed "s#$GITHUB_WORKSPACE/##g" | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')
+            echo "::error title=$f::$msg"
+          done

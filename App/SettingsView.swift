@@ -64,6 +64,7 @@ struct SettingsView: View {
         .padding(.horizontal, 60)
         .padding(.vertical, 50)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("innstillinger")
         .alert(L("Logg ut av {name}?", ["name": model.login?.label ?? ""]), isPresented: $confirmSignOut) {
             Button(L("Logg ut"), role: .destructive) { model.signOut() }
