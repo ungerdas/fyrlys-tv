@@ -69,6 +69,8 @@ struct ChannelCard: View {
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.surface))
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.line, lineWidth: 1))
         .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 12, style: .continuous))
+        // ett element med de to knappene i, så «kanal-…» ikke skriver over id-en til stjerneknappen
+        .accessibilityElement(children: .contain)
     }
     #endif
 

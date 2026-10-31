@@ -118,7 +118,11 @@ struct ChannelsView: View {
         let pinned = model.favoriteCategories
         if pinned.isEmpty {
             rows.append(.header(id: "kategorier", text: L("Kategorier")))
+            #if os(tvOS)
             rows.append(.hint(L("Hold inne på en kategori for å legge den øverst.")))
+            #else
+            rows.append(.hint(L("Trykk på stjernen for å legge en kategori øverst.")))
+            #endif
         } else {
             rows.append(.header(id: "dine", text: L("Dine kategorier")))
             for (i, category) in pinned.enumerated() {

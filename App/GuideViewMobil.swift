@@ -23,7 +23,8 @@ struct GuideView: View {
     static let rowHeight: CGFloat = 58
     static var width: CGFloat { CGFloat(GuideTime.totalMinutes) * perMinute }
 
-    private var nameWidth: CGFloat { sizeClass == .compact ? 120 : 230 }
+    /// bred nok til at navnene brytes mellom ordene, ikke midt i dem
+    private var nameWidth: CGFloat { sizeClass == .compact ? 150 : 230 }
 
     private var rows: [Channel] {
         let favorites = model.favorites
@@ -96,12 +97,13 @@ struct GuideView: View {
             play(channel, shown)
         } label: {
             HStack(spacing: 8) {
-                ChannelLogo(channel: channel, textSize: 12)
-                    .frame(width: 44, height: 33)
+                ChannelLogo(channel: channel, textSize: 11)
+                    .frame(width: 40, height: 30)
                 Text(nameParts(channel.name).main)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.ink)
                     .lineLimit(2)
+                    .minimumScaleFactor(0.85)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 6)

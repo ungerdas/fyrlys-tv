@@ -65,8 +65,11 @@ final class FyrlysMobilUITests: XCTestCase {
         let app = launch("tv")
         let star = find(app, "stjerne-kanal-1")
         XCTAssertTrue(star.waitForExistence(timeout: 30), "stjernen på kortet mangler")
+        XCTAssertEqual(star.label, "Legg til i favoritter")
         star.tap()
-        XCTAssertTrue(find(app, "favoritt-1").waitForExistence(timeout: 10), "stjernen ble ikke gul")
+        let on = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label == %@", "stjerne-kanal-1",
+                                                  "Fjern fra favoritter")).firstMatch
+        XCTAssertTrue(on.waitForExistence(timeout: 10), "kanalen ble ikke favoritt")
         wait(1)
         shot("03-favoritt")
     }
