@@ -143,6 +143,14 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - 31.10.2026: eieren laget en ekstern TestFlight-gruppe med offentlig lenke; 0.1.3 (bygg 7) ble sendt til Apples
   beta-gjennomgang (Waiting for Review). Nye versjoner kommer ikke av seg selv til den eksterne gruppa (må legges til
   og gjennomgås); tilbudt å automatisere det i bygget, og en demo-innlogging hvis gjennomgangen stopper på innloggingen.
-- 31.10.2026: eieren ville ha en iPhone-app også; valgte samme app som Apple TV og iPhone + iPad. 0.1.4 er den første
-  med iOS (sidene og spilleren over, iOS-jobben og TestFlight for begge). iPhone/iPad er bare prøvd i simulatoren.
+- 31.10.2026: eieren ville ha en iPhone-app også; valgte samme app som Apple TV og iPhone + iPad. 0.1.4 (bygg 10) er
+  den første med iOS: VALID for både TV_OS og IOS i App Store Connect (iOS lagt til appen av `asc.py check`). Alle
+  UI-testene grønne (iPhone 10, iPad 6, Apple TV). iPhone/iPad er bare prøvd i simulatoren.
+- iOS-jobben i CI: første forsøk (begge simulatorene i samme `xcodebuild test`) gikk ut på tid etter 75 min uten
+  merknader (sannsynligvis to iOS-simulatorer samtidig på en maskin med 7 GB). Nå: `build-for-testing` én gang, så
+  `test-without-building` på iPhone (alle testene) og iPad (et utvalg, `-only-testing`) etter hverandre, tidsgrense per
+  test, en vakthund (`limited <min> <logg> …`) som stopper xcodebuild før jobben går ut på tid, merknaden «tester
+  iphone/ipad» med hver test og tiden, og utdrag av loggene (`*-utdrag.txt`, `tider.txt`) i `skjermbilder-mobil`.
+  Tilgjengelighet på iOS: et kort med to knapper må ha `.accessibilityElement(children: .contain)`, ellers skriver
+  «kanal-…» på kortet over id-ene til knappene.
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.
