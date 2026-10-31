@@ -1,0 +1,28 @@
+# Viser de siste byggene i App Store Connect (behandlet, klare for TestFlight) og testgruppene, som merknad på jobben.
+# Startes for hånd: gh workflow run status.yml --repo ungerdas/fyrlys-tv
+name: Status i App Store Connect
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    name: Bygg i App Store Connect
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Byggene
+        env:
+          P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          umask 077
+          key="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s\n' "$P8" > "$key"
+          ASC_KEY_PATH="$key" python3 tools/asc.py builds
+          rm -f "$key"

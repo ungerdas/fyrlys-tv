@@ -7,6 +7,7 @@ ASC_KEY_PATH (.p8-fila), ASC_KEY_ID, ASC_ISSUER_ID og APPLE_TEAM_ID.
     python3 tools/asc.py prepare <mappe>        reserve: lager et distribusjonssertifikat og en App Store-profil
                                                 for denne kjøringen (nøkkel, sertifikat, profil og ExportOptions)
     python3 tools/asc.py cleanup <mappe>        sletter profilen og trekker tilbake sertifikatet prepare laget
+    python3 tools/asc.py builds                 de siste byggene i App Store Connect og om de er klare for TestFlight
 
 Skriver aldri ut nøkler eller tokens. Bare standardbiblioteket og openssl.
 """
@@ -220,6 +221,42 @@ def cleanup(folder):
     sys.exit(1 if failed else 0)
 
 
+def builds():
+    """De siste byggene, om de er ferdig behandlet, og testgruppene, som merknader i GitHub Actions."""
+    asc = Asc()
+    apps = asc.call("GET", "/v1/apps?filter[bundleId]=" + BUNDLE_ID).get("data", [])
+    apps = [a for a in apps if a["attributes"].get("bundleId") == BUNDLE_ID]
+    if not apps:
+        sys.exit(f"Ingen app med {BUNDLE_ID} i App Store Connect")
+    app = apps[0]["id"]
+    res = asc.call("GET", f"/v1/builds?filter[app]={app}&sort=-uploadedDate&limit=10"
+                          "&include=preReleaseVersion,buildBetaDetail")
+    included = {(i["type"], i["id"]): i for i in res.get("included", [])}
+    lines = []
+    for b in res.get("data", []):
+        a = b["attributes"]
+        rel = b.get("relationships", {})
+        version = included.get(("preReleaseVersions", (rel.get("preReleaseVersion", {}).get("data") or {}).get("id")))
+        detail = included.get(("buildBetaDetails", (rel.get("buildBetaDetail", {}).get("data") or {}).get("id")))
+        lines.append(" ".join([
+            f"{(version or {}).get('attributes', {}).get('version', '?')} ({a.get('version')})",
+            (version or {}).get("attributes", {}).get("platform", ""),
+            f"behandling: {a.get('processingState')}",
+            f"intern test: {(detail or {}).get('attributes', {}).get('internalBuildState', '?')}",
+            f"lastet opp {a.get('uploadedDate', '')[:16]}",
+            "utløpt" if a.get("expired") else "",
+        ]).strip())
+    if not lines:
+        lines.append("Ingen bygg i App Store Connect ennå")
+    groups = asc.call("GET", f"/v1/apps/{app}/betaGroups?limit=20").get("data", [])
+    lines.append("Testgrupper: " + (", ".join(
+        f"{g['attributes'].get('name')} ({'intern' if g['attributes'].get('isInternalGroup') else 'ekstern'})"
+        for g in groups) or "ingen"))
+    for line in lines:
+        print(line)
+    print("::notice title=App Store Connect::" + "%0A".join(lines))
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
@@ -232,6 +269,8 @@ def main():
         prepare(sys.argv[2])
     elif command == "cleanup" and len(sys.argv) == 3:
         cleanup(sys.argv[2])
+    elif command == "builds":
+        builds()
     else:
         sys.exit(__doc__)
 
