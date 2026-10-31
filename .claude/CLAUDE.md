@@ -79,4 +79,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   interne testgruppen). 0.1.1 (bygg 5) er den første som kom fram (VALID, IN_BETA_TESTING); 0.1.1 rettet at
   TV-siden hoppet til Favoritter ved første favoritt. Ikke prøvd på ekte Apple TV ennå, heller ikke ekte strømmer
   fra leverandøren hans (simulatoren spiller Apples eksempelstrøm).
+- Åpent (31.10): ikke bekreftet at Fyrlys kan installeres og spilles fra TestFlight på hans Apple TV. Han får en
+  e-post «Your Certificate Has Been Revoked» for hvert bygg (fra `asc.py cleanup`); tilbudt et fast sertifikat i
+  stedet (han lager nøkkel og forespørsel med openssl, laster opp på developer.apple.com, legger p12 + passord inn som
+  hemmeligheter `DIST_P12`/`DIST_P12_PASSWORD`, og `asc.py prepare` bruker det når Apple fortsatt har det), ikke
+  besvart ennå. Ikke laget.
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.
