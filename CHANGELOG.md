@@ -1,5 +1,9 @@
 # Endringer
 
+## v0.1.1
+
+- TV: siden hopper ikke lenger til Favoritter når du legger til den første favoritten.
+
 ## v0.1.0
 
 Første versjon for Apple TV:

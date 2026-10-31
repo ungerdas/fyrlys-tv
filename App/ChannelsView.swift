@@ -61,6 +61,9 @@ struct ChannelsView: View {
                 grid
                     .focusSection()
             }
+            // det som vises først, står til man velger noe annet (ellers hopper siden til Favoritter når den
+            // første favoritten legges til)
+            .onAppear { if chosen == nil { chosen = current } }
         }
     }
 

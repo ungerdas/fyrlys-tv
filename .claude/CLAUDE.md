@@ -65,12 +65,12 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `asc.py options`); virker ikke den, lager `asc.py prepare` et distribusjonssertifikat og en `TVOS_APP_STORE`-profil
   for kjøringen gjennom REST-API-et (JWT med openssl, bare standardbiblioteket), i en egen nøkkelring, og
   `asc.py cleanup` sletter dem etterpå (eieren får da en e-post om tilbaketrukket sertifikat). Opplasting med
-  `xcrun altool --upload-app -t appletvos`. Tilnærmingen er hentet fra andre prosjekter på GitHub som gjør det samme
-  uten Mac; ikke prøvd mot Apple ennå.
+  `xcrun altool --upload-app -t appletvos`. Skysigneringen virket første gang (31.10, 0.1.0), så reserven er ikke
+  prøvd. Hver push til main som består testene, blir et nytt bygg i TestFlight (versjonen fra `project.yml`).
 
 ## Status
-- 31.10.2026: v0.1.0 skrevet (TV, guide, søk, innstillinger, spiller). Utviklerkontoen hos Apple er aktiv (31.10).
-  TestFlight venter på at eieren registrerer `no.fyrlys.tv`, lager appen i App Store Connect og legger inn
-  `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` og `APPLE_TEAM_ID` som hemmeligheter i GitHub; da kommer en jobb som
-  arkiverer med `-allowProvisioningUpdates` og API-nøkkelen og laster opp. Ikke prøvd på ekte Apple TV ennå.
+- 31.10.2026: v0.1.0 (TV, guide, søk, innstillinger, spiller), alle UI-testene grønne i simulatoren, lastet opp til
+  TestFlight (eieren registrerte `no.fyrlys.tv`, laget appen i App Store Connect og la inn hemmelighetene). 0.1.1:
+  TV-siden hoppet til Favoritter ved første favoritt. Ikke prøvd på ekte Apple TV ennå, heller ikke ekte strømmer
+  fra leverandøren hans (simulatoren spiller Apples eksempelstrøm).
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.
