@@ -1,0 +1,136 @@
+# Bygger og tester Fyrlys for Apple TV: kjernen på Linux, appen i Apple TV-simulatoren mot en falsk leverandør
+# (tools/fake_xtream.py). Skjermbildene fra testene legges i grenen «skjermbilder». Feiler et steg, står slutten av
+# loggen som merknad på jobben («gh api repos/ungerdas/fyrlys-tv/check-runs/<jobb-id>/annotations»).
+name: Bygg
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bygg-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  kjerne:
+    name: Kjernen (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tester
+        run: |
+          mkdir -p build
+          swift --version
+          swift test --package-path Core 2>&1 | tee build/kjerne.log
+      - name: Merknad ved feil
+        if: failure()
+        run: |
+          f=build/kjerne.log
+          [ -f "$f" ] || exit 0
+          { grep -E "error:|failed|XCTAssert" "$f" | awk 'length($0) < 500 && !seen[$0]++' | head -n 40
+            echo; tail -n 30 "$f"; } > build/feil.txt
+          echo "::error title=kjerne::$(awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}' build/feil.txt)"
+
+  tvos:
+    name: Apple TV (simulator)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Velg Xcode
+        run: |
+          mkdir -p build
+          XCODE=$(python3 -c "
+          import glob, re
+          apps = [a for a in glob.glob('/Applications/Xcode_*.app') if re.fullmatch(r'.*/Xcode_[0-9.]+\.app', a)]
+          print(sorted(apps, key=lambda a: [int(x) for x in re.findall(r'\d+', a.split('Xcode_')[1])])[-1])")
+          echo "Xcode: $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version 2>&1 | tee build/xcode.log
+
+      - name: Lag prosjektet (XcodeGen)
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen 2>&1 | tail -n 3
+          xcodegen generate 2>&1 | tee build/xcodegen.log
+
+      - name: Finn simulatoren
+        run: python3 tools/simulator.py 2> >(tee build/simulator.log >&2) >> "$GITHUB_ENV"
+
+      - name: Bygg og test
+        run: |
+          nohup python3 tools/fake_xtream.py --port 8899 > build/falsk.log 2>&1 &
+          for i in 1 2 3 4 5; do
+            curl -sf "http://127.0.0.1:8899/player_api.php?username=test&password=test" > /dev/null && break
+            sleep 1
+          done
+          set +e
+          TEST_RUNNER_FYRLYS_TEST_SERVER=http://127.0.0.1:8899 xcodebuild test \
+            -project Fyrlys.xcodeproj -scheme Fyrlys \
+            -destination "platform=tvOS Simulator,id=$SIM_ID" \
+            -resultBundlePath build/Resultat.xcresult \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            > build/xcodebuild.log 2>&1
+          code=$?
+          grep -E "^Test (Case|Suite)|error:|\*\* .* \*\*" build/xcodebuild.log | tail -n 200
+          exit $code
+
+      - name: Skjermbilder
+        if: always()
+        run: |
+          [ -d build/Resultat.xcresult ] || exit 0
+          python3 tools/screenshots.py build/Resultat.xcresult build/bilder
+
+      - name: Legg skjermbildene i grenen skjermbilder
+        if: always()
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          ls build/bilder/*.png > /dev/null 2>&1 || { echo "Ingen skjermbilder"; exit 0; }
+          cd build/bilder
+          {
+            echo "# Skjermbilder"
+            echo
+            echo "Fra Apple TV-simulatoren i bygg ${{ github.run_number }} (${GITHUB_SHA::7}), mot den falske leverandøren"
+            echo "i \`tools/fake_xtream.py\` (oppdiktede kanaler). Lages på nytt av hvert bygg."
+            echo
+            for f in *.png; do echo "## ${f%.png}"; echo; echo "![${f%.png}]($f)"; echo; done
+          } > README.md
+          git init -q
+          git checkout -q -b skjermbilder
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Skjermbilder fra bygg ${{ github.run_number }} [skip ci]"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" skjermbilder
+
+      - name: Merknad ved feil
+        if: failure()
+        run: |
+          for f in build/xcode.log build/xcodegen.log build/simulator.log; do
+            [ -f "$f" ] || continue
+            if grep -qiE "error|fatal|not found|unable" "$f"; then
+              echo "::error title=$f::$(tail -n 40 "$f" | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')"
+            fi
+          done
+          f=build/xcodebuild.log
+          [ -f "$f" ] || exit 0
+          {
+            echo "Feil:"
+            grep -E "error:|failed \(|\*\* (BUILD|TEST) FAILED|Testing failed|XCTAssert|Fatal" "$f" \
+              | sed "s#$GITHUB_WORKSPACE/##g" | awk 'length($0) < 600 && !seen[$0]++' | head -n 60
+            echo
+            echo "Slutten av loggen:"
+            tail -n 25 "$f" | cut -c1-300
+          } > build/feil.txt
+          echo "::error title=xcodebuild::$(awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}' build/feil.txt)"
+          if [ -f build/falsk.log ]; then
+            echo "::warning title=falsk leverandør::$(tail -n 30 build/falsk.log | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
+          fi

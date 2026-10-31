@@ -1,0 +1,10 @@
+# laget av XcodeGen og bygget
+*.xcodeproj/
+build/
+DerivedData/
+.build/
+Core/.build/
+Core/.swiftpm/
+*.xcresult
+.DS_Store
+__pycache__/

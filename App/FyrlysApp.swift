@@ -1,0 +1,54 @@
+import FyrlysCore
+import SwiftUI
+
+@main
+struct FyrlysApp: App {
+    @State private var model = AppModel()
+
+    init() {
+        appLanguage = TestSupport.language ?? language(ofPreferred: Locale.preferredLanguages)
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            RootView()
+                .environment(model)
+                .preferredColorScheme(.dark)
+                .tint(Theme.signal)
+        }
+    }
+}
+
+struct RootView: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            switch model.phase {
+            case .starting:
+                ProgressView()
+            case .signedOut:
+                LoginView()
+            case .ready:
+                HomeView()
+            }
+        }
+        .foregroundStyle(Theme.ink)
+        .task { model.start() }
+    }
+}
+
+/// «1. november 2026» / «1 November 2026»
+func longDate(_ date: Date) -> String {
+    let format = DateFormatter()
+    format.locale = Locale(identifier: appLanguage == "no" ? "nb_NO" : "en_GB")
+    format.dateStyle = .long
+    format.timeStyle = .none
+    return format.string(from: date)
+}
+
+/// Versjonen fra Info.plist, f.eks. «0.1.0».
+var appVersion: String {
+    Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+}

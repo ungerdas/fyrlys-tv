@@ -1,0 +1,76 @@
+# Xcode-prosjektet lages av XcodeGen («xcodegen generate»), så det står ikke i repoet.
+name: Fyrlys
+options:
+  bundleIdPrefix: no.fyrlys
+  deploymentTarget:
+    tvOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: nb
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+
+packages:
+  FyrlysCore:
+    path: Core
+
+targets:
+  Fyrlys:
+    type: application
+    platform: tvOS
+    sources:
+      - path: App
+    dependencies:
+      - package: FyrlysCore
+    info:
+      path: build/Fyrlys-Info.plist
+      properties:
+        CFBundleDisplayName: Fyrlys
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: nb
+        CFBundleLocalizations: [nb, en]
+        UILaunchScreen: {}
+        UIUserInterfaceStyle: Dark
+        UIRequiredDeviceCapabilities: [arm64]
+        ITSAppUsesNonExemptEncryption: false
+        # leverandørene sender ofte over http
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: no.fyrlys.tv
+        PRODUCT_NAME: Fyrlys
+        TARGETED_DEVICE_FAMILY: "3"
+        ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon & Top Shelf Image"
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_PREVIEWS: NO
+
+  FyrlysUITests:
+    type: bundle.ui-testing
+    platform: tvOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: Fyrlys
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: no.fyrlys.tv.uitests
+        TEST_TARGET_NAME: Fyrlys
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "3"
+
+schemes:
+  Fyrlys:
+    build:
+      targets:
+        Fyrlys: all
+        FyrlysUITests: [test]
+    test:
+      targets:
+        - FyrlysUITests
+      gatherCoverageData: false
