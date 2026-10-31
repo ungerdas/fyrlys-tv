@@ -109,8 +109,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - 31.10.2026: 0.1.1 installert fra TestFlight på hans Apple TV 4K (virker), med leverandøren hans: 25 153 kanaler.
   Treg start og hakking, og han syntes den var «så zoomet inn» og ville ha den så lik Windows-appen som mulig, med
   favorittkategorier («land») han velger rekkefølgen på; bilder viste sidemenyen rulle inn under fanelinja og
-  hurtigrullingen oppå tallene. 0.1.2 retter det (se CHANGELOG). En topplinje som i Windows-appen ble skrevet, men
-  forkastet: han vil beholde fanelinja til Apple TV.
+  hurtigrullingen oppå tallene. 0.1.2 (bygg 6, VALID i TestFlight 31.10) retter det (se CHANGELOG); i simulatoren
+  med 25 000 kanaler kom første kort etter 6,6 s uten lista fra sist og 4,7 s med (med oppstarten). En topplinje som i
+  Windows-appen ble skrevet, men forkastet: han vil beholde fanelinja til Apple TV.
 - Åpent (31.10): 0.1.2 er ikke prøvd på Apple TV-en hans ennå (fart med 25 000 kanaler, de nye kortene, «Dine
   kategorier», at ingenting går inn under fanelinja). «Hjem» (startsiden i Windows-appen) finnes ikke i Apple TV-appen.
   Han får en e-post «Your Certificate Has Been Revoked» for hvert bygg (fra `asc.py cleanup`); anbefalt 31.10 i stedet
