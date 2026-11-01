@@ -337,8 +337,10 @@ final class FyrlysMobilUITests: XCTestCase {
     /// Serier med Plex: radene med nye episoder, og en episode spilles med en gang.
     func test20PlexSerier() {
         let app = launch("plex-series")
+        XCTAssertTrue(find(app, "fortsett-2001").waitForExistence(timeout: 40), "«Fortsett å se» fra Plex kom ikke")
         let episode = find(app, "rad-e2102")
-        XCTAssertTrue(episode.waitForExistence(timeout: 40), "radene med episoder fra Plex kom ikke")
+        if !episode.waitForExistence(timeout: 10) { shot("29-plex-serier-mangler") }
+        XCTAssertTrue(episode.waitForExistence(timeout: 20), "radene med episoder fra Plex kom ikke")
         wait(2)
         shot("29-plex-serier")
         episode.tap()
@@ -363,7 +365,13 @@ final class FyrlysMobilUITests: XCTestCase {
             + "http://127.0.0.1:8899/egen/kystnytt24/muxed.m3u8\nhttp://127.0.0.1:8899/egen/nrk1/muxed.m3u8"
         let app = launch("strommer", extra: ["FYRLYS_TEST_STREAMS": streams])
         let matched = find(app, "egen-strom-fjordkanalen")
-        XCTAssertTrue(matched.waitForExistence(timeout: 30), "de egne strømmene vises ikke")
+        // lista i Innstillinger på iPad lager radene først når de vises: rull fram til dem
+        XCTAssertTrue(find(app, "nrk-direkte").waitForExistence(timeout: 30), "innstillingene kom ikke")
+        for _ in 0..<8 where !(matched.exists && matched.isHittable) {
+            app.swipeUp()
+            wait(1.5)
+        }
+        XCTAssertTrue(matched.waitForExistence(timeout: 10), "de egne strømmene vises ikke")
         for _ in 0..<10 where !matched.label.contains("Fjordkanalen") { wait(1) }
         XCTAssertTrue(matched.label.contains("Fjordkanalen"), "kanalen ble ikke funnet: \(matched.label)")
         XCTAssertTrue(find(app, "egen-strom-kystnytt24").label.contains("Kystnytt 24"), "kanalen fra adressen mangler")

@@ -73,11 +73,13 @@ struct PlexHomeView: View {
     @ViewBuilder
     private func card(_ entry: VODRowItem, prefix: String) -> some View {
         if let episode = entry.episode {
+            // id-en på knappen selv (etter hurtigmenyen ble den borte av og til på iPhone og iPad)
             Button {
                 Task { await play(episode, show: entry.item) }
             } label: {
                 PosterCard(item: entry.item, episode: episode)
             }
+            .accessibilityIdentifier("\(prefix)\(entry.id)")
             .posterButtonStyle()
             .contextMenu {
                 Button {
@@ -86,7 +88,6 @@ struct PlexHomeView: View {
                     Label(L("Gå til serien"), systemImage: "rectangle.stack")
                 }
             }
-            .accessibilityIdentifier("\(prefix)\(entry.id)")
         } else {
             NavigationLink(value: entry.item) {
                 PosterCard(item: entry.item)

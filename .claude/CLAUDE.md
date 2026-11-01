@@ -390,5 +390,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Testskjermen `strommer`, `FYRLYS_TEST_STREAMS`; testene `test20EgneStrommer` (Apple TV, også at spilleren bruker
   adressen) og `test21EgneStrommer` (iPhone og iPad). Eieren svarte så «Bygg inn for alle.» → `builtInStreams` i
   Streams.swift (de fire NRK-adressene), brukt for alle (`AppModel.useBuiltInStreams`, «NRK direkte» av/på i
-  innstillingene, lagret som `innebygde-strommer-av`; egne strømmer for samme kanal går foran). Fortsatt bare for
+  innstillingene, lagret som `innebygde-strommer-av`; egne strømmer for samme kanal går foran).
+  Første bygg av 0.1.19 (bygg 35): iPad feilet i `test20PlexSerier` (id-en «rad-e…» på en knapp med `.contextMenu`
+  ble borte; nå settes id-en før hurtigmenyen) og `test21EgneStrommer` (Form på iPad er lat: testen ruller fram);
+  `Landscape.set(true)` i `onAppear` ble avvist mens arket kom inn (knappen virket senere), nå 0,6 s etter. Fortsatt bare for
   kanaler leverandøren har (navnet må bli nrk1/nrk2/nrk3/nrksuper), så programinfo, logo og favoritter er som før.

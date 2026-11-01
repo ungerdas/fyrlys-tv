@@ -938,9 +938,13 @@ struct VODPlayerView: View {
         .onAppear {
             guard model == nil else { return }
             #if os(iOS)
-            // iPhone: liggende, som i Apple TV-appen (også når skjermretningen er låst)
+            // iPhone: liggende, som i Apple TV-appen (også når skjermretningen er låst); når arket har kommet fram
+            // (mens det kommer inn, avvises det)
             wasLandscape = Landscape.isLandscape
-            Landscape.set(true)
+            Task {
+                try? await Task.sleep(for: .milliseconds(600))
+                Landscape.set(true)
+            }
             #endif
             let player = VODPlayerModel(app: app, play: play)
             model = player
@@ -952,7 +956,12 @@ struct VODPlayerView: View {
         .onDisappear {
             model?.stop()
             #if os(iOS)
-            if !wasLandscape { Landscape.set(false) }
+            if !wasLandscape {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    Landscape.set(false)
+                }
+            }
             #endif
         }
     }
