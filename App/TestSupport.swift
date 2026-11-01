@@ -4,7 +4,8 @@ import Foundation
 /// Når appen startes av testene på GitHub: en falsk leverandør (FYRLYS_TEST_SERVER), ingen nøkkelring, egne
 /// innstillinger som tømmes, og eventuelt rett til en skjerm (FYRLYS_TEST_SCREEN: login, tv, guide, search, settings,
 /// player, player-error, movies, series, archive = TV-arkivet for kanal 1, mkv = filmen 502 i VLC, mkv-feil = en film
-/// leverandøren ikke har; på iPhone også category = Sport og all = Alle kanaler).
+/// leverandøren ikke har, plex og plex-series = Filmer og Serier fra Plex (koblet til fra før), plex-link = koble til
+/// Plex med koden; på iPhone også category = Sport og all = Alle kanaler).
 enum TestSupport {
     static let env = ProcessInfo.processInfo.environment
 
@@ -15,6 +16,9 @@ enum TestSupport {
     static var login: Login? {
         server.map { Login(server: $0, username: "test", password: "test") }
     }
+
+    /// en falsk Plex (plex.tv og serveren, tools/fake_plex.py)
+    static var plexServer: String? { isActive ? env["FYRLYS_TEST_PLEX"] : nil }
 
     /// skjermen appen skal åpne på
     static var screen: String? { env["FYRLYS_TEST_SCREEN"] }

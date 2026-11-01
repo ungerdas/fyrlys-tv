@@ -6,6 +6,8 @@ import XCTest
 /// iPhone har oppsettet fra Fyrlys-nettsiden (topplinje, kategorifliser, egen side per kategori); iPad har sidemenyen.
 final class FyrlysMobilUITests: XCTestCase {
     var server: String { ProcessInfo.processInfo.environment["FYRLYS_TEST_SERVER"] ?? "http://127.0.0.1:8899" }
+    /// den falske Plex (tools/fake_plex.py)
+    var plex: String { ProcessInfo.processInfo.environment["FYRLYS_TEST_PLEX"] ?? "http://127.0.0.1:8897" }
     var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     override func setUpWithError() throws {
@@ -21,6 +23,7 @@ final class FyrlysMobilUITests: XCTestCase {
             "FYRLYS_TEST_SCREEN": screen,
             "FYRLYS_TEST_LANG": language,
             "FYRLYS_TEST_THEME": theme,
+            "FYRLYS_TEST_PLEX": plex,
         ]
         app.launch()
         return app
@@ -296,6 +299,34 @@ final class FyrlysMobilUITests: XCTestCase {
         let player = find(app, "vod-spiller")
         for _ in 0..<10 where player.exists { wait(1) }
         XCTAssertFalse(player.exists, "krysset lukket ikke spilleren")
+    }
+
+    /// Plex (koblet til fra før): filmene fra Plex, «Fortsett å se» fra Plex og siden for en film med «Fortsett».
+    func test18Plex() {
+        let app = launch("plex")
+        XCTAssertTrue(find(app, "vod-1001").waitForExistence(timeout: 40), "filmene fra Plex kom ikke")
+        XCTAssertTrue(find(app, "fortsett-1001").exists, "«Fortsett å se» fra Plex mangler")
+        wait(2)
+        shot("25-plex-filmer")
+        XCTAssertTrue(openPage(app, "vod-1001", then: "spill-av", timeout: 15), "siden for filmen kom ikke")
+        wait(2)
+        XCTAssertTrue(find(app, "spill-av").label.contains("0:12"), "«Fortsett» der Plex sier du slapp mangler")
+        shot("26-plex-film")
+    }
+
+    /// Koble til Plex (iPhone: arket fra Konto, iPad: Innstillinger): koden vises, og så kobles det til serveren.
+    func test19PlexKobling() {
+        let app = launch("plex-link")
+        let connect = find(app, "koble-til-plex")
+        XCTAssertTrue(connect.waitForExistence(timeout: 30), "«Koble til Plex» mangler")
+        connect.tap()
+        let code = find(app, "plex-kode")
+        XCTAssertTrue(code.waitForExistence(timeout: 15), "koden kom ikke")
+        XCTAssertEqual(code.label, "FYRL")
+        shot("27-plex-kode")
+        XCTAssertTrue(find(app, "plex-tilkoblet").waitForExistence(timeout: 40), "ble ikke koblet til Plex")
+        wait(1)
+        shot("28-plex-tilkoblet")
     }
 
     /// «Fra start» i spilleren (kanal 1 har TV-arkiv): direktesendingen lukkes, og programmet spilles fra arkivet.

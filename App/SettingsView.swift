@@ -2,13 +2,13 @@
 import FyrlysCore
 import SwiftUI
 
-/// Innstillinger: abonnementet, hent listene på nytt, logg ut, og versjonen.
+/// Innstillinger: abonnementet, innloggingene, Plex, hent listene på nytt, logg ut, og versjonen.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var confirmSignOut = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 100) {
+        HStack(alignment: .top, spacing: 70) {
             VStack(alignment: .leading, spacing: 24) {
                 FyrlysMark()
                     .frame(width: 200)
@@ -20,75 +20,83 @@ struct SettingsView: View {
             }
             .frame(width: 420, alignment: .leading)
 
-            VStack(alignment: .leading, spacing: 40) {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text(L("Abonnement"))
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundStyle(Theme.muted)
-                    if let login = model.login {
-                        row(L("Innlogget som {user}", ["user": login.label]))
-                    }
-                    if let account = model.account {
-                        if let expires = account.expires {
-                            row(L("Aktiv til {date}", ["date": longDate(expires)]))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 40) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(L("Abonnement"))
+                            .font(.system(size: 26, weight: .semibold))
+                            .foregroundStyle(Theme.muted)
+                        if let login = model.login {
+                            row(L("Innlogget som {user}", ["user": login.label]))
                         }
-                        if account.maxConnections > 0 {
-                            row(account.maxConnections == 1 ? L("1 tilkobling")
-                                : L("{n} tilkoblinger", ["n": account.maxConnections]))
-                        }
-                    }
-                    row(L("{n} kanaler i {c} kategorier", ["n": model.channels.count, "c": model.categories.count]))
-                }
-
-                VStack(alignment: .leading, spacing: 16) {
-                    Text(L("Innlogginger"))
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundStyle(Theme.muted)
-                    ForEach(model.logins.filter { $0.id != model.login?.id }, id: \.id) { other in
-                        Button {
-                            model.switchTo(other)
-                        } label: {
-                            Text(L("Bytt til {name}", ["name": other.label]))
-                                .frame(minWidth: 520, alignment: .leading)
-                        }
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                model.remove(other)
-                            } label: {
-                                Label(L("Fjern {name}", ["name": other.label]), systemImage: "trash")
+                        if let account = model.account {
+                            if let expires = account.expires {
+                                row(L("Aktiv til {date}", ["date": longDate(expires)]))
+                            }
+                            if account.maxConnections > 0 {
+                                row(account.maxConnections == 1 ? L("1 tilkobling")
+                                    : L("{n} tilkoblinger", ["n": account.maxConnections]))
                             }
                         }
+                        row(L("{n} kanaler i {c} kategorier", ["n": model.channels.count, "c": model.categories.count]))
                     }
-                    Button {
-                        model.addingLogin = true
-                    } label: {
-                        Label(L("Legg til innlogging"), systemImage: "plus")
-                            .frame(minWidth: 520, alignment: .leading)
-                    }
-                    .accessibilityIdentifier("legg-til-innlogging")
-                }
 
-                VStack(alignment: .leading, spacing: 24) {
-                    Button {
-                        Task { await model.reload() }
-                    } label: {
-                        HStack(spacing: 16) {
-                            if model.loading { ProgressView() }
-                            Text(L("Hent listene på nytt"))
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(L("Innlogginger"))
+                            .font(.system(size: 26, weight: .semibold))
+                            .foregroundStyle(Theme.muted)
+                        ForEach(model.logins.filter { $0.id != model.login?.id }, id: \.id) { other in
+                            Button {
+                                model.switchTo(other)
+                            } label: {
+                                Text(L("Bytt til {name}", ["name": other.label]))
+                                    .frame(minWidth: 520, alignment: .leading)
+                            }
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    model.remove(other)
+                                } label: {
+                                    Label(L("Fjern {name}", ["name": other.label]), systemImage: "trash")
+                                }
+                            }
                         }
-                        .frame(minWidth: 520, alignment: .leading)
+                        Button {
+                            model.addingLogin = true
+                        } label: {
+                            Label(L("Legg til innlogging"), systemImage: "plus")
+                                .frame(minWidth: 520, alignment: .leading)
+                        }
+                        .accessibilityIdentifier("legg-til-innlogging")
                     }
-                    .disabled(model.loading)
-                    Button(role: .destructive) {
-                        confirmSignOut = true
-                    } label: {
-                        Text(L("Logg ut"))
+
+                    PlexSettings()
+
+                    VStack(alignment: .leading, spacing: 24) {
+                        Button {
+                            Task { await model.reload() }
+                        } label: {
+                            HStack(spacing: 16) {
+                                if model.loading { ProgressView() }
+                                Text(L("Hent listene på nytt"))
+                            }
                             .frame(minWidth: 520, alignment: .leading)
+                        }
+                        .disabled(model.loading)
+                        Button(role: .destructive) {
+                            confirmSignOut = true
+                        } label: {
+                            Text(L("Logg ut"))
+                                .frame(minWidth: 520, alignment: .leading)
+                        }
+                        .accessibilityIdentifier("logg-ut")
                     }
-                    .accessibilityIdentifier("logg-ut")
                 }
+                // plass til knappene som vokser når de har fokus (rullelista klipper)
+                .padding(.vertical, 24)
+                .padding(.horizontal, 30)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Spacer(minLength: 0)
+            .hidesScrollIndex()
         }
         .padding(.horizontal, Theme.edge + 8)
         .padding(.vertical, 50)

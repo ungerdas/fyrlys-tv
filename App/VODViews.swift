@@ -26,7 +26,8 @@ struct VODTab: View {
                     VODDetailView(item: item)
                 }
         }
-        .task { await model.loadCategories() }
+        // på nytt når kilden byttes (en annen innlogging, eller Plex)
+        .task(id: model.version) { await model.loadCategories() }
     }
 
     @ViewBuilder
@@ -39,7 +40,13 @@ struct VODTab: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         } else if model.categories.isEmpty {
-            VODMessage(text: kind == .movies ? L("Ingen filmer hos leverandøren.") : L("Ingen serier hos leverandøren."))
+            if model.isPlex {
+                VODMessage(text: kind == .movies ? L("Ingen filmbiblioteker på Plex-serveren.")
+                           : L("Ingen seriebiblioteker på Plex-serveren."))
+            } else {
+                VODMessage(text: kind == .movies ? L("Ingen filmer hos leverandøren.")
+                           : L("Ingen serier hos leverandøren."))
+            }
         } else {
             #if os(iOS)
             if sizeClass == .compact { phone } else { split }
@@ -132,7 +139,7 @@ private struct PosterGrid: View {
 
     var body: some View {
         let items = category.flatMap { model.items[$0] }
-        let resume = app.continueItems(model.kind)
+        let resume = model.isPlex ? model.continueRow : app.continueItems(model.kind)
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 if !resume.isEmpty {
@@ -240,6 +247,16 @@ private struct PosterCard: View {
                     }
                 }
                 .clipped()
+                .overlay(alignment: .topTrailing) {
+                    if item.watched == true {
+                        Image(systemName: "checkmark.circle.fill")
+                            .symbolRenderingMode(.palette)
+                            .font(.system(size: Metrics.posterTitle + 6, weight: .semibold))
+                            .foregroundStyle(Theme.signalInk, Theme.signal)
+                            .padding(8)
+                            .accessibilityLabel(L("Sett"))
+                    }
+                }
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.name)
                     .font(.system(size: Metrics.posterTitle, weight: .semibold))
@@ -331,12 +348,12 @@ struct VODDetailView: View {
         .background(Theme.bg.ignoresSafeArea())
         .task { await load() }
         #if os(tvOS)
-        .fullScreenCover(item: $playing, onDismiss: { watched += 1 }) { play in
+        .fullScreenCover(item: $playing, onDismiss: closed) { play in
             VODPlayerView(play: play)
                 .environment(app)
         }
         #else
-        .sheet(item: $playing, onDismiss: { watched += 1 }) { play in
+        .sheet(item: $playing, onDismiss: closed) { play in
             VODPlayerView(play: play)
                 .environment(app)
                 .preferredColorScheme(.dark)
@@ -483,26 +500,56 @@ struct VODDetailView: View {
     private func load() async {
         guard details == nil else { return }
         do {
-            details = try await model.details(item)
+            let found = try await model.details(item)
+            if item.isPlex { syncProgress(found) }
+            details = found
             error = nil
         } catch {
             self.error = error.localizedDescription
         }
     }
 
+    /// Plex: hvor langt du har sett, slik Plex har det (også fra de andre Plex-appene).
+    private func syncProgress(_ found: VODDetails) {
+        if item.kind == .movies {
+            app.setProgress(item.progressKey, found.resume > 0 && !found.watched ? found.resume : nil)
+        }
+        for episode in found.seasons.flatMap(\.episodes) {
+            app.setProgress(episode.progressKey, episode.resume > 0 ? episode.resume : nil)
+        }
+    }
+
+    /// Spilleren er lukket: «Fortsett» og episodene viser hvor langt du kom, og med Plex hentes siden og «Fortsett å
+    /// se» på nytt (litt etter, så Plex har fått med seg det siste).
+    private func closed() {
+        watched += 1
+        guard item.isPlex else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            if let found = try? await model.details(item) {
+                syncProgress(found)
+                details = found
+                watched += 1
+            }
+            await model.refreshContinue()
+        }
+    }
+
     private func startMovie(at seconds: Double) {
-        guard let client = app.client else { return }
-        let urls = playableExtensions(details?.ext ?? item.ext).map { client.movieURL(item.id, ext: $0) }
+        let urls = model.movieURLs(item, details)
+        guard !urls.isEmpty else { return }
         playing = VODPlay(id: item.progressKey, urls: urls, title: item.name, subtitle: meta,
-                          progressKey: item.progressKey, start: seconds, item: item)
+                          progressKey: item.progressKey, start: seconds, item: item,
+                          plex: item.isPlex ? item.id : nil)
     }
 
     private func play(_ episode: Episode) {
-        guard let client = app.client else { return }
-        let urls = playableExtensions(episode.ext).map { client.episodeURL(episode, ext: $0) }
+        let urls = model.episodeURLs(episode)
+        guard !urls.isEmpty else { return }
         let subtitle = L("Sesong {s}, episode {e}", ["s": episode.season, "e": episode.number]) + ": " + episode.title
         playing = VODPlay(id: episode.progressKey, urls: urls, title: item.name, subtitle: subtitle,
-                          progressKey: episode.progressKey, start: app.progress(episode.progressKey), item: item)
+                          progressKey: episode.progressKey, start: app.progress(episode.progressKey), item: item,
+                          plex: episode.source == "plex" ? episode.id : nil)
     }
 }
 
@@ -533,6 +580,10 @@ private struct EpisodeRow: View {
                     Text(L("Sett til {time}", ["time": playTime(seen)]))
                         .font(.system(size: Metrics.detailText - 5, weight: .medium))
                         .foregroundStyle(Theme.signal)
+                } else if episode.watched {
+                    Label(L("Sett"), systemImage: "checkmark")
+                        .font(.system(size: Metrics.detailText - 5, weight: .medium))
+                        .foregroundStyle(Theme.muted)
                 }
             }
             Spacer(minLength: 0)
@@ -624,6 +675,8 @@ struct VODPlay: Identifiable {
     let start: Double
     /// filmen eller serien (for «Fortsett å se»); nil for TV-arkivet
     var item: VODItem?
+    /// Plex: ratingKey for filmen eller episoden (hvor langt du har sett, sendes til Plex)
+    var plex: String?
 
     /// Et program fra TV-arkivet, fra start.
     static func archive(_ channel: Channel, _ program: Program, client: XtreamClient, clock: TimeInterval?) -> VODPlay {
@@ -656,6 +709,8 @@ final class VODPlayerModel {
     @ObservationIgnored private var started = false
     @ObservationIgnored private var observation: NSKeyValueObservation?
     @ObservationIgnored private var saver: Task<Void, Never>?
+    /// Plex: merket som sett (én gang)
+    @ObservationIgnored private var scrobbled = false
 
     init(app: AppModel, play: VODPlay) {
         self.app = app
@@ -730,34 +785,45 @@ final class VODPlayerModel {
     }
 
     private func ended() {
-        save()
+        save(final: true)
         finished = true
     }
 
-    func save() {
-        let t: Double, duration: Double
+    /// Husker hvor langt du har sett (på enheten, og hos Plex for filmer og serier derfra). [final]: spilleren lukkes.
+    func save(final: Bool = false) {
+        let t: Double, duration: Double, paused: Bool
         if let vlc {
             guard vlc.started else { return }
             t = vlc.time
             duration = vlc.length
+            paused = !vlc.isPlaying
         } else {
             guard started else { return }
             t = player.currentTime().seconds
             duration = player.currentItem?.duration.seconds ?? 0
+            paused = player.rate == 0
         }
         guard t.isFinite, t > 30 else { return }
-        if duration.isFinite, duration > 0, duration - t < 120 {
+        let done = duration.isFinite && duration > 0 && duration - t < 120
+        if done {
             app.setProgress(play.progressKey, nil)
             // en ferdig film tas ut av «Fortsett å se» (en serie står til neste episode)
-            if let item = play.item, item.kind == .movies { app.forgetContinue(item) }
+            if let item = play.item, item.kind == .movies, !item.isPlex { app.forgetContinue(item) }
         } else {
             app.setProgress(play.progressKey, t)
-            if let item = play.item { app.rememberContinue(item) }
+            if let item = play.item, !item.isPlex { app.rememberContinue(item) }
+        }
+        if let key = play.plex, !(scrobbled && final) {
+            let state: PlexClient.PlayState = final ? .stopped : (paused ? .paused : .playing)
+            let markWatched = final && done && !scrobbled
+            if markWatched { scrobbled = true }
+            app.plex.report(key, time: t, duration: duration.isFinite ? duration : 0, state: state,
+                            finished: markWatched)
         }
     }
 
     func stop() {
-        save()
+        save(final: true)
         saver?.cancel()
         saver = nil
         observation?.invalidate()

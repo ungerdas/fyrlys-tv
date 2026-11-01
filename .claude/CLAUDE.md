@@ -199,7 +199,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   er for produksjon; Metal bare som lapp), KSPlayer er GPL. `playAttempts` (Core): Apples avspiller for
   mp4/m4v/mov/m3u8, ellers VLC; er ingen av adressene for VLC, prøves den første med VLC til slutt (TV-arkivet:
   m3u8 med AVPlayer, så .ts med VLC). `App/VLCPlayer.swift`: `VLCEngine` (@Observable; `VLCMediaPlayer` med
-  `drawable` = `surface`, hendelsene via `VLCEvents` til hovedtråden; valg per media: `:http-user-agent`,
+  `drawable` = `surface` (`VLCSurfaceView`: VLC sin visning inni får alltid samme ramme; i 0.1.15 sto bildet
+  forskjøvet mot høyre i arket på iPhone/iPad), hendelsene via `VLCEvents` til hovedtråden; valg per media: `:http-user-agent`,
   `:network-caching=3000`, `:start-time`, `:sub-language=nor,…` når appen er på norsk; feil = `.error`, eller
   `.ended`/`.stopped` før tiden har gått, eller ingen tid etter 45 s; skrur av skjermsparer/lås mens den spiller) og
   `VLCPlayerScreen` (egne kontroller: Apple TV en usynlig knapp over hele skjermen med fokus, venstre/høyre spoler 10
@@ -207,6 +208,32 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   lukker; iOS trykk for kontrollene, `lukk-vod`, ±10 s, `vod-pause`, Slider; tiden `vod-tid`; kontrollene skjules
   ikke i testene). `VODPlayerModel.vlc` velger visningen i `VODPlayerView`; `finished` lukker når VLC er ferdig.
   Testene `test15Mkv`/`test16MkvFeil` (Apple TV) og `test17Mkv` (iPhone og iPad). Ikke prøvd på ekte enheter ennå.
+- **Plex fra 0.1.16** (eieren: «en Plex fane eller noe, som erstattet Filmer/Serier hvis man ville å koble til Plex.
+  Gjerne litt som Plezy», så «Gjør noe med det»; Plezy er GPL/Flutter, bare inspirasjon): `Core/.../Plex.swift`
+  (`PlexDevice` = X-Plex-hodene med en fast `clientId` per installasjon (`plex-klient` i innstillingene);
+  `PlexAccountClient` mot plex.tv: `POST /api/v2/pins?strong=false` (fire tegn til plex.tv/link), `GET
+  /api/v2/pins/<id>` til `authToken` kommer, `GET /api/v2/resources?includeHttps=1&includeRelay=1` (bare
+  `provides` server, de du eier først); `PlexClient` mot serveren med `X-Plex-Token` i hodet: `reachable` prøver
+  tilkoblingene samtidig og tar den beste som svarer på `/identity` (lokale, så utenfra, så relé), `libraries`
+  (`/library/sections`, movie/show), `items` (`/library/sections/<n>/all?sort=addedAt:desc`), `details`
+  (`/library/metadata/<id>`, serier + `/allLeaves`), `continueWatching` (`/hubs/continueWatching/items`, ellers
+  `/library/onDeck`; episodene blir serien sin), `imageURL` (`/photo/:/transcode`, nøkkelen i adressen), `fileURL`
+  (`/library/parts/…/file.<ext>?X-Plex-Token=`, spilles direkte; VLC for mkv), `timeline` (playing/paused/stopped,
+  ms) og `scrobble`). `VODItem.source`/`Episode.source` = "plex" (nøklene for hvor langt: `plex:<ratingKey>`), og
+  `fileKey`/`resume`/`watched`. `App/PlexModel.swift` (`AppModel.plex`: `Phase` off/linking(kode)/choosing/
+  connecting/connected/failed, nøkkelen og serveren i nøkkelringen (`Keychain.savePlex`, konto `plex`) med adressen
+  som svarte sist, `useForVOD` (`plex-filmer`, satt første gang det kobles til), `report` → timeline/scrobble).
+  `VODModel` har en `VODBackend` (xtream, plex, waiting mens Plex kobler til, unavailable(feil)); `AppModel.
+  refreshVOD()` ved innlogging og når Plex endres (`onChange`), `VODTab` henter på nytt med `.task(id:
+  model.version)`. Plex: «Fortsett å se» fra Plex (`continueRow`), hvor langt du har sett hentes ned fra Plex når
+  siden åpnes (`syncProgress`) og sendes opp av `VODPlayerModel.save` (hvert 10. s, `stopped` ved lukking, `scrobble`
+  én gang nær slutten); siden og raden hentes på nytt 1,5 s etter at spilleren er lukket. `App/PlexSettings.swift`:
+  seksjonen i Innstillinger (Apple TV i en rulleliste nå, iPad i Form) og `PlexSheet` fra Konto på iPhone
+  (`plex-innstillinger`); id-ene `koble-til-plex`, `plex-kode`, `plex-tilkoblet`, `vod-kilde`, `koble-fra-plex`.
+  Falsk Plex: `tools/fake_plex.py` (port 8897, `FYRLYS_TEST_PLEX`; koden FYRL gir nøkkelen tredje gang, serveren
+  «Hjemmekino» med en lokal tilkobling som ikke svarer og en som gjør det, filmene 1001–1003, serien 2001), og
+  testskjermene `plex`/`plex-series` (koblet til fra før) og `plex-link`; testene `test17Plex`/`test18PlexKobling`
+  (Apple TV) og `test18Plex`/`test19PlexKobling` (iPhone og iPad). Ikke prøvd mot en ekte Plex-server ennå.
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -321,4 +348,5 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - 1.11.2026: eieren spurte «kan du forbedre det du kan?» → 0.1.14 (bygg 30, VALID for TV_OS og IOS): se fra start,
   «Fortsett å se», «Åpne i VLC». Så: «hvorfor kan den ikke spille av MKV? andre klienter klarer jo å spille av filmer
   og serier uten problem» → forklart (AVPlayer kan ikke mkv), foreslått en innebygd avspiller, han svarte «Ja». 0.1.15
-  = VLC (se Arkitektur).
+  = VLC (se Arkitektur). Samme dag ønsket han Plex i stedet for Filmer/Serier («Gjør noe med det når du har
+  mulighet») → 0.1.16.

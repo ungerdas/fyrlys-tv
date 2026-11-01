@@ -42,7 +42,7 @@ final class VLCEngine {
     @ObservationIgnored private var watchdog: Task<Void, Never>?
 
     init() {
-        surface = UIView()
+        surface = VLCSurfaceView()
         surface.backgroundColor = .black
         player.drawable = surface
         player.delegate = events
@@ -185,6 +185,25 @@ private final class VLCEvents: NSObject, VLCMediaPlayerDelegate {
     func mediaPlayerTimeChanged(_ aNotification: Notification) {
         DispatchQueue.main.async { [weak self] in
             MainActor.assumeIsolated { self?.engine?.timeChanged() }
+        }
+    }
+}
+
+/// Der VLC tegner bildet: VLC legger sin egen visning inni, og den følger alltid størrelsen på denne. I et ark på
+/// iPhone og iPad (0.1.15) ble bildet ellers stående forskjøvet mot høyre.
+final class VLCSurfaceView: UIView {
+    override func didAddSubview(_ subview: UIView) {
+        super.didAddSubview(subview)
+        subview.frame = bounds
+        subview.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        for view in subviews where view.frame != bounds {
+            view.frame = bounds
+            view.setNeedsLayout()
         }
     }
 }

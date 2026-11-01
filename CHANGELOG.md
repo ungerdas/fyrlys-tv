@@ -1,5 +1,16 @@
 # Endringer
 
+## v0.1.16
+
+- Plex: koble til under Innstillinger (Konto på iPhone). Apple TV-en viser en kode du skriver inn på plex.tv/link, og
+  har kontoen flere servere, velger du én. Fyrlys finner selv adressen som svarer (hjemmenettet først).
+- Med Plex viser fanene Filmer og Serier bibliotekene dine fra Plex, sist lagt til først, med plakatene, siden for hver
+  film og serie og episodene sesong for sesong. Du kan bytte tilbake til filmene og seriene fra IPTV-leverandøren i
+  innstillingene.
+- Filene spilles rett fra Plex-serveren (mkv med VLC). Hvor langt du har sett, sendes til Plex, ferdige filmer og
+  episoder merkes som sett, og «Fortsett å se» kommer fra Plex, så det stemmer med de andre Plex-appene.
+- iPhone og iPad: bildet fra VLC (mkv) sto forskjøvet mot høyre i 0.1.15. Det følger nå størrelsen på spilleren.
+
 ## v0.1.15
 
 - Filmer og serier i mkv, avi og andre filtyper Apple-enhetene ikke spiller selv, spilles nå i Fyrlys, med VLC bygget

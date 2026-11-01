@@ -18,9 +18,14 @@ public struct VODItem: Codable, Hashable, Identifiable, Sendable {
     public let year: String?
     /// filmer: filtypen hos leverandøren (mp4, mkv …)
     public let ext: String?
+    /// hvor den kommer fra: nil = IPTV-leverandøren, "plex" = Plex (id er da ratingKey)
+    public var source: String?
+    /// Plex: sett ferdig
+    public var watched: Bool?
 
     public init(id: String, kind: VODKind, name: String, poster: String? = nil, categoryId: String = "",
-                rating: Double? = nil, year: String? = nil, ext: String? = nil) {
+                rating: Double? = nil, year: String? = nil, ext: String? = nil, source: String? = nil,
+                watched: Bool? = nil) {
         self.id = id
         self.kind = kind
         self.name = name
@@ -29,10 +34,14 @@ public struct VODItem: Codable, Hashable, Identifiable, Sendable {
         self.rating = rating
         self.year = year
         self.ext = ext
+        self.source = source
+        self.watched = watched
     }
 
+    public var isPlex: Bool { source == "plex" }
+
     /// nøkkelen for hvor langt man har sett (filmer; episodene har sin egen)
-    public var progressKey: String { "\(kind.rawValue):\(id)" }
+    public var progressKey: String { isPlex ? "plex:\(id)" : "\(kind.rawValue):\(id)" }
 }
 
 /// En episode i en serie.
@@ -46,9 +55,16 @@ public struct Episode: Hashable, Identifiable, Sendable {
     public let duration: String
     public let image: String?
     public let ext: String
+    /// nil = IPTV-leverandøren, "plex" = Plex
+    public var source: String?
+    /// Plex: fila på serveren (/library/parts/…), hvor langt du har sett (sekunder) og om den er sett
+    public var fileKey: String?
+    public var resume: Double = 0
+    public var watched = false
 
     public init(id: String, season: Int, number: Int, title: String, plot: String = "", duration: String = "",
-                image: String? = nil, ext: String = "mp4") {
+                image: String? = nil, ext: String = "mp4", source: String? = nil, fileKey: String? = nil,
+                resume: Double = 0, watched: Bool = false) {
         self.id = id
         self.season = season
         self.number = number
@@ -57,9 +73,13 @@ public struct Episode: Hashable, Identifiable, Sendable {
         self.duration = duration
         self.image = image
         self.ext = ext
+        self.source = source
+        self.fileKey = fileKey
+        self.resume = resume
+        self.watched = watched
     }
 
-    public var progressKey: String { "episode:\(id)" }
+    public var progressKey: String { source == "plex" ? "plex:\(id)" : "episode:\(id)" }
 }
 
 public struct Season: Hashable, Identifiable, Sendable {
@@ -83,6 +103,10 @@ public struct VODDetails: Sendable {
     public var ext: String?
     /// serier
     public var seasons: [Season] = []
+    /// Plex (filmer): fila på serveren, hvor langt du har sett (sekunder) og om den er sett
+    public var fileKey: String?
+    public var resume: Double = 0
+    public var watched = false
 
     public init() {}
 }

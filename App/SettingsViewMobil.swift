@@ -45,6 +45,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("legg-til-innlogging")
                 }
                 .listRowBackground(Theme.surface)
+                PlexSettings()
                 Section(L("Utseende")) {
                     Picker(L("Utseende"), selection: $appearance) {
                         Text(L("Som enheten")).tag("")

@@ -48,6 +48,8 @@ final class AppModel {
     /// filmer og serier (VOD)
     let movies = VODModel(kind: .movies)
     let series = VODModel(kind: .series)
+    /// Plex: filmer og serier derfra i stedet for fra IPTV-leverandøren, når det er valgt
+    let plex = PlexModel()
     private let cache = TestSupport.listCache
     private let defaults = TestSupport.defaults
     @ObservationIgnored private var cloudStore: CloudStore?
@@ -79,6 +81,11 @@ final class AppModel {
 
     func start() {
         guard phase == .starting else { return }
+        plex.onChange = { [weak self] in self?.refreshVOD() }
+        for vod in [movies, series] {
+            vod.reconnect = { [weak self] in self?.plex.retry() }
+        }
+        plex.start()
         if TestSupport.isActive {
             if TestSupport.screen != "login", let test = TestSupport.login {
                 use(test)
@@ -146,8 +153,7 @@ final class AppModel {
         index = .empty
         allChannels = []
         programs.reset(client: nil)
-        movies.reset(client: nil)
-        series.reset(client: nil)
+        refreshVOD()
         phase = .signedOut
     }
 
@@ -164,8 +170,7 @@ final class AppModel {
         library = Library(store: store, loginId: login.id)
         libraryVersion += 1
         programs.reset(client: client)
-        movies.reset(client: client)
-        series.reset(client: client)
+        refreshVOD()
         clock = nil
         let cache = cache
         let id = login.id
@@ -253,6 +258,24 @@ final class AppModel {
         guard let next = pendingReplay else { return }
         pendingReplay = nil
         replay = next
+    }
+
+    // ── filmer og serier: fra IPTV-leverandøren eller fra Plex ──
+
+    /// Hvor fanene Filmer og Serier henter fra nå.
+    private var vodBackend: VODBackend? {
+        if plex.useForVOD && (plex.server != nil || plex.phase != .off) {
+            if let client = plex.client { return .plex(client) }
+            if case .failed(let message) = plex.phase { return .unavailable(message) }
+            return .waiting
+        }
+        return client.map { .xtream($0) }
+    }
+
+    func refreshVOD() {
+        let backend = vodBackend
+        movies.reset(backend)
+        series.reset(backend)
     }
 
     // ── «Fortsett å se»: filmene og seriene du har begynt på, sist sett først ──

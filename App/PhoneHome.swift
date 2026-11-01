@@ -57,6 +57,7 @@ private struct PhoneTopBar: View {
     @Environment(\.colorScheme) private var scheme
     @AppStorage(Appearance.key, store: TestSupport.defaults) private var stored = ""
     @State private var account = TestSupport.screen == "settings"
+    @State private var plex = TestSupport.screen == "plex-link"
 
     var body: some View {
         HStack(spacing: 10) {
@@ -94,10 +95,23 @@ private struct PhoneTopBar: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("konto")
             .popover(isPresented: $account, arrowEdge: .top) {
-                AccountMenu { account = false }
+                AccountMenu {
+                    account = false
+                } openPlex: {
+                    account = false
+                    // arket vises når menyen har lukket seg
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(450))
+                        plex = true
+                    }
+                }
+                .environment(model)
+                .presentationCompactAdaptation(.popover)
+                .presentationBackground(Theme.surface)
+            }
+            .sheet(isPresented: $plex) {
+                PlexSheet()
                     .environment(model)
-                    .presentationCompactAdaptation(.popover)
-                    .presentationBackground(Theme.surface)
             }
         }
         .padding(.horizontal, 16)
@@ -118,6 +132,7 @@ private struct AccountMenu: View {
     @Environment(AppModel.self) private var model
     @State private var confirmSignOut = false
     let done: () -> Void
+    let openPlex: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -181,6 +196,12 @@ private struct AccountMenu: View {
             }
             .buttonStyle(PressStyle())
             .accessibilityIdentifier("legg-til-innlogging")
+            Button(action: openPlex) {
+                menuButton(model.plex.client != nil
+                           ? L("Plex: {server}", ["server": model.plex.server?.name ?? ""]) : L("Plex …"))
+            }
+            .buttonStyle(PressStyle())
+            .accessibilityIdentifier("plex-innstillinger")
             Text(L("Fyrlys {version}", ["version": appVersion]))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Theme.muted)

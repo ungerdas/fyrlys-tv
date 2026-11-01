@@ -4,6 +4,8 @@ import XCTest
 /// skjermbilder (de legges i grenen «skjermbilder» av bygget på GitHub).
 final class FyrlysUITests: XCTestCase {
     var server: String { ProcessInfo.processInfo.environment["FYRLYS_TEST_SERVER"] ?? "http://127.0.0.1:8899" }
+    /// den falske Plex (tools/fake_plex.py)
+    var plex: String { ProcessInfo.processInfo.environment["FYRLYS_TEST_PLEX"] ?? "http://127.0.0.1:8897" }
     let remote = XCUIRemote.shared
 
     override func setUpWithError() throws {
@@ -17,6 +19,7 @@ final class FyrlysUITests: XCTestCase {
             "FYRLYS_TEST_SERVER": server ?? self.server,
             "FYRLYS_TEST_SCREEN": screen,
             "FYRLYS_TEST_LANG": language,
+            "FYRLYS_TEST_PLEX": plex,
         ]
         // lista fra sist og innstillingene står (ellers tømmes de ved start)
         if keep { app.launchEnvironment["FYRLYS_TEST_KEEP"] = "1" }
@@ -280,6 +283,65 @@ final class FyrlysUITests: XCTestCase {
             wait(2)
         }
         XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
+    }
+
+    /// Venter til teksten i [element] er en annen enn [from] (og ikke «0:00»): tiden i spilleren går.
+    func changes(_ element: XCUIElement, from: String, timeout: Int = 40) -> Bool {
+        for _ in 0..<timeout {
+            if element.exists, element.label != from, element.label != "0:00" { return true }
+            wait(1)
+        }
+        return false
+    }
+
+    /// Plex (koblet til fra før): bibliotekene som kategorier, «Fortsett å se» fra Plex, siden for en film med
+    /// «Fortsett» der Plex sier du slapp, og filmen (mkv) spilles rett fra serveren med VLC.
+    func test17Plex() {
+        let app = launch("plex")
+        let movie = find(app, "vod-1001")
+        XCTAssertTrue(movie.waitForExistence(timeout: 40), "filmene fra Plex kom ikke")
+        XCTAssertTrue(find(app, "vodkat-1").exists, "biblioteket Filmer mangler")
+        XCTAssertFalse(find(app, "vodkat-3").exists, "musikkbiblioteket skal ikke vises")
+        XCTAssertTrue(find(app, "fortsett-1001").exists, "«Fortsett å se» fra Plex mangler")
+        wait(2)
+        shot("28-plex-filmer")
+        XCTAssertTrue(focus(app, movie), "fikk ikke fokus på filmen")
+        remote.press(.select)
+        let play = find(app, "spill-av")
+        XCTAssertTrue(play.waitForExistence(timeout: 15), "siden for filmen kom ikke")
+        wait(2)
+        XCTAssertTrue(play.label.contains("0:12"), "«Fortsett» der Plex sier du slapp mangler: \(play.label)")
+        shot("29-plex-film")
+        remote.press(.select)
+        let time = find(app, "vod-tid")
+        XCTAssertTrue(time.waitForExistence(timeout: 20), "spilleren kom ikke")
+        let first = time.label
+        XCTAssertTrue(changes(time, from: first), "tiden gikk ikke (filmen fra Plex spilte ikke)")
+        wait(2)
+        shot("30-plex-spiller")
+        let player = find(app, "vod-spiller")
+        for _ in 0..<3 where player.exists {
+            remote.press(.menu)
+            wait(2)
+        }
+        XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
+    }
+
+    /// Koble til Plex under Innstillinger: koden vises, og når den er «skrevet inn» (den falske plex.tv gir nøkkelen
+    /// tredje gang), kobles det til serveren som svarer.
+    func test18PlexKobling() {
+        let app = launch("plex-link")
+        let connect = find(app, "koble-til-plex")
+        XCTAssertTrue(connect.waitForExistence(timeout: 30), "«Koble til Plex» mangler")
+        XCTAssertTrue(focus(app, connect), "fikk ikke fokus på «Koble til Plex»")
+        remote.press(.select)
+        let code = find(app, "plex-kode")
+        XCTAssertTrue(code.waitForExistence(timeout: 15), "koden kom ikke")
+        XCTAssertEqual(code.label, "FYRL")
+        shot("31-plex-kode")
+        XCTAssertTrue(find(app, "plex-tilkoblet").waitForExistence(timeout: 40), "ble ikke koblet til Plex")
+        wait(1)
+        shot("32-plex-tilkoblet")
     }
 
     /// En film leverandøren ikke har: VLC gir opp, og forklaringen vises.

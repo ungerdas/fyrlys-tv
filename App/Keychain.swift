@@ -33,6 +33,18 @@ enum Keychain {
         return []
     }
 
+    /// Plex-tilkoblingen (nøkkelen og serveren), under en egen konto.
+    static func savePlex(_ data: Data?) {
+        SecItemDelete(query("plex") as CFDictionary)
+        guard let data else { return }
+        var q = query("plex")
+        q[kSecValueData as String] = data
+        q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        SecItemAdd(q as CFDictionary, nil)
+    }
+
+    static func loadPlex() -> Data? { read("plex") }
+
     private static func read(_ account: String) -> Data? {
         var q = query(account)
         q[kSecReturnData as String] = true

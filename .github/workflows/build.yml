@@ -80,6 +80,7 @@ jobs:
           # den vanlige falske leverandøren, og en stor (25 000 kanaler) til testen av farten
           nohup python3 tools/fake_xtream.py --port 8899 > build/falsk.log 2>&1 &
           nohup python3 tools/fake_xtream.py --port 8898 --kanaler 25000 --kategorier 450 > build/stor.log 2>&1 &
+          nohup python3 tools/fake_plex.py --port 8897 > build/plex.log 2>&1 &
           for port in 8899 8898; do
             for i in 1 2 3 4 5 6 7 8 9 10; do
               curl -sf "http://127.0.0.1:$port/player_api.php?username=test&password=test" > /dev/null && break
@@ -88,6 +89,7 @@ jobs:
           done
           set +e
           TEST_RUNNER_FYRLYS_TEST_SERVER=http://127.0.0.1:8899 \
+          TEST_RUNNER_FYRLYS_TEST_PLEX=http://127.0.0.1:8897 \
           TEST_RUNNER_FYRLYS_TEST_SERVER_STOR=http://127.0.0.1:8898 xcodebuild test \
             -project Fyrlys.xcodeproj -scheme Fyrlys \
             -destination "platform=tvOS Simulator,id=$SIM_ID" \
@@ -194,6 +196,7 @@ jobs:
       - name: Bygg og test
         run: |
           nohup python3 tools/fake_xtream.py --port 8899 > build/falsk.log 2>&1 &
+          nohup python3 tools/fake_plex.py --port 8897 > build/plex.log 2>&1 &
           for i in 1 2 3 4 5 6 7 8 9 10; do
             curl -sf "http://127.0.0.1:8899/player_api.php?username=test&password=test" > /dev/null && break
             sleep 1
@@ -214,6 +217,7 @@ jobs:
           }
           # testene leser leverandøren fra miljøet (TEST_RUNNER_ gir den videre til testprosessen)
           export TEST_RUNNER_FYRLYS_TEST_SERVER=http://127.0.0.1:8899
+          export TEST_RUNNER_FYRLYS_TEST_PLEX=http://127.0.0.1:8897
           common="-project Fyrlys.xcodeproj -scheme FyrlysMobil -derivedDataPath build/dd"
           # en test som feiler, kjøres én gang til: simulatoren rekker av og til ikke å starte appen, eller et trykk tas ikke
           timeouts="-test-timeouts-enabled YES -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 360 -retry-tests-on-failure -test-iterations 2"
@@ -230,7 +234,7 @@ jobs:
           iphone=$?
           xcrun simctl shutdown "$IPHONE_ID" 2>/dev/null
           only=""
-          for t in test01Login test02TV test04DineKategorier test05Guide test07Player test09Settings test11Rulling test12Lys test13Filmer test17Mkv; do
+          for t in test01Login test02TV test04DineKategorier test05Guide test07Player test09Settings test11Rulling test12Lys test13Filmer test17Mkv test18Plex test19PlexKobling; do
             only="$only -only-testing:FyrlysMobilUITests/FyrlysMobilUITests/$t"
           done
           limited 20 build/test-ipad.log \
