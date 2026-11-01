@@ -237,4 +237,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   også sol/måne og Konto; Apple TV er alltid mørk og har Innstillinger i fanelinja). 0.1.10 (bygg 25) er i
   TestFlight, VALID for TV_OS og IOS; sertifikatet fra bygg 24 ble brukt igjen (merknaden «Bruker
   distribusjonssertifikatet fra før»), så `DIST_KEY` virker. Fartstesten 5,8 s uten lista fra sist og 4,4 s med.
+  Eieren prøvde 0.1.10 på Apple TV-en samme natt: «Syntes dette var konge jeg!» Sidemenyen, fire kort i bredden,
+  radene øverst og merket er altså godkjent; ikke endre uten at han ber om det.
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.
