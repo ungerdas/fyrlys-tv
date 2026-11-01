@@ -10,6 +10,10 @@
 - Seriesiden har en knapp rett til episoden du skal se: «Fortsett S1 E3 (4:45)» når du er midt i en, ellers «Neste:
   S1 E4» etter den siste du har sett, eller «Spill av S1 E1». Sesongen med episoden er valgt når siden åpnes.
   Episoder du har sett ferdig, er merket «Sett» (også fra IPTV-leverandøren).
+- Egne strømmer: lim inn adresser (m3u8) under Innstillinger (Konto på iPhone), én per linje, så spilles de i stedet
+  for leverandørens for kanalene de gjelder. Kanalen finnes ut fra navnet i adressen («…/nrk1/muxed.m3u8» er NRK1),
+  eller skriv «Kanalnavn = adresse». Adressene deles med iCloud, så det holder å lime dem inn på iPhonen; Apple TV-en
+  viser hvilke kanaler de gjelder.
 
 ## v0.1.18
 

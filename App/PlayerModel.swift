@@ -30,12 +30,13 @@ final class PlayerModel {
     var isFavorite: Bool { app.isFavorite(channel) }
 
     func open(_ channel: Channel) {
-        guard let client = app.client else { return }
+        // leverandørens strøm, eller en egen (Innstillinger → Egne strømmer)
+        guard let url = app.streamURL(channel) else { return }
         self.channel = channel
         error = nil
         generation += 1
         let gen = generation
-        let asset = AVURLAsset(url: client.liveURL(channel), options: [AVURLAssetHTTPUserAgentKey: xtreamUserAgent])
+        let asset = AVURLAsset(url: url, options: [AVURLAssetHTTPUserAgentKey: xtreamUserAgent])
         let item = AVPlayerItem(asset: asset)
         item.externalMetadata = metadata()
         stopObserving()
@@ -149,7 +150,7 @@ final class PlayerModel {
         if let account = try? await client.account(), account.maxConnections > 0,
            account.activeConnections >= account.maxConnections {
             text = L("Alle tilkoblingene i abonnementet er i bruk akkurat nå. Ser noen på en annen enhet?")
-        } else if let code = await streamStatus(client.liveURL(channel)), code >= 400 {
+        } else if let url = app.streamURL(channel), let code = await streamStatus(url), code >= 400 {
             text = L("Kanalen kunne ikke spilles ({message}).",
                      ["message": L("IPTV-serveren svarte HTTP {code}", ["code": code])])
         }

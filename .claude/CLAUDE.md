@@ -378,3 +378,13 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   VLC-kontrollene), og `fortsett-serie` på seriesiden (`nextEpisode`: den du er midt i, ellers den etter den siste
   sett ferdig (`watched` fra Plex eller `AppModel.isFinished`, satt av `VODPlayerModel.save` nær slutten), ellers den
   første; sesongen velges). Skjermbildene må hete `NN-…` (`tools/screenshots.py`), ikke `26b-…`.
+  Samme dag: «Fyrlys skal kun bruke disse m3u8 fra NRK. Det er direkte.» (fire adresser fra et CDN for NRK1, NRK2,
+  NRK3 og NRK Super). Adressene skal IKKE inn i repoet eller appen (offentlig repo og offentlig TestFlight-lenke);
+  laget i stedet «Egne strømmer» (0.1.19): `Core/.../Streams.swift` (`channelKey(navn)`: små bokstaver og tall uten
+  landskode foran og kvalitet bak, «NO: NRK1 HD» → nrk1; `channelKey(of: url)`: filnavnet, eller mappen over når
+  filnavnet er generelt (muxed, index, playlist …); `parseStreamOverrides`: «adresse» eller «Kanalnavn = adresse»),
+  `AppModel.streamLines`/`setStreams`/`streamURL(channel)` (brukt av `PlayerModel` i stedet for `liveURL`), lagret i
+  iCloud-nøkkelen `egne-strommer` (`CloudStore.shared`), `App/StreamSettings.swift` (TextEditor på iPhone/iPad, på
+  Apple TV lista og ett felt for én linje), `StreamSheet` fra Konto (`egne-strommer`), id-ene `egen-strom-<nøkkel>`.
+  Testskjermen `strommer`, `FYRLYS_TEST_STREAMS`; testene `test20EgneStrommer` (Apple TV, også at spilleren bruker
+  adressen) og `test21EgneStrommer` (iPhone og iPad).

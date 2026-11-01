@@ -58,6 +58,7 @@ private struct PhoneTopBar: View {
     @AppStorage(Appearance.key, store: TestSupport.defaults) private var stored = ""
     @State private var account = TestSupport.screen == "settings"
     @State private var plex = TestSupport.screen == "plex-link"
+    @State private var streams = TestSupport.screen == "strommer"
 
     var body: some View {
         HStack(spacing: 10) {
@@ -104,6 +105,12 @@ private struct PhoneTopBar: View {
                         try? await Task.sleep(for: .milliseconds(450))
                         plex = true
                     }
+                } openStreams: {
+                    account = false
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(450))
+                        streams = true
+                    }
                 }
                 .environment(model)
                 .presentationCompactAdaptation(.popover)
@@ -111,6 +118,10 @@ private struct PhoneTopBar: View {
             }
             .sheet(isPresented: $plex) {
                 PlexSheet()
+                    .environment(model)
+            }
+            .sheet(isPresented: $streams) {
+                StreamSheet()
                     .environment(model)
             }
         }
@@ -133,6 +144,7 @@ private struct AccountMenu: View {
     @State private var confirmSignOut = false
     let done: () -> Void
     let openPlex: () -> Void
+    let openStreams: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -202,6 +214,12 @@ private struct AccountMenu: View {
             }
             .buttonStyle(PressStyle())
             .accessibilityIdentifier("plex-innstillinger")
+            Button(action: openStreams) {
+                menuButton(model.streamLines.isEmpty ? L("Egne strømmer …")
+                           : L("Egne strømmer ({n})", ["n": model.streamOverrides.count]))
+            }
+            .buttonStyle(PressStyle())
+            .accessibilityIdentifier("egne-strommer")
             Text(L("Fyrlys {version}", ["version": appVersion]))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Theme.muted)

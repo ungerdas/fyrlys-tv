@@ -16,7 +16,8 @@ final class FyrlysMobilUITests: XCTestCase {
 
     /// [theme]: mørk som standard, så skjermbildene ikke avhenger av modusen i simulatoren.
     @discardableResult
-    func launch(_ screen: String, language: String = "no", theme: String = "dark") -> XCUIApplication {
+    func launch(_ screen: String, language: String = "no", theme: String = "dark",
+                extra: [String: String] = [:]) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment = [
             "FYRLYS_TEST_SERVER": server,
@@ -24,7 +25,7 @@ final class FyrlysMobilUITests: XCTestCase {
             "FYRLYS_TEST_LANG": language,
             "FYRLYS_TEST_THEME": theme,
             "FYRLYS_TEST_PLEX": plex,
-        ]
+        ].merging(extra) { _, new in new }
         app.launch()
         return app
     }
@@ -354,6 +355,20 @@ final class FyrlysMobilUITests: XCTestCase {
         }
         XCTAssertTrue(played, "tiden gikk ikke (episoden fra Plex spilte ikke)")
         shot("30-plex-episode")
+    }
+
+    /// Egne strømmer (iPhone: arket fra Konto, iPad: Innstillinger): kanalene kjennes igjen ut fra navnet.
+    func test21EgneStrommer() {
+        let streams = "Fjordkanalen = http://127.0.0.1:8899/egen/finnes-ikke.m3u8\n"
+            + "http://127.0.0.1:8899/egen/kystnytt24/muxed.m3u8\nhttp://127.0.0.1:8899/egen/nrk1/muxed.m3u8"
+        let app = launch("strommer", extra: ["FYRLYS_TEST_STREAMS": streams])
+        let matched = find(app, "egen-strom-fjordkanalen")
+        XCTAssertTrue(matched.waitForExistence(timeout: 30), "de egne strømmene vises ikke")
+        for _ in 0..<10 where !matched.label.contains("Fjordkanalen") { wait(1) }
+        XCTAssertTrue(matched.label.contains("Fjordkanalen"), "kanalen ble ikke funnet: \(matched.label)")
+        XCTAssertTrue(find(app, "egen-strom-kystnytt24").label.contains("Kystnytt 24"), "kanalen fra adressen mangler")
+        wait(1)
+        shot("31-egne-strommer")
     }
 
     /// Koble til Plex (iPhone: arket fra Konto, iPad: Innstillinger): koden vises, og så kobles det til serveren.

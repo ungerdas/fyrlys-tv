@@ -18,9 +18,9 @@ final class CloudStore: KeyValueStore {
         if let observer { NotificationCenter.default.removeObserver(observer) }
     }
 
-    /// Bare favorittene og favorittkategoriene deles.
+    /// Bare favorittene, favorittkategoriene og egne strømmer deles.
     static func shared(_ key: String) -> Bool {
-        key.hasPrefix("favorites@") || key.hasPrefix("favoriteCategories@")
+        key.hasPrefix("favorites@") || key.hasPrefix("favoriteCategories@") || key == "egne-strommer"
     }
 
     private static func mergedKey(_ key: String) -> String { "icloud-flettet@" + key }

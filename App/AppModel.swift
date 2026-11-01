@@ -86,6 +86,7 @@ final class AppModel {
             vod.reconnect = { [weak self] in self?.plex.retry() }
         }
         plex.start()
+        loadStreams()
         if TestSupport.isActive {
             if TestSupport.screen != "login", let test = TestSupport.login {
                 use(test)
@@ -278,6 +279,53 @@ final class AppModel {
         series.reset(backend)
     }
 
+    // ── egne strømmer: adresser som spilles i stedet for leverandørens (i iCloud, delt mellom enhetene) ──
+
+    static let streamsKey = "egne-strommer"
+    /// linjene som er lagt inn
+    private(set) var streamLines: [String] = []
+    @ObservationIgnored private var streamByKey: [String: URL] = [:]
+
+    var streamOverrides: [StreamOverride] { parseStreamOverrides(streamLines.joined(separator: "\n")) }
+
+    private func loadStreams() {
+        useStreams(TestSupport.streams ?? store.strings(Self.streamsKey))
+    }
+
+    private func useStreams(_ lines: [String]) {
+        streamLines = lines
+        streamByKey = Dictionary(streamOverrides.map { ($0.key, $0.url) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    func setStreams(_ text: String) {
+        let lines = text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        if !TestSupport.isActive { store.set(lines, for: Self.streamsKey) }
+        useStreams(lines)
+    }
+
+    /// Adressen kanalen spilles fra: en egen når det er lagt inn en for den, ellers leverandørens.
+    func streamURL(_ channel: Channel) -> URL? {
+        if !streamByKey.isEmpty, let own = streamByKey[channelKey(channel.name)] { return own }
+        return client?.liveURL(channel)
+    }
+
+    /// Kanalene hver egen strøm gjelder for (i bakgrunnen: lista kan ha titusenvis av kanaler).
+    func streamMatches() async -> [String: [String]] {
+        let keys = Set(streamOverrides.map(\.key))
+        guard !keys.isEmpty else { return [:] }
+        let list = self.channels
+        return await Task.detached(priority: .userInitiated) {
+            var found: [String: [String]] = [:]
+            for channel in list {
+                let key = channelKey(channel.name)
+                if keys.contains(key) { found[key, default: []].append(channel.name) }
+            }
+            return found
+        }.value
+    }
+
     // ── «Fortsett å se»: filmene og seriene du har begynt på, sist sett først ──
 
     private var continueKey: String? { login.map { "fortsett@\($0.id)" } }
@@ -334,6 +382,7 @@ final class AppModel {
 
     /// Favorittene eller «Dine kategorier» er endret på en annen enhet (iCloud).
     private func libraryChangedElsewhere() {
+        loadStreams()
         guard let library else { return }
         library.reload()
         libraryVersion += 1

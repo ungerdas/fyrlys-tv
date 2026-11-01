@@ -13,14 +13,15 @@ final class FyrlysUITests: XCTestCase {
     }
 
     @discardableResult
-    func launch(_ screen: String, language: String = "no", server: String? = nil, keep: Bool = false) -> XCUIApplication {
+    func launch(_ screen: String, language: String = "no", server: String? = nil, keep: Bool = false,
+                extra: [String: String] = [:]) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment = [
             "FYRLYS_TEST_SERVER": server ?? self.server,
             "FYRLYS_TEST_SCREEN": screen,
             "FYRLYS_TEST_LANG": language,
             "FYRLYS_TEST_PLEX": plex,
-        ]
+        ].merging(extra) { _, new in new }
         // lista fra sist og innstillingene står (ellers tømmes de ved start)
         if keep { app.launchEnvironment["FYRLYS_TEST_KEEP"] = "1" }
         app.launch()
@@ -455,6 +456,29 @@ final class FyrlysUITests: XCTestCase {
                       "HTTP-koden står ikke i feilen")
         wait(1)
         shot("11-spiller-feil")
+    }
+
+    /// Egne strømmer (oppdiktede adresser hos den falske leverandøren): kanalen kjennes igjen ut fra navnet, og
+    /// spilleren bruker den egne adressen (den finnes ikke, så feilen vises, mens kanalen ellers spilles).
+    static let streams = "Fjordkanalen = http://127.0.0.1:8899/egen/finnes-ikke.m3u8\n"
+        + "http://127.0.0.1:8899/egen/kystnytt24/muxed.m3u8\nhttp://127.0.0.1:8899/egen/nrk1/muxed.m3u8"
+
+    func test20EgneStrommer() {
+        let app = launch("strommer", extra: ["FYRLYS_TEST_STREAMS": Self.streams])
+        let stream = find(app, "egen-strom-kystnytt24")
+        XCTAssertTrue(stream.waitForExistence(timeout: 30), "de egne strømmene vises ikke")
+        let matched = find(app, "egen-strom-fjordkanalen")
+        for _ in 0..<10 where !matched.label.contains("Fjordkanalen") { wait(1) }
+        XCTAssertTrue(matched.label.contains("Fjordkanalen"), "kanalen ble ikke funnet: \(matched.label)")
+        XCTAssertTrue(find(app, "egen-strom-kystnytt24").label.contains("Kystnytt 24"), "kanalen fra adressen mangler")
+        XCTAssertTrue(find(app, "egen-strom-nrk1").exists, "en adresse uten kanal mangler")
+        wait(1)
+        shot("36-egne-strommer")
+        let player = launch("player", extra: ["FYRLYS_TEST_STREAMS": Self.streams])
+        XCTAssertTrue(find(player, "spiller-feil").waitForExistence(timeout: 60),
+                      "spilleren brukte ikke den egne adressen")
+        wait(1)
+        shot("37-egen-strom-feil")
     }
 
     func test08Settings() {

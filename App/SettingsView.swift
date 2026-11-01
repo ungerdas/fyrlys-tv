@@ -71,6 +71,8 @@ struct SettingsView: View {
 
                     PlexSettings()
 
+                    StreamSettings()
+
                     VStack(alignment: .leading, spacing: 24) {
                         Button {
                             Task { await model.reload() }

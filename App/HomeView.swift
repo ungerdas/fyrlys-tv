@@ -33,7 +33,7 @@ struct HomeView: View {
         case "movies", "plex": _tab = State(initialValue: .movies)
         case "series", "plex-series": _tab = State(initialValue: .series)
         case "search": _tab = State(initialValue: .search)
-        case "settings", "plex-link": _tab = State(initialValue: .settings)
+        case "settings", "plex-link", "strommer": _tab = State(initialValue: .settings)
         default: _tab = State(initialValue: .tv)
         }
         switch TestSupport.screen {

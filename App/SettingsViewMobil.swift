@@ -46,6 +46,7 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Theme.surface)
                 PlexSettings()
+                StreamSettings()
                 Section(L("Utseende")) {
                     Picker(L("Utseende"), selection: $appearance) {
                         Text(L("Som enheten")).tag("")

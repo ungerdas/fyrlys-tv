@@ -185,6 +185,17 @@ public let english: [String: String] = [
     "Neste: {episode}": "Next: {episode}",
     "Spill av {episode}": "Play {episode}",
     "Snu skjermen": "Rotate the screen",
+    // egne strømmer
+    "Egne strømmer": "Own streams",
+    "Egne strømmer …": "Own streams …",
+    "Egne strømmer ({n})": "Own streams ({n})",
+    "Legg til: adresse, eller kanalnavn = adresse": "Add: address, or channel name = address",
+    "Fjern alle egne strømmer": "Remove all own streams",
+    "Lagre": "Save",
+    "Adresser (m3u8) som spilles i stedet for leverandørens, én per linje. Kanalen finnes ut fra navnet i adressen (…/nrk1/… er NRK1), eller skriv «Kanalnavn = adresse». De deles med iCloud.":
+        "Addresses (m3u8) played instead of your provider's, one per line. The channel is found from the name in the address (…/nrk1/… is NRK1), or write «Channel name = address». They're shared with iCloud.",
+    "Fant ingen kanal for «{key}»": "Found no channel for «{key}»",
+    "{first} og {n} til": "{first} and {n} more",
     // VLC-spilleren
     "Av": "Off",
     "Spor {n}": "Track {n}",
