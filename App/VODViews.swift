@@ -294,6 +294,8 @@ struct VODDetailView: View {
             }
             .padding(.horizontal, Metrics.detailPadding)
             .padding(.vertical, Metrics.detailPadding * 0.6)
+            // til venstre (en smal side ble ellers lagt midt i rullelista)
+            .frame(maxWidth: .infinity, alignment: .leading)
             #if os(tvOS)
             .hidesScrollIndex()
             #endif
@@ -534,17 +536,46 @@ extension View {
         #endif
     }
 
-    /// Sesongknappene: den valgte er gul.
+    /// Sesong- og dagknappene: den valgte er gul (på Apple TV mørk tekst på lys flate når den har fokus).
     @ViewBuilder
     func vodSeason(selected: Bool) -> some View {
         #if os(iOS)
         buttonStyle(.bordered)
             .tint(selected ? Theme.signal : Theme.muted)
         #else
-        foregroundStyle(selected ? Theme.signal : Theme.ink)
+        buttonStyle(PillStyle(selected: selected))
         #endif
     }
 }
+
+#if os(tvOS)
+/// En pille på Apple TV: lys med mørk tekst i fokus, ellers gul tekst på en litt lysere flate når den er valgt.
+struct PillStyle: ButtonStyle {
+    let selected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        PillLabel(label: configuration.label, selected: selected, pressed: configuration.isPressed)
+    }
+}
+
+private struct PillLabel<Label: View>: View {
+    let label: Label
+    let selected: Bool
+    let pressed: Bool
+    @Environment(\.isFocused) private var focused
+
+    var body: some View {
+        label
+            .font(.system(size: 26, weight: selected ? .bold : .medium))
+            .foregroundStyle(focused ? Theme.bg : (selected ? Theme.signal : Theme.ink))
+            .padding(.horizontal, 28)
+            .padding(.vertical, 14)
+            .background(Capsule().fill(focused ? Theme.ink : (selected ? Theme.surface2 : Theme.surface)))
+            .scaleEffect(focused ? (pressed ? 1.0 : 1.06) : 1)
+            .animation(.easeOut(duration: 0.15), value: focused)
+    }
+}
+#endif
 
 /// 1:02:03 eller 12:34.
 func playTime(_ seconds: Double) -> String {

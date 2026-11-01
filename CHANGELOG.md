@@ -4,6 +4,8 @@
 
 - Apple TV: favorittene dine står på hjemskjermen (Top Shelf) når Fyrlys har fokus. Trykk på en kanal for å se den
   med en gang.
+- Apple TV: siden for en film står til venstre som de andre sidene, og sesongen eller dagen som er valgt i serier og
+  TV-arkivet, er lett å lese også når den har fokus.
 
 ## v0.1.12
 
