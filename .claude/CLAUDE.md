@@ -185,9 +185,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - Åpent (31.10): 0.1.2 er ikke prøvd på Apple TV-en hans ennå (fart med 25 000 kanaler, de nye kortene, «Dine
   kategorier», at ingenting går inn under fanelinja). «Hjem» (startsiden i Windows-appen) finnes ikke i Apple TV-appen.
   Han får en e-post «Your Certificate Has Been Revoked» for hvert bygg (fra `asc.py cleanup`; 1.11 spurte han hvordan
-  han fikser det). Laget 1.11: hemmeligheten `DIST_KEY` (se TestFlight under); han må lage nøkkelen
-  (`openssl genrsa -out fyrlys-dist.key 2048`) og legge den inn selv. Ikke prøvd mot Apple ennå (bare
-  nøkkelhåndteringen og sammenligningen lokalt); når den er lagt inn, kan et bygg startes med
+  han fikser det). Løst 1.11: han la inn hemmeligheten `DIST_KEY` (se TestFlight under); bygg 24 laget sertifikatet
+  som beholdes (utløper 1.11.2027, da lages et nytt: én e-post i året), og oppryddingen sletter bare profilene.
+  Merknadene `sertifikat` og `opprydding` på TestFlight-jobben viser det. Et bygg kan startes uten endring med
   `gh api -X POST repos/ungerdas/fyrlys-tv/actions/workflows/build.yml/dispatches -f ref=main`.
 - 31.10.2026: eieren laget en ekstern TestFlight-gruppe med offentlig lenke; 0.1.3 (bygg 7) ble sendt til Apples
   beta-gjennomgang (Waiting for Review). Nye versjoner kommer ikke av seg selv til den eksterne gruppa (må legges til
@@ -224,6 +224,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   fanelinja følger kortene (`movesTabBar`, se Arkitektur). 0.1.8 (bygg 22) er i TestFlight, VALID for både TV_OS og IOS
   (1.11); alle UI-testene grønne. Fartstesten: første kort etter 6,7 s uten lista fra sist og 4,4 s med (bygg 21: 4,9
   og 4,0), 24 steg i kortene 5,5 s, 20 steg i sidemenyen 4,3 s. Ikke prøvd på ekte Apple TV ennå.
-- 1.11.2026: 0.1.9: eieren så bildene av 0.1.8 og ville ha 4–5 kort i bredden i stedet for seks («større brikker»);
-  valgt fem (`Metrics.bigColumns`, med litt større tekst og logo).
+- 1.11.2026: 0.1.9: eieren hadde 0.1.8 på Apple TV-en og ville ha 4–5 kort i bredden i stedet for seks («større
+  brikker»); valgt fem (`Metrics.bigColumns`, med litt større tekst og logo). 0.1.9 (bygg 24) er i TestFlight, VALID for
+  TV_OS og IOS; fartstesten 5,5 s uten lista fra sist og 4,2 s med. Samme natt (bilde av «Norway» på iPhone):
+  «Liker godt UI på iPhone, så gjerne før over noe av det samme på AppleTV»; spurt hva (større kort/fire i bredden,
+  kategoritoppen med stjerne, stjerne på alle kort, forsiden fra iPhone), han ville prøve 0.1.9 først. Åpent.
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.
