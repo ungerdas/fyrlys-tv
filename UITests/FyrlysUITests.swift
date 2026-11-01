@@ -166,16 +166,8 @@ final class FyrlysUITests: XCTestCase {
         wait(3)
         shot("16-stor-liste")
 
-        // flisene: 450 kategorier
-        XCTAssertTrue(focus(app, all), "fikk ikke fokus på «Alle kanaler»")
-        start = Date()
-        for _ in 0..<20 { remote.press(.down) }
-        let tiles = Date().timeIntervalSince(start)
-        wait(1)
-        shot("17-stor-liste-fliser")
-        XCTAssertTrue(focus(app, all), "kom ikke tilbake til «Alle kanaler»")
-
         // «Alle kanaler»: 25 000 store kort
+        XCTAssertTrue(focus(app, all), "fikk ikke fokus på «Alle kanaler»")
         start = Date()
         remote.press(.select)
         let first = find(app, "kanal-1000")
@@ -186,6 +178,17 @@ final class FyrlysUITests: XCTestCase {
         for _ in 0..<12 { remote.press(.down) }
         for _ in 0..<12 { remote.press(.up) }
         let grid = Date().timeIntervalSince(start)
+
+        // tilbake til flisene (450 kategorier) og nedover; flisene øverst lastes ut når de er rullet bort, så fokus
+        // flyttes ikke tilbake til dem etterpå
+        remote.press(.menu)
+        XCTAssertTrue(all.waitForExistence(timeout: 10), "kom ikke tilbake til forsiden")
+        wait(1)
+        start = Date()
+        for _ in 0..<20 { remote.press(.down) }
+        let tiles = Date().timeIntervalSince(start)
+        wait(1)
+        shot("17-stor-liste-fliser")
         app.terminate()
 
         // igjen, med lista fra sist på disk
