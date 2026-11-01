@@ -286,3 +286,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   på Apple TV, felles favoritter via iCloud, Top Shelf, filmer og serier, TV-arkiv, flere innlogginger) og svarte
   «Kjør alt.» 0.1.11 = kanalbytte + guidevalg; 0.1.12 = filmer og serier, TV-arkiv, flere innlogginger og felles
   favoritter via iCloud; Top Shelf til slutt (krever en egen utvidelse med egen app-id og profil i signeringen).
+  0.1.11 (bygg 26) og 0.1.12 (bygg 27) er i TestFlight, VALID for TV_OS og IOS; `asc.py check` slo på ICLOUD for
+  app-id-en, og eksporten med iCloud-rettigheten gikk. 0.1.12 ble bygget med `workflow_dispatch` etter at koden var
+  pushet med [skip ci] (en push under en opplasting avbryter den). Første bygg av 0.1.13 (Top Shelf) ble avvist av
+  App Store Connect: utvidelsen må ha `UIRequiredDeviceCapabilities: [arm64]` i Info.plist (signeringen og profilene
+  for `no.fyrlys.tv.topshelf` virket). Filmer i mkv er ikke prøvd mot leverandøren hans (bare den falske).
