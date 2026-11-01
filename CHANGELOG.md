@@ -1,5 +1,9 @@
 # Endringer
 
+## v0.1.9
+
+- Apple TV: større kanalkort, fem i bredden i stedet for seks (også i radene øverst og litt større i søket).
+
 ## v0.1.8
 
 Apple TV, mer oversiktlig:

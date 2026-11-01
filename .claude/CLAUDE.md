@@ -123,9 +123,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   valgte sidemeny + mindre kort): `ChannelsView` med sidemenyen som før og `TVChannelPanel` (`TVHome.swift`) til
   høyre: i «Alle kanaler» (standard på Apple TV) «Nå på favorittene» og «Sist sett» som rader (`TVStrip`,
   `scrollClipDisabled` + `StripClip`: kortet med fokus kuttes ikke, men kortene rulles ikke inn over sidemenyen), eller
-  tipset når begge er tomme, så tittel, antall og `BigCardGrid` med seks like brede kolonner (`.flexible()`; kortene i
-  radene har `containerRelativeFrame(count: 6)`, så de er like brede); søket bruker `BigCardGrid(columns: nil)`
-  (adaptiv). Ingen `GeometryReader` rundt rullelista (den skal nå toppen av den trygge sonen). Toppen: TV-siden
+  tipset når begge er tomme, så tittel, antall og `BigCardGrid` med `Metrics.bigColumns` like brede kolonner (fem fra
+  0.1.9, eieren: seks var for små; `.flexible()`; kortene i radene har `containerRelativeFrame(count:)` med samme
+  antall, så de er like brede); søket bruker `BigCardGrid(columns: nil)` (adaptiv, minst `bigGridMin`). Ingen `GeometryReader` rundt rullelista (den skal nå toppen av den trygge sonen). Toppen: TV-siden
   begynner under fanelinja, men rullelistene klippes ikke der (0.1.2–0.1.7 hadde `.clipped()`, og når fanelinja gled
   bort, ble det en tom stripe med kortene kuttet under). Fanelinja følger en rulleliste alene på siden av seg selv
   (0.1.7), men ingen av to ved siden av hverandre: i bygg 21 sto den fast over kortene (`18-…-rullet`). Derfor
@@ -224,4 +224,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   fanelinja følger kortene (`movesTabBar`, se Arkitektur). 0.1.8 (bygg 22) er i TestFlight, VALID for både TV_OS og IOS
   (1.11); alle UI-testene grønne. Fartstesten: første kort etter 6,7 s uten lista fra sist og 4,4 s med (bygg 21: 4,9
   og 4,0), 24 steg i kortene 5,5 s, 20 steg i sidemenyen 4,3 s. Ikke prøvd på ekte Apple TV ennå.
+- 1.11.2026: 0.1.9: eieren så bildene av 0.1.8 og ville ha 4–5 kort i bredden i stedet for seks («større brikker»);
+  valgt fem (`Metrics.bigColumns`, med litt større tekst og logo).
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.

@@ -90,18 +90,18 @@ enum Metrics {
     static let pageTitle: CGFloat = 34
     static let pageCount: CGFloat = 22
     static let pagePadding: CGFloat = 22
-    // de store kortene (som på iPhone, men seks i bredden ved siden av sidemenyen, så mange kanaler får plass)
-    static let bigColumns = 6
-    static let bigTitle: CGFloat = 19
-    static let bigSub: CGFloat = 16
-    static let bigLogoText: CGFloat = 28
-    static let bigRadius: CGFloat = 16
-    static let bigPad: CGFloat = 12
+    // de store kortene (som på iPhone, men fem i bredden ved siden av sidemenyen; seks i 0.1.8 ble for små)
+    static let bigColumns = 5
+    static let bigTitle: CGFloat = 20
+    static let bigSub: CGFloat = 17
+    static let bigLogoText: CGFloat = 31
+    static let bigRadius: CGFloat = 18
+    static let bigPad: CGFloat = 14
     static let bigBar: CGFloat = 3
-    static let bigInfoMin: CGFloat = 70
-    static let bigStar: CGFloat = 20
-    static let bigStarBox: CGFloat = 38
-    static let bigGridMin: CGFloat = 230
+    static let bigInfoMin: CGFloat = 78
+    static let bigStar: CGFloat = 22
+    static let bigStarBox: CGFloat = 42
+    static let bigGridMin: CGFloat = 270
     static let bigGap: CGFloat = 20
     static let rowTitle: CGFloat = 28
     static let rowClock: CGFloat = 22

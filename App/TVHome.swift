@@ -3,7 +3,7 @@ import FyrlysCore
 import SwiftUI
 
 /// Til høyre for sidemenyen på Apple TV, som Fyrlys-nettsiden på en stor skjerm: i «Alle kanaler» står «Nå på
-/// favorittene» og «Sist sett» som rader øverst, så kommer kanalene, seks i bredden. Fanelinja følger denne lista
+/// favorittene» og «Sist sett» som rader øverst, så kommer kanalene, fem i bredden. Fanelinja følger denne lista
 /// (`movesTabBar`) og glir bort når kortene rulles, og lista klippes ikke under den, så kortene ruller helt opp (de ble
 /// før kuttet under en tom stripe der fanelinja hadde vært).
 struct TVChannelPanel: View {
@@ -65,7 +65,7 @@ struct TVChannelPanel: View {
     }
 }
 
-/// En rad med kort sidelengs, like brede som kortene i rutenettet under (seks på bredden av raden).
+/// En rad med kort sidelengs, like brede som kortene i rutenettet under (`Metrics.bigColumns` på bredden av raden).
 private struct TVStrip: View {
     let title: String
     let id: String

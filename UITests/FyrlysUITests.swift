@@ -87,7 +87,7 @@ final class FyrlysUITests: XCTestCase {
         shot("01-innlogging")
     }
 
-    /// «Alle kanaler» med sidemenyen og de store kortene, seks i bredden.
+    /// «Alle kanaler» med sidemenyen og de store kortene, fem i bredden.
     func test02TV() {
         let app = launch("tv")
         XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 30), "kanalkortene kom ikke")

@@ -46,7 +46,7 @@ enum SidebarRow: Identifiable {
 
 /// TV-fanen som i Fyrlys på Windows: sidemenyen med alle kanaler, favoritter, sist sett, «Dine kategorier» (lagt
 /// øverst, i din rekkefølge) og resten av kategoriene, og kanalkortene til høyre (Apple TV og iPad; iPhone har
-/// `PhoneTV`). På Apple TV de store kortene, seks i bredden, med «Nå på favorittene» og «Sist sett» øverst i «Alle
+/// `PhoneTV`). På Apple TV de store kortene, fem i bredden, med «Nå på favorittene» og «Sist sett» øverst i «Alle
 /// kanaler» (`TVChannelPanel`); på iPad de smale kortene.
 struct ChannelsView: View {
     @Environment(AppModel.self) private var model
