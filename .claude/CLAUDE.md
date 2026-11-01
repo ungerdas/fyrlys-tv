@@ -196,5 +196,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - 0.1.7: guiden på iPhone var tom i 0.1.6 (se Arkitektur; det første forsøket traff feil sted, og det bygget feilet
   også på at et trykk på en flis ikke tok i simulatoren, så testene trykker nå én gang til). `UIUserInterfaceStyle:
   Dark` er tatt ut av iOS-målet, så appen følger enheten til man velger lys eller mørk (Apple TV har den fortsatt).
-  Apple TV fikk forsiden og de store kortene (se Arkitektur).
+  Apple TV fikk forsiden og de store kortene (se Arkitektur). 0.1.7 (bygg 20) er i TestFlight for både TV_OS og IOS
+  (1.11). Ikke prøvd på ekte Apple TV eller iPhone ennå. Fartstesten: flisene etter 14,7 s uten lista fra sist (før:
+  første kort etter 6,2–6,5 s) og 5,4 s med (før 4,1–4,3 s); verdt å se på om oppstarten med 25 000 kanaler er blitt
+  tregere. Merk: `test06Player` på Apple TV trykker ikke Menu hvis «kanal-1» alt finnes bak spilleren (den gjør det
+  nå, i «Sist sett»), så den prøver ikke lenger at Menu lukker spilleren.
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.
