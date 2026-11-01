@@ -117,8 +117,8 @@ public let english: [String: String] = [
     "Lukk": "Close",
     "Kanaler": "Channels",
     // guiden
-    "Viser favorittene dine. Har du ingen, vises de første kanalene.":
-        "Shows your favorites. If you have none, the first channels are shown.",
+    "Velg hva guiden viser oppe til høyre: favorittene, alle kanaler eller en kategori.":
+        "Choose what the guide shows at the top right: your favorites, all channels or a category.",
     "Spill av": "Play",
     // innstillinger
     "Abonnement": "Subscription",

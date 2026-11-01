@@ -74,11 +74,21 @@ final class PlayerModel {
 
     /// Neste (1) eller forrige (-1) kanal i lista.
     func step(_ delta: Int) {
-        guard !list.isEmpty else { return }
-        let index = list.firstIndex { $0.id == channel.id } ?? 0
-        let next = list[((index + delta) % list.count + list.count) % list.count]
+        guard let next = neighbor(delta) else { return }
         failures = []
         open(next)
+    }
+
+    /// Kanalen [delta] plasser fra denne i lista (rundt fra slutten til starten).
+    func neighbor(_ delta: Int) -> Channel? {
+        guard !list.isEmpty else { return nil }
+        let index = list.firstIndex { $0.id == channel.id } ?? 0
+        return list[((index + delta) % list.count + list.count) % list.count]
+    }
+
+    /// Programmet som går nå på [channel] (for forhåndsvisningen ved kanalbytte).
+    func nowPlaying(_ channel: Channel) -> Program? {
+        nowAndNext(app.programs.programs(for: channel), at: Date()).now
     }
 
     func toggleFavorite() { app.toggleFavorite(channel) }

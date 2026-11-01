@@ -17,12 +17,14 @@ final class GuideSelection {
     var slot: GuideSlot?
 }
 
-/// TV-guiden: seks timer fra halvtimen før denne halvtimen, favorittkanalene (ellers de første kanalene, med «Dine
-/// kategorier» først), med en rød strek for nå. Øverst står programmet du står på.
+/// TV-guiden: seks timer fra halvtimen før denne halvtimen, med en rød strek for nå. Viser favorittene, sist sett,
+/// alle kanaler eller en kategori (valget oppe til høyre, lagret som `guide`, som på iPhone; uten valg favorittene,
+/// ellers den første av «Dine kategorier», ellers alle). Øverst står programmet du står på.
 struct GuideView: View {
     @Environment(AppModel.self) private var model
     let play: (Channel, [Channel]) -> Void
     @State private var selection = GuideSelection()
+    @AppStorage("guide", store: TestSupport.defaults) private var stored = ""
 
     /// 300 + 12 + 360 min × 4,2 = 1824 pt: får plass mellom kantene (1920 − 2 × Theme.edge) uten vannrett rulling
     static let perMinute: CGFloat = 4.2
@@ -30,9 +32,67 @@ struct GuideView: View {
     static let rowHeight: CGFloat = 66
     static var width: CGFloat { CGFloat(GuideTime.totalMinutes) * perMinute }
 
+    private var choice: Shelf {
+        if stored == "fav" { return .favorites }
+        if stored == "recent" { return .recent }
+        if stored == "all" { return .all }
+        if stored.hasPrefix("k:") {
+            let id = String(stored.dropFirst(2))
+            if model.index.category(id) != nil { return .category(id) }
+        }
+        if !model.favorites.isEmpty { return .favorites }
+        if let first = model.favoriteCategories.first { return .category(first.id) }
+        return .all
+    }
+
     private var rows: [Channel] {
-        let favorites = model.favorites
-        return favorites.isEmpty ? Array(model.allChannels.prefix(60)) : favorites
+        switch choice {
+        case .favorites: return model.favorites
+        case .recent: return model.recent
+        case .all: return model.allChannels
+        case .category(let id): return model.channels(in: id)
+        }
+    }
+
+    private func title(_ shelf: Shelf) -> String {
+        switch shelf {
+        case .favorites: return L("Favoritter")
+        case .recent: return L("Sist sett")
+        case .all: return L("Alle kanaler")
+        case .category(let id): return model.index.category(id)?.name ?? ""
+        }
+    }
+
+    /// Hva guiden viser: favorittene, sist sett, alle, «Dine kategorier» og resten av kategoriene.
+    private var chooser: some View {
+        let current = choice
+        let pinned = model.favoriteCategories
+        let pinnedIds = Set(pinned.map(\.id))
+        return Menu {
+            Button { stored = "fav" } label: { Label(L("Favoritter"), systemImage: "star") }
+            Button { stored = "recent" } label: { Label(L("Sist sett"), systemImage: "clock.arrow.circlepath") }
+            Button { stored = "all" } label: { Label(L("Alle kanaler"), systemImage: "square.grid.2x2") }
+            if !pinned.isEmpty {
+                Section(L("Dine kategorier")) {
+                    ForEach(pinned) { category in
+                        Button(category.name) { stored = "k:\(category.id)" }
+                    }
+                }
+            }
+            Menu(L("Alle kategorier")) {
+                ForEach(model.categories.filter { !pinnedIds.contains($0.id) }) { category in
+                    Button(category.name) { stored = "k:\(category.id)" }
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                Text(verbatim: "\(title(current)) (\(CountText.of(rows.count)))")
+                    .lineLimit(1)
+            }
+            .font(.system(size: 24, weight: .semibold))
+        }
+        .accessibilityIdentifier("guide-velger")
     }
 
     var body: some View {
@@ -43,8 +103,13 @@ struct GuideView: View {
                 let start = GuideTime.start(context.date)
                 let shown = rows
                 VStack(alignment: .leading, spacing: 12) {
-                    GuideHeader(selection: selection)
-                        .frame(height: 124, alignment: .topLeading)
+                    HStack(alignment: .top, spacing: 30) {
+                        GuideHeader(selection: selection)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                        chooser
+                    }
+                    .frame(height: 124, alignment: .topLeading)
+                    .focusSection()
                     ruler(start)
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 10) {
@@ -114,7 +179,7 @@ private struct GuideHeader: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(L("TV-guide"))
                     .font(.system(size: 36, weight: .bold))
-                Text(L("Viser favorittene dine. Har du ingen, vises de første kanalene."))
+                Text(L("Velg hva guiden viser oppe til høyre: favorittene, alle kanaler eller en kategori."))
                     .font(.system(size: 21))
                     .foregroundStyle(Theme.muted)
             }

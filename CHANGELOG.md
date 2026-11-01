@@ -1,5 +1,14 @@
 # Endringer
 
+## v0.1.11
+
+Apple TV:
+
+- Bytt kanal med opp og ned på fjernkontrollen mens du ser på, som på vanlig TV. Mens du bytter, ser du kanalen og
+  programmet som går nå.
+- TV-guiden: velg hva den viser oppe til høyre – favorittene, sist sett, alle kanaler, «Dine kategorier» eller en
+  annen kategori. Valget huskes.
+
 ## v0.1.10
 
 - Apple TV: kanalkortene er litt større, fire i bredden.

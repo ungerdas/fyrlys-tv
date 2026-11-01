@@ -111,13 +111,17 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `ChannelGrid` (bare iPad; adaptiv, minst 320 pt: fire kolonner ved siden av sidemenyen) med
   `ChannelCard` (96 pt høyt som Windows-kortet: `ChannelLogo`, klokkeslett i gult, navnet, kampen eller det som går nå
   (`NowPlaying`, `.everyMinute`), nummeret og stjernen; `CardStyle` med lyseblå kant `Theme.focus` og 1,05 i fokus;
-  hold inne = favoritt), `GuideView` (6 timer, 4,2 pt/min, navn 300 pt, rader 66 pt, så det får plass uten vannrett rulling; fokus
+  hold inne = favoritt), `GuideView` (6 timer, 4,2 pt/min, navn 300 pt, rader 66 pt, så det får plass uten vannrett rulling;
+  fra 0.1.11 valget oppe til høyre (`Menu` `guide-velger`: favoritter, sist sett, alle, «Dine kategorier», undermeny
+  «Alle kategorier»; lagret som `guide` som på iPhone; fokus
   settes i `GuideSelection`, som bare `GuideHeader` leser, så guiden ikke tegnes på nytt ved hvert steg; egen
   `GuideCellStyle` med `@Environment(\.isFocused)`), `SearchView` (`.searchable`, favorittkategoriene først),
   `SettingsView`, `PlayerView` (`PlayerModel` med AVPlayer, User-Agent som VLC, nye forsøk tre i
   minuttet, så forklaring: alle tilkoblinger i bruk, HTTP-koden fra leverandøren eller AVPlayers melding;
   `AVPlayerViewController` med neste/forrige/favoritt i `transportBarCustomMenuItems` og kanallista i
-  `customInfoViewControllers`; programinfo i `externalMetadata`). `Images.swift` (logoer med eget mellomlager,
+  `customInfoViewControllers`; programinfo i `externalMetadata`; fra 0.1.11 kanalbytte med opp/ned via AVKits
+  `skipToNextChannel`/`skipToPreviousChannel` i `AVPlayerViewControllerDelegate` (koordinatoren) med `ChannelPreview`
+  som `next/previousChannelInterstitialViewController`). `Images.swift` (logoer med eget mellomlager,
   `ChannelTile`), `FyrlysMark.swift` (fyret tegnet i Canvas), `Theme.swift` («Fyrlys om natta»).
 - **Apple TV fra 0.1.8: sidemenyen og de store kortene** (eieren 1.11 om 0.1.7: «rart med den toppen», «uoversiktlig»;
   valgte sidemeny + mindre kort): `ChannelsView` med sidemenyen som før og `TVChannelPanel` (`TVHome.swift`) til
@@ -239,4 +243,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   distribusjonssertifikatet fra før»), så `DIST_KEY` virker. Fartstesten 5,8 s uten lista fra sist og 4,4 s med.
   Eieren prøvde 0.1.10 på Apple TV-en samme natt: «Syntes dette var konge jeg!» Sidemenyen, fire kort i bredden,
   radene øverst og merket er altså godkjent; ikke endre uten at han ber om det.
-- Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.
+- 1.11.2026 kl. 05: eieren spurte «Hva mer kan forbedres?», fikk lista (kanalbytte med fjernkontrollen, valg i guiden
+  på Apple TV, felles favoritter via iCloud, Top Shelf, filmer og serier, TV-arkiv, flere innlogginger) og svarte
+  «Kjør alt.» Tas i den rekkefølgen, én versjon om gangen: 0.1.11 = kanalbytte + guidevalg.

@@ -204,6 +204,7 @@ final class FyrlysUITests: XCTestCase {
     func test04Guide() {
         let app = launch("guide")
         XCTAssertTrue(find(app, "guide").waitForExistence(timeout: 30))
+        XCTAssertTrue(find(app, "guide-velger").exists, "valget av kanaler i guiden mangler")
         wait(5)
         shot("05-guide")
         remote.press(.down)

@@ -72,8 +72,8 @@ private struct PlayerError: View {
     }
 }
 
-/// AVPlayerViewController med neste/forrige kanal og favoritt i kontrollene, og kanallista som et eget felt når man
-/// sveiper ned.
+/// AVPlayerViewController med neste/forrige kanal og favoritt i kontrollene, kanallista som et eget felt når man
+/// sveiper ned, og kanalbytte med opp og ned på fjernkontrollen (AVKits kanalbytte, med forhåndsvisning av kanalen).
 struct PlayerController: UIViewControllerRepresentable {
     let model: PlayerModel
     /// (bare så SwiftUI oppdaterer knappene når kanalen eller favoritten endres)
@@ -85,6 +85,7 @@ struct PlayerController: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> AVPlayerViewController {
         let controller = AVPlayerViewController()
         controller.player = model.player
+        controller.delegate = context.coordinator
         controller.customInfoViewControllers = [context.coordinator.channels]
         updateButtons(controller)
         return controller
@@ -112,13 +113,76 @@ struct PlayerController: UIViewControllerRepresentable {
     }
 
     @MainActor
-    final class Coordinator {
+    final class Coordinator: NSObject, AVPlayerViewControllerDelegate {
+        let model: PlayerModel
         let channels: UIHostingController<ChannelStrip>
 
         init(model: PlayerModel) {
+            self.model = model
             channels = UIHostingController(rootView: ChannelStrip(model: model))
             channels.title = L("Kanaler")
             channels.preferredContentSize = CGSize(width: 1920, height: 330)
+            super.init()
+        }
+
+        // kanalbytte som på vanlig TV: opp gir neste kanal, ned forrige (når kontrollene er skjult)
+        func playerViewController(_ playerViewController: AVPlayerViewController,
+                                  skipToNextChannel completion: @escaping (Bool) -> Void) {
+            model.step(1)
+            completion(true)
+        }
+
+        func playerViewController(_ playerViewController: AVPlayerViewController,
+                                  skipToPreviousChannel completion: @escaping (Bool) -> Void) {
+            model.step(-1)
+            completion(true)
+        }
+
+        func nextChannelInterstitialViewController(for playerViewController: AVPlayerViewController)
+            -> UIViewController {
+            preview(1)
+        }
+
+        func previousChannelInterstitialViewController(for playerViewController: AVPlayerViewController)
+            -> UIViewController {
+            preview(-1)
+        }
+
+        /// Det som vises mens man bytter: kanalen og programmet som går nå.
+        private func preview(_ delta: Int) -> UIViewController {
+            let controller = UIHostingController(rootView: ChannelPreview(model: model, channel: model.neighbor(delta)))
+            controller.view.backgroundColor = .black
+            return controller
+        }
+    }
+}
+
+/// Forhåndsvisningen ved kanalbytte: logoen, kanalen og programmet som går nå.
+private struct ChannelPreview: View {
+    let model: PlayerModel
+    let channel: Channel?
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            if let channel {
+                VStack(spacing: 28) {
+                    ChannelTile(channel: channel)
+                        .frame(width: 480, height: 270)
+                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    Text(nameParts(channel.name).main)
+                        .font(.system(size: 44, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                    if let now = model.nowPlaying(channel) {
+                        Text(verbatim: "\(hhmm(now.start))–\(hhmm(now.stop))  \(now.title)")
+                            .font(.system(size: 30))
+                            .foregroundStyle(Theme.ink2)
+                            .lineLimit(1)
+                    }
+                }
+                .padding(.horizontal, 120)
+            }
         }
     }
 }
