@@ -8,8 +8,8 @@ Apple TV, mer oversiktlig:
   Hold inne på en kategori for å legge den øverst eller flytte den.
 - «Alle kanaler» åpner med «Nå på favorittene» og «Sist sett» som rader øverst, og så kanalene.
 - Mindre kanalkort, seks i bredden, med logoen på logoens egen farge og det som går nå.
-- Toppen: når fanelinja glir bort, ruller kortene helt opp. Før ble de kuttet under en tom stripe der fanelinja hadde
-  vært.
+- Toppen: fanelinja glir bort når du blar nedover i kortene, og kortene ruller helt opp. Før ble de kuttet under en tom
+  stripe der fanelinja hadde vært.
 
 ## v0.1.7
 

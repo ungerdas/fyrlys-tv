@@ -23,9 +23,10 @@ struct PlayerView: View {
                 }
             }
         }
-        // for UI-testene: om spilleren står framme (kanalkortene bak den finnes i elementtreet også da)
+        // for UI-testene: om spilleren eller feilen står framme (kanalkortene bak finnes i elementtreet også da). Én id
+        // for hele spilleren: en id på feilen inne i en beholder med egen id forsvant.
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("spiller")
+        .accessibilityIdentifier(model?.error == nil ? "spiller" : "spiller-feil")
         .onAppear {
             guard model == nil else { return }
             let player = PlayerModel(app: app, channel: request.channel, list: request.list)
@@ -68,8 +69,6 @@ private struct PlayerError: View {
                 Button(L("Lukk"), action: close)
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("spiller-feil")
     }
 }
 

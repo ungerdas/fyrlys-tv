@@ -3,8 +3,9 @@ import FyrlysCore
 import SwiftUI
 
 /// Til høyre for sidemenyen på Apple TV, som Fyrlys-nettsiden på en stor skjerm: i «Alle kanaler» står «Nå på
-/// favorittene» og «Sist sett» som rader øverst, så kommer kanalene, seks i bredden. Lista klippes ikke under
-/// fanelinja, så kortene ruller helt opp når den glir bort (de ble før kuttet under en tom stripe der den hadde vært).
+/// favorittene» og «Sist sett» som rader øverst, så kommer kanalene, seks i bredden. Fanelinja følger denne lista
+/// (`movesTabBar`) og glir bort når kortene rulles, og lista klippes ikke under den, så kortene ruller helt opp (de ble
+/// før kuttet under en tom stripe der fanelinja hadde vært).
 struct TVChannelPanel: View {
     @Environment(AppModel.self) private var model
     let shelf: Shelf
@@ -41,6 +42,7 @@ struct TVChannelPanel: View {
             .padding(.top, 6)
             .padding(.bottom, 24)
             .hidesScrollIndex()
+            .movesTabBar()
         }
         .scrollIndicators(.never)
         .safeAreaPadding(.bottom, Theme.bottomFocus)

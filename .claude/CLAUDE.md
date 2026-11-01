@@ -28,7 +28,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   ville simulatoren gitt lys modus) (`App/TestSupport.swift`).
   Elementene testene finner, har `accessibilityIdentifier` (`kanal-<id>`, `hylle-…`, `favoritt-<id>`, `seksjon-dine`/
   `-alle`/`-kategorier`, `seksjon-favoritter`/`-sist` (radene øverst), `lagt-overst`, `spiller` (spilleren står
-  framme; kortene bak den finnes i elementtreet også da), `spiller-feil`, `guide`, `innstillinger`). `focus(app, mål)`
+  framme; kortene bak den finnes i elementtreet også da), `spiller-feil` (på Apple TV samme beholder som `spiller`, id-en
+  byttes: en beholder med id inne i en annen med id ble borte), `guide`, `innstillinger`). `focus(app, mål)`
   i UI-testene flytter fokus dit uansett hvor det står (fanelinja, sidemenyen, kortene). På iPhone/iPad også
   `kategori-velger`, `stjerne-<kategori>`, `stjerne-kanal-<id>`, `lukk-spiller`, `neste-kanal`, `guide-velger`,
   `til-naa`; bare iPhone: `sok`, `tema`, `konto`, `tilbake`, `kategori-stjerne`, flisene `hylle-…`. Testen av farten (`test11StorListe`) bruker en stor falsk leverandør
@@ -126,7 +127,10 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   radene har `containerRelativeFrame(count: 6)`, så de er like brede); søket bruker `BigCardGrid(columns: nil)`
   (adaptiv). Ingen `GeometryReader` rundt rullelista (den skal nå toppen av den trygge sonen). Toppen: TV-siden
   begynner under fanelinja, men rullelistene klippes ikke der (0.1.2–0.1.7 hadde `.clipped()`, og når fanelinja gled
-  bort, ble det en tom stripe med kortene kuttet under). `BigCard.swift` er felles: på Apple TV er hele kortet én
+  bort, ble det en tom stripe med kortene kuttet under). Fanelinja følger en rulleliste alene på siden av seg selv
+  (0.1.7), men ingen av to ved siden av hverandre: i bygg 21 sto den fast over kortene (`18-…-rullet`). Derfor
+  `movesTabBar()` i `ScrollIndex.swift`: UIScrollView-en rundt kortene blir `tabBarObservedScrollView` for fanen
+  (barnet av UITabBarController, funnet via responder-kjeden), så UIKit flytter fanelinja i takt med kortene. `BigCard.swift` er felles: på Apple TV er hele kortet én
   knapp (`BigCardStyle`, lyseblå kant og 1,06 i fokus), stjernen bare et merke (`favoritt-<id>`). Målene i `Metrics`
   (`bigColumns`, `big…`, `row…`). 0.1.7 hadde en forside med fliser og egne sider per kategori (`TVChannels`,
   `TVTiles`, `TVShelfPage`); de er tatt bort. UI-testene for Apple TV flytter fokus mot målet med rammene (`focus`);
