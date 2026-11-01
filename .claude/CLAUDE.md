@@ -199,8 +199,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   er for produksjon; Metal bare som lapp), KSPlayer er GPL. `playAttempts` (Core): Apples avspiller for
   mp4/m4v/mov/m3u8, ellers VLC; er ingen av adressene for VLC, prøves den første med VLC til slutt (TV-arkivet:
   m3u8 med AVPlayer, så .ts med VLC). `App/VLCPlayer.swift`: `VLCEngine` (@Observable; `VLCMediaPlayer` med
-  `drawable` = `surface` (`VLCSurfaceView`: VLC sin visning inni får alltid samme ramme; i 0.1.15 sto bildet
-  forskjøvet mot høyre i arket på iPhone/iPad), hendelsene via `VLCEvents` til hovedtråden; valg per media: `:http-user-agent`,
+  `drawable` = `surface` (`VLCSurfaceView`: VLC sin visning inni får alltid samme ramme), hendelsene via
+  `VLCEvents` til hovedtråden; valg per media: `:http-user-agent`,
   `:network-caching=3000`, `:start-time`, `:sub-language=nor,…` når appen er på norsk; feil = `.error`, eller
   `.ended`/`.stopped` før tiden har gått, eller ingen tid etter 45 s; skrur av skjermsparer/lås mens den spiller) og
   `VLCPlayerScreen` (egne kontroller: Apple TV en usynlig knapp over hele skjermen med fokus, venstre/høyre spoler 10
@@ -349,5 +349,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   «Fortsett å se», «Åpne i VLC». Så: «hvorfor kan den ikke spille av MKV? andre klienter klarer jo å spille av filmer
   og serier uten problem» → forklart (AVPlayer kan ikke mkv), foreslått en innebygd avspiller, han svarte «Ja». 0.1.15
   = VLC (se Arkitektur). Samme dag ønsket han Plex i stedet for Filmer/Serier («Gjør noe med det når du har
-  mulighet») → 0.1.16. 0.1.15 (bygg 31) er i TestFlight, VALID for TV_OS og IOS; VLC spilte testfilmen i
-  simulatorene (Apple TV riktig, iPhone/iPad med bildet forskjøvet mot høyre, rettet i 0.1.16).
+  mulighet») → 0.1.16. 0.1.15 (bygg 31) er i TestFlight, VALID for TV_OS og IOS; VLC spilte testfilmen riktig i
+  simulatorene. (NB: testfilmen `testsrc` har en svart stripe til venstre, som lett ser ut som at bildet er
+  forskjøvet; det var det ikke. Sammenlign med en ramme fra ffmpeg før du «retter» noe.)

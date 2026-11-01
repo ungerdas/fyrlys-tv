@@ -189,8 +189,8 @@ private final class VLCEvents: NSObject, VLCMediaPlayerDelegate {
     }
 }
 
-/// Der VLC tegner bildet: VLC legger sin egen visning inni, og den følger alltid størrelsen på denne. I et ark på
-/// iPhone og iPad (0.1.15) ble bildet ellers stående forskjøvet mot høyre.
+/// Der VLC tegner bildet: VLC legger sin egen visning inni, og den følger alltid størrelsen på denne (arket på iPhone
+/// og iPad endrer størrelse når det dras eller telefonen snus).
 final class VLCSurfaceView: UIView {
     override func didAddSubview(_ subview: UIView) {
         super.didAddSubview(subview)
