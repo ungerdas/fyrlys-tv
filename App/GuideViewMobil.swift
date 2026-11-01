@@ -33,7 +33,8 @@ struct GuideView: View {
     static let page = 100
     static var width: CGFloat { CGFloat(GuideTime.totalMinutes) * perMinute }
 
-    private var nameWidth: CGFloat { sizeClass == .compact ? 112 : 210 }
+    /// bred nok til at vanlige kanalnavn brytes mellom ordene, ikke midt i dem (112 som på nettsiden ga «Fjordkanale-n»)
+    private var nameWidth: CGFloat { sizeClass == .compact ? 128 : 210 }
 
     var body: some View {
         if model.channels.isEmpty {
