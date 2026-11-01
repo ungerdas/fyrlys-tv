@@ -90,26 +90,20 @@ enum Metrics {
     static let pageTitle: CGFloat = 34
     static let pageCount: CGFloat = 22
     static let pagePadding: CGFloat = 22
-    // de store kortene og flisene (som på iPhone, rundt 1,4 ganger)
-    static let bigTitle: CGFloat = 22
-    static let bigSub: CGFloat = 18
-    static let bigLogoText: CGFloat = 34
-    static let bigRadius: CGFloat = 22
-    static let bigPad: CGFloat = 16
-    static let bigBar: CGFloat = 4
-    static let bigInfoMin: CGFloat = 92
-    static let bigStar: CGFloat = 24
-    static let bigStarBox: CGFloat = 48
-    static let bigGridMin: CGFloat = 320
-    static let bigStripWidth: CGFloat = 344
-    static let bigGap: CGFloat = 28
-    static let tileHeight: CGFloat = 136
-    static let tileTitle: CGFloat = 24
-    static let tileCount: CGFloat = 18
-    static let tilePad: CGFloat = 22
-    static let tileRadius: CGFloat = 22
-    static let tileMin: CGFloat = 300
-    static let rowTitle: CGFloat = 30
+    // de store kortene (som på iPhone, men seks i bredden ved siden av sidemenyen, så mange kanaler får plass)
+    static let bigColumns = 6
+    static let bigTitle: CGFloat = 19
+    static let bigSub: CGFloat = 16
+    static let bigLogoText: CGFloat = 28
+    static let bigRadius: CGFloat = 16
+    static let bigPad: CGFloat = 12
+    static let bigBar: CGFloat = 3
+    static let bigInfoMin: CGFloat = 70
+    static let bigStar: CGFloat = 20
+    static let bigStarBox: CGFloat = 38
+    static let bigGridMin: CGFloat = 230
+    static let bigGap: CGFloat = 20
+    static let rowTitle: CGFloat = 28
     static let rowClock: CGFloat = 22
     #else
     static let sidebarWidth: CGFloat = 280
@@ -128,7 +122,8 @@ enum Metrics {
     static let pageTitle: CGFloat = 24
     static let pageCount: CGFloat = 15
     static let pagePadding: CGFloat = 16
-    // de store kortene og flisene på iPhone (som på Fyrlys-nettsiden)
+    // de store kortene på iPhone (som på Fyrlys-nettsiden)
+    static let bigColumns = 2
     static let bigTitle: CGFloat = 15
     static let bigSub: CGFloat = 13
     static let bigLogoText: CGFloat = 24
@@ -139,14 +134,7 @@ enum Metrics {
     static let bigStar: CGFloat = 17
     static let bigStarBox: CGFloat = 36
     static let bigGridMin: CGFloat = 150
-    static let bigStripWidth: CGFloat = 180
     static let bigGap: CGFloat = 12
-    static let tileHeight: CGFloat = 98
-    static let tileTitle: CGFloat = 17
-    static let tileCount: CGFloat = 12.5
-    static let tilePad: CGFloat = 16
-    static let tileRadius: CGFloat = 18
-    static let tileMin: CGFloat = 150
     static let rowTitle: CGFloat = 21
     static let rowClock: CGFloat = 16
     #endif

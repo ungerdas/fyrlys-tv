@@ -23,6 +23,9 @@ struct PlayerView: View {
                 }
             }
         }
+        // for UI-testene: om spilleren står framme (kanalkortene bak den finnes i elementtreet også da)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spiller")
         .onAppear {
             guard model == nil else { return }
             let player = PlayerModel(app: app, channel: request.channel, list: request.list)

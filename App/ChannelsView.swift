@@ -46,14 +46,22 @@ enum SidebarRow: Identifiable {
 
 /// TV-fanen som i Fyrlys på Windows: sidemenyen med alle kanaler, favoritter, sist sett, «Dine kategorier» (lagt
 /// øverst, i din rekkefølge) og resten av kategoriene, og kanalkortene til høyre (Apple TV og iPad; iPhone har
-/// `PhoneTV`).
+/// `PhoneTV`). På Apple TV de store kortene, seks i bredden, med «Nå på favorittene» og «Sist sett» øverst i «Alle
+/// kanaler» (`TVChannelPanel`); på iPad de smale kortene.
 struct ChannelsView: View {
     @Environment(AppModel.self) private var model
     let play: (Channel, [Channel]) -> Void
     /// det som er valgt i sidemenyen (står i HomeView, så det huskes når du er innom en annen side)
     @Binding var chosen: Shelf?
 
-    private var current: Shelf { chosen ?? (model.favorites.isEmpty ? .all : .favorites) }
+    /// Apple TV: «Alle kanaler» (med favorittene øverst); iPad: favorittene hvis det finnes noen.
+    private var current: Shelf {
+        #if os(tvOS)
+        chosen ?? .all
+        #else
+        chosen ?? (model.favorites.isEmpty ? .all : .favorites)
+        #endif
+    }
 
     var body: some View {
         if model.channels.isEmpty {
@@ -82,13 +90,13 @@ struct ChannelsView: View {
         }
         #if os(tvOS)
         .padding(.horizontal, Theme.edge)
-        #endif
-        // rullelistene strekker seg ellers opp under fanelinja (og klokka på iPad), og det som rulles forbi, havnet bak
-        // den
-        .clipped()
-        #if os(tvOS)
-        // nærmere sidene og helt ned (den trygge sonen til Apple TV ga for mye luft); toppen står under fanelinja
+        // nærmere sidene og helt ned (den trygge sonen til Apple TV ga for mye luft). Toppen begynner under fanelinja,
+        // men rullelistene klippes ikke der: når fanelinja glir bort, ruller kortene og sidemenyen helt opp (0.1.2–0.1.7
+        // klippet dem, og da ble det en tom stripe øverst med kortene kuttet under)
         .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
+        #else
+        // rullelistene strekker seg ellers opp under linja øverst og klokka på iPad
+        .clipped()
         #endif
     }
 
@@ -187,6 +195,12 @@ struct ChannelsView: View {
             : shelf == .recent ? L("Du har ikke sett noen kanaler ennå.") : L("Ingen kanaler her.")
     }
 
+    #if os(tvOS)
+    private func grid(_ shelf: Shelf) -> some View {
+        TVChannelPanel(shelf: shelf, title: title(shelf), channels: list(shelf), emptyText: emptyText(shelf), play: play)
+            .id(shelf)
+    }
+    #else
     private func grid(_ shelf: Shelf) -> some View {
         let channels = list(shelf)
         return ScrollView {
@@ -213,13 +227,10 @@ struct ChannelsView: View {
             .hidesScrollIndex()
         }
         .scrollIndicators(.never)
-        #if os(tvOS)
-        .safeAreaPadding(.bottom, Theme.bottomFocus)
-        #else
         .refreshable { await model.reload() }
-        #endif
         .id(shelf)
     }
+    #endif
 }
 
 #if os(iOS)

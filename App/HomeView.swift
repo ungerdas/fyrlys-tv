@@ -9,8 +9,8 @@ struct PlayRequest: Identifiable {
 }
 
 /// Fanene øverst (fanelinja til Apple TV): TV, TV-guide, Søk og Innstillinger; det samme på iPad. På iPhone som
-/// Fyrlys-nettsiden på en telefon (`PhoneHome`). TV-fanen er forsiden med rader og fliser på Apple TV og iPhone
-/// (`TVChannels`, `PhoneTV`) og sidemenyen på iPad (`ChannelsView`). Spilleren legger seg over alt.
+/// Fyrlys-nettsiden på en telefon (`PhoneHome`, med forsiden og flisene i `PhoneTV`). TV-fanen på Apple TV og iPad er
+/// sidemenyen og kortene (`ChannelsView`). Spilleren legger seg over alt.
 struct HomeView: View {
     enum Tab: Hashable { case tv, guide, search, settings }
 
@@ -18,7 +18,7 @@ struct HomeView: View {
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
     #endif
-    /// sidene som er åpnet fra TV-forsiden på iPhone og Apple TV (en kategori)
+    /// sidene som er åpnet fra TV-forsiden på iPhone (en kategori)
     @State private var path: [Shelf]
     @State private var tab: Tab
     @State private var playing: PlayRequest?
@@ -35,9 +35,14 @@ struct HomeView: View {
         default: _tab = State(initialValue: .tv)
         }
         switch TestSupport.screen {
-        case "all": _path = State(initialValue: [.all])
-        case "category": _path = State(initialValue: [.category("2")])
-        default: _path = State(initialValue: [])
+        case "all":
+            _path = State(initialValue: [.all])
+            _shelf = State(initialValue: .all)
+        case "category":
+            _path = State(initialValue: [.category("2")])
+            _shelf = State(initialValue: .category("2"))
+        default:
+            _path = State(initialValue: [])
         }
     }
 
@@ -96,14 +101,9 @@ struct HomeView: View {
         #endif
     }
 
-    /// TV-fanen: forsiden med rader og fliser på Apple TV, sidemenyen og kortene på iPad.
-    @ViewBuilder
+    /// TV-fanen på Apple TV og iPad: sidemenyen og kortene.
     private var tvTab: some View {
-        #if os(tvOS)
-        TVChannels(path: $path, play: play)
-        #else
         ChannelsView(play: play, chosen: $shelf)
-        #endif
     }
 
     /// Fanene: bare tekst på Apple TV (som fanelinja der), ikon og tekst nederst på iPhone og iPad.

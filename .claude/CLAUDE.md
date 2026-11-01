@@ -27,10 +27,11 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Sport åpnet), `FYRLYS_TEST_LANG` og `FYRLYS_TEST_THEME` (light/dark; UI-testene for iPhone/iPad bruker dark, ellers
   ville simulatoren gitt lys modus) (`App/TestSupport.swift`).
   Elementene testene finner, har `accessibilityIdentifier` (`kanal-<id>`, `hylle-…`, `favoritt-<id>`, `seksjon-dine`/
-  `-alle`/`-kategorier`, `lagt-overst`, `spiller-feil`, `guide`, `innstillinger`). `focus(app, mål)` i UI-testene
-  flytter fokus dit uansett hvor det står. På iPhone/iPad også `kategori-velger`, `stjerne-<kategori>`,
-  `stjerne-kanal-<id>`, `spiller`, `lukk-spiller`, `neste-kanal`, `guide-velger`, `til-naa`; bare iPhone: `sok`, `tema`,
-  `konto`, `tilbake`, `kategori-stjerne`, `seksjon-favoritter`/`-sist`, flisene `hylle-…`. Testen av farten (`test11StorListe`) bruker en stor falsk leverandør
+  `-alle`/`-kategorier`, `seksjon-favoritter`/`-sist` (radene øverst), `lagt-overst`, `spiller` (spilleren står
+  framme; kortene bak den finnes i elementtreet også da), `spiller-feil`, `guide`, `innstillinger`). `focus(app, mål)`
+  i UI-testene flytter fokus dit uansett hvor det står (fanelinja, sidemenyen, kortene). På iPhone/iPad også
+  `kategori-velger`, `stjerne-<kategori>`, `stjerne-kanal-<id>`, `lukk-spiller`, `neste-kanal`, `guide-velger`,
+  `til-naa`; bare iPhone: `sok`, `tema`, `konto`, `tilbake`, `kategori-stjerne`, flisene `hylle-…`. Testen av farten (`test11StorListe`) bruker en stor falsk leverandør
   (`fake_xtream.py --kanaler 25000 --kategorier 450` på port 8898, `FYRLYS_TEST_SERVER_STOR`); tidene står som merknad
   «ytelse» på bygget (simulatoren på en Mac er raskere enn en Apple TV).
 - **Utseendet følger Fyrlys på Windows** (eieren 31.10: «så lik som mulig windows appen»), men **fanelinja til Apple TV
@@ -103,9 +104,10 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (TabView: TV, TV-guide, Søk, Innstillinger; valgt hylle og søket står i HomeView; spilleren som `fullScreenCover`).
   `ChannelsView` (sidemeny 340 pt: Alle kanaler, Favoritter, Sist sett med ikoner, så «Dine kategorier» og «Alle
   kategorier», eller «Kategorier» med et hint når ingen er lagt øverst; hold inne på en kategori = «Legg øverst» /
-  «Flytt opp» / «Flytt ned» / «Fjern fra toppen»; valg ved trykk, ikke ved fokus; `.clipped()` så rullelistene ikke går
-  inn under fanelinja; `hidesScrollIndex()` i `ScrollIndex.swift` skrur av hurtigrullingen (`indexDisplayMode`), som
-  la seg over tallene og tok fokus), `ChannelGrid` (adaptiv, minst 320 pt: fire kolonner ved siden av sidemenyen) med
+  «Flytt opp» / «Flytt ned» / «Fjern fra toppen»; valg ved trykk, ikke ved fokus; på Apple TV klippes rullelistene
+  ikke under fanelinja (fra 0.1.8, se under), på iPad `.clipped()`; `hidesScrollIndex()` i `ScrollIndex.swift` skrur av
+  hurtigrullingen (`indexDisplayMode`, via UIScrollView-en rundt), som la seg over tallene og tok fokus),
+  `ChannelGrid` (bare iPad; adaptiv, minst 320 pt: fire kolonner ved siden av sidemenyen) med
   `ChannelCard` (96 pt høyt som Windows-kortet: `ChannelLogo`, klokkeslett i gult, navnet, kampen eller det som går nå
   (`NowPlaying`, `.everyMinute`), nummeret og stjernen; `CardStyle` med lyseblå kant `Theme.focus` og 1,05 i fokus;
   hold inne = favoritt), `GuideView` (6 timer, 4,2 pt/min, navn 300 pt, rader 66 pt, så det får plass uten vannrett rulling; fokus
@@ -116,15 +118,20 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `AVPlayerViewController` med neste/forrige/favoritt i `transportBarCustomMenuItems` og kanallista i
   `customInfoViewControllers`; programinfo i `externalMetadata`). `Images.swift` (logoer med eget mellomlager,
   `ChannelTile`), `FyrlysMark.swift` (fyret tegnet i Canvas), `Theme.swift` («Fyrlys om natta»).
-- **Apple TV fra 0.1.7 som iPhone** (eieren 1.11: «samme tema på Apple TV», valgte store kort og forside med rader):
-  `TVHome.swift` (`TVChannels` med `NavigationStack` og stien i HomeView; forsiden med «Nå på favorittene» og «Sist
-  sett» som rader (helt ut til kantene, `contentMargins`, `scrollClipDisabled`, `focusSection` per rad) og flisene
-  (`TVTiles`, hold inne = legg øverst/flytt/fjern); `TVShelfPage` med tittel, antall, knappen `kategori-stjerne` og
-  `BigCardGrid`, som søket også bruker). `BigCard.swift` er felles: på Apple TV er hele kortet én knapp
-  (`BigCardStyle`, fokus som de smale kortene), stjernen bare et merke (`favoritt-<id>`). Målene står i `Metrics`
-  (`big…`, `tile…`, `row…`). `ChannelsView` (sidemenyen) og de smale kortene brukes nå bare på iPad. UI-testene for
-  Apple TV flytter fokus mot målet med rammene (`focus`), og `test11StorListe` måler flisene, «Alle kanaler» og
-  stegene.
+- **Apple TV fra 0.1.8: sidemenyen og de store kortene** (eieren 1.11 om 0.1.7: «rart med den toppen», «uoversiktlig»;
+  valgte sidemeny + mindre kort): `ChannelsView` med sidemenyen som før og `TVChannelPanel` (`TVHome.swift`) til
+  høyre: i «Alle kanaler» (standard på Apple TV) «Nå på favorittene» og «Sist sett» som rader (`TVStrip`,
+  `scrollClipDisabled` + `StripClip`: kortet med fokus kuttes ikke, men kortene rulles ikke inn over sidemenyen), eller
+  tipset når begge er tomme, så tittel, antall og `BigCardGrid` med seks like brede kolonner (`.flexible()`; kortene i
+  radene har `containerRelativeFrame(count: 6)`, så de er like brede); søket bruker `BigCardGrid(columns: nil)`
+  (adaptiv). Ingen `GeometryReader` rundt rullelista (den skal nå toppen av den trygge sonen). Toppen: TV-siden
+  begynner under fanelinja, men rullelistene klippes ikke der (0.1.2–0.1.7 hadde `.clipped()`, og når fanelinja gled
+  bort, ble det en tom stripe med kortene kuttet under). `BigCard.swift` er felles: på Apple TV er hele kortet én
+  knapp (`BigCardStyle`, lyseblå kant og 1,06 i fokus), stjernen bare et merke (`favoritt-<id>`). Målene i `Metrics`
+  (`bigColumns`, `big…`, `row…`). 0.1.7 hadde en forside med fliser og egne sider per kategori (`TVChannels`,
+  `TVTiles`, `TVShelfPage`); de er tatt bort. UI-testene for Apple TV flytter fokus mot målet med rammene (`focus`);
+  `test11StorListe` måler kortene og sidemenyen og tar bilder av toppen (`17-…-sidemeny`, `18-…-rullet`,
+  `19-…-fanelinja` etter Menu).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -199,6 +206,10 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Apple TV fikk forsiden og de store kortene (se Arkitektur). 0.1.7 (bygg 20) er i TestFlight for både TV_OS og IOS
   (1.11). Ikke prøvd på ekte Apple TV eller iPhone ennå. Fartstesten: flisene etter 14,7 s uten lista fra sist (før:
   første kort etter 6,2–6,5 s) og 5,4 s med (før 4,1–4,3 s); verdt å se på om oppstarten med 25 000 kanaler er blitt
-  tregere. Merk: `test06Player` på Apple TV trykker ikke Menu hvis «kanal-1» alt finnes bak spilleren (den gjør det
-  nå, i «Sist sett»), så den prøver ikke lenger at Menu lukker spilleren.
+  tregere. `test06Player` på Apple TV trykket ikke Menu i 0.1.7 («kanal-1» fantes bak spilleren); fra 0.1.8 venter
+  den på at `spiller` er borte.
+- 1.11.2026: 0.1.8: eieren syntes Apple TV-versjonen 0.1.7 var «rart med den toppen» (bilde: den øverste raden kuttet
+  under en tom stripe der fanelinja hadde vært) og «uoversiktlig» (fem store kort i bredden). Valgte «Sidemeny + mindre
+  kort»: sidemenyen tilbake, radene øverst i «Alle kanaler», seks kort i bredden, ingen klipping under fanelinja (se
+  Arkitektur).
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.

@@ -18,7 +18,7 @@ struct SearchView: View {
                             .foregroundStyle(Theme.muted)
                     }
                     #if os(tvOS)
-                    BigCardGrid(channels: results, play: play)
+                    BigCardGrid(channels: results, columns: nil, play: play)
                     #else
                     ChannelGrid(channels: results, play: play)
                     #endif

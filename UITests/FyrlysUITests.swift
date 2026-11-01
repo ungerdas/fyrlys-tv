@@ -28,15 +28,25 @@ final class FyrlysUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
-    /// Flytter fokus til [target] (en flis, «hylle-…», et kort, «kanal-…», eller en knapp), uansett hvor fokus står:
-    /// fra fanelinja ned, og så opp, ned eller til siden mot målet (det rulles fram underveis).
+    /// Flytter fokus til [target] (et kanalkort, «kanal-…», en linje i sidemenyen, «hylle-…», eller noe annet), uansett
+    /// hvor fokus står: fra fanelinja ned, mellom sidemenyen og kortene, og så opp, ned eller til siden mot målet (det
+    /// rulles fram underveis).
     @discardableResult
     func focus(_ app: XCUIApplication, _ target: XCUIElement, tries: Int = 30) -> Bool {
+        let wantsSidebar = target.identifier.hasPrefix("hylle-")
         for _ in 0..<tries {
             if target.hasFocus { return true }
             let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
-            if !focused.exists || focused.frame.isEmpty {
+            let id = focused.exists ? focused.identifier : ""
+            let inSidebar = id.hasPrefix("hylle-")
+            let onCard = id.hasPrefix("kanal-")
+            if !inSidebar && !onCard {
+                // i fanelinja (eller ingen fokus): ned
                 remote.press(.down)
+            } else if wantsSidebar && !inSidebar {
+                remote.press(.left)
+            } else if !wantsSidebar && inSidebar {
+                remote.press(.right)
             } else {
                 let here = focused.frame
                 let goal = target.frame
@@ -77,28 +87,20 @@ final class FyrlysUITests: XCTestCase {
         shot("01-innlogging")
     }
 
-    /// Forsiden: kategoriene som fliser (ingen favoritter eller «Sist sett» ennå), så «Alle kanaler» med de store
-    /// kortene.
+    /// «Alle kanaler» med sidemenyen og de store kortene, seks i bredden.
     func test02TV() {
         let app = launch("tv")
-        let all = find(app, "hylle-alle")
-        XCTAssertTrue(all.waitForExistence(timeout: 30), "flisene kom ikke")
-        XCTAssertTrue(find(app, "hylle-2").exists, "flisen for Sport mangler")
+        XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 30), "kanalkortene kom ikke")
+        XCTAssertTrue(find(app, "hylle-2").exists, "kategorien Sport mangler i sidemenyen")
         XCTAssertFalse(find(app, "hylle-6").exists, "tomme kategorier skal ikke vises")
-        XCTAssertTrue(find(app, "seksjon-kategorier").exists, "«Kategorier» mangler")
-        wait(2)
-        shot("02-tv")
-        XCTAssertTrue(focus(app, all), "fikk ikke fokus på «Alle kanaler»")
-        remote.press(.select)
-        XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 10), "«Alle kanaler» ble ikke vist")
         wait(4) // logoer og programinfo
-        shot("02-tv-alle")
+        shot("02-tv")
     }
 
-    /// Hold inne på et kort i «Alle kanaler»: «Legg til i favoritter». Tilbake på forsiden står kanalen under «Nå på
-    /// favorittene».
+    /// Hold inne på et kort: «Legg til i favoritter». Da får kortet en stjerne, og kanalen står under «Nå på
+    /// favorittene» øverst i «Alle kanaler».
     func test03Favorite() {
-        let app = launch("all")
+        let app = launch("tv")
         let card = find(app, "kanal-1")
         XCTAssertTrue(card.waitForExistence(timeout: 30))
         // fokus starter i fanene øverst
@@ -114,41 +116,33 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(add.waitForExistence(timeout: 8), "hurtigmenyen kom ikke")
         remote.press(.select)
         XCTAssertTrue(find(app, "favoritt-1").waitForExistence(timeout: 10), "stjernen kom ikke")
-        wait(1)
-        shot("04-favoritt")
-        remote.press(.menu)
         XCTAssertTrue(find(app, "seksjon-favoritter").waitForExistence(timeout: 10), "«Nå på favorittene» kom ikke")
         wait(3)
-        shot("04-favoritt-forside")
+        shot("04-favoritt")
     }
 
-    /// «Dine kategorier»: hold inne på Sport, «Legg øverst»; da står Sport foran Nyheter blant flisene, og «Alle
+    /// «Dine kategorier»: hold inne på Sport i sidemenyen, «Legg øverst»; da står den øverst med stjerne, og «Alle
     /// kanaler» begynner med kanalene i Sport.
     func test10DineKategorier() {
         let app = launch("tv")
         let sport = find(app, "hylle-2")
         XCTAssertTrue(sport.waitForExistence(timeout: 30))
-        XCTAssertTrue(focus(app, sport), "fikk ikke fokus på Sport")
+        XCTAssertTrue(find(app, "seksjon-kategorier").exists, "«Kategorier» mangler i sidemenyen")
+        XCTAssertTrue(focus(app, sport), "fikk ikke fokus på Sport i sidemenyen")
         remote.press(.select, forDuration: 2)
         wait(2)
         shot("14-kategori-meny")
         let pin = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Legg øverst")).firstMatch
         XCTAssertTrue(pin.waitForExistence(timeout: 8), "menyen kom ikke")
         remote.press(.select)
-        wait(2)
-        let news = find(app, "hylle-1")
-        XCTAssertTrue(news.exists)
-        XCTAssertTrue(before(sport, news), "Sport står ikke foran Nyheter")
-        shot("15-dine-kategorier")
-        let all = find(app, "hylle-alle")
-        XCTAssertTrue(focus(app, all), "fikk ikke fokus på «Alle kanaler»")
-        remote.press(.select)
+        XCTAssertTrue(find(app, "seksjon-dine").waitForExistence(timeout: 10), "«Dine kategorier» kom ikke")
+        XCTAssertTrue(find(app, "lagt-overst").exists, "stjernen ved kategorien mangler")
         let sportFirst = find(app, "kanal-11")
-        let first = find(app, "kanal-1")
-        XCTAssertTrue(sportFirst.waitForExistence(timeout: 10) && first.waitForExistence(timeout: 5))
-        XCTAssertTrue(before(sportFirst, first), "«Alle kanaler» begynner ikke med Sport")
-        wait(2)
-        shot("15-dine-kategorier-alle")
+        let news = find(app, "kanal-1")
+        XCTAssertTrue(sportFirst.waitForExistence(timeout: 10) && news.exists)
+        XCTAssertTrue(before(sportFirst, news), "«Alle kanaler» begynner ikke med Sport")
+        wait(1)
+        shot("15-dine-kategorier")
     }
 
     /// Den store, oppdiktede lista (25 000 kanaler i 450 kategorier fra tools/fake_xtream.py --kanaler): hvor lang tid
@@ -160,47 +154,50 @@ final class FyrlysUITests: XCTestCase {
         }
         var start = Date()
         var app = launch("tv", server: big)
-        let all = find(app, "hylle-alle")
-        XCTAssertTrue(all.waitForExistence(timeout: 120), "flisene kom ikke")
+        let first = find(app, "kanal-1000")
+        XCTAssertTrue(first.waitForExistence(timeout: 120), "kortene kom ikke")
         let cold = Date().timeIntervalSince(start)
-        wait(3)
+        wait(4)
         shot("16-stor-liste")
 
-        // «Alle kanaler»: 25 000 store kort
-        XCTAssertTrue(focus(app, all), "fikk ikke fokus på «Alle kanaler»")
-        start = Date()
-        remote.press(.select)
-        let first = find(app, "kanal-1000")
-        XCTAssertTrue(first.waitForExistence(timeout: 60), "kortene kom ikke")
-        let open = Date().timeIntervalSince(start)
         XCTAssertTrue(focus(app, first), "fikk ikke fokus på det første kortet")
         start = Date()
         for _ in 0..<12 { remote.press(.down) }
         for _ in 0..<12 { remote.press(.up) }
         let grid = Date().timeIntervalSince(start)
 
-        // tilbake til flisene (450 kategorier) og nedover; flisene øverst lastes ut når de er rullet bort, så fokus
-        // flyttes ikke tilbake til dem etterpå. Menu trykkes fra et kort: de raske trykkene kan ha flyttet fokus opp i
-        // fanelinja, og der lukker Menu appen.
+        // til sidemenyen (fra det første kortet: de raske trykkene kan ha flyttet fokus opp i fanelinja) og nedover
         XCTAssertTrue(focus(app, first), "fikk ikke fokus på det første kortet igjen")
-        remote.press(.menu)
-        XCTAssertTrue(all.waitForExistence(timeout: 10), "kom ikke tilbake til forsiden")
+        remote.press(.left)
         wait(1)
         start = Date()
         for _ in 0..<20 { remote.press(.down) }
-        let tiles = Date().timeIntervalSince(start)
+        let sidebar = Date().timeIntervalSince(start)
+        wait(2)
+        shot("17-stor-liste-sidemeny")
+
+        // tilbake i kortene og nedover: toppen når fanelinja har glidd bort
+        remote.press(.right)
         wait(1)
-        shot("17-stor-liste-fliser")
+        for _ in 0..<4 {
+            remote.press(.down)
+            wait(0.6)
+        }
+        wait(2)
+        shot("18-stor-liste-rullet")
+        // Menu: fokus opp i fanelinja (ett trykk; et til ville lukket appen)
+        remote.press(.menu)
+        wait(2)
+        shot("19-stor-liste-fanelinja")
         app.terminate()
 
         // igjen, med lista fra sist på disk
         start = Date()
         app = launch("tv", server: big, keep: true)
-        XCTAssertTrue(find(app, "hylle-alle").waitForExistence(timeout: 60), "flisene kom ikke med lista fra sist")
+        XCTAssertTrue(find(app, "kanal-1000").waitForExistence(timeout: 60), "kortene kom ikke med lista fra sist")
         let warm = Date().timeIntervalSince(start)
-        print(String(format: "YTELSE: 25 000 kanaler i simulatoren: flisene etter %.1f s uten lista fra sist og %.1f s "
-                     + "med; «Alle kanaler» åpnet på %.1f s; 24 steg i kortene %.1f s; 20 steg i flisene %.1f s",
-                     cold, warm, open, grid, tiles))
+        print(String(format: "YTELSE: 25 000 kanaler i simulatoren: første kort etter %.1f s uten lista fra sist og "
+                     + "%.1f s med; 24 steg i kortene %.1f s; 20 steg i sidemenyen %.1f s", cold, warm, grid, sidebar))
     }
 
     func test04Guide() {
@@ -233,22 +230,26 @@ final class FyrlysUITests: XCTestCase {
 
     func test06Player() {
         let app = launch("player")
-        wait(12)
+        let player = find(app, "spiller")
+        XCTAssertTrue(player.waitForExistence(timeout: 30), "spilleren kom ikke")
+        wait(10)
         shot("09-spiller")
         remote.press(.select) // pause: kontrollene vises
         wait(2)
         shot("10-spiller-kontroller")
         remote.press(.select)
         wait(1)
-        // Menyknappen lukker spilleren (først skjules kontrollene)
-        for _ in 0..<3 where !find(app, "kanal-1").exists {
+        // Menyknappen lukker spilleren (først skjules kontrollene). Kortene finnes bak spilleren, så det er spilleren
+        // som må være borte.
+        for _ in 0..<3 where player.exists {
             remote.press(.menu)
             wait(2)
         }
-        XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 10), "kom ikke tilbake fra spilleren")
+        XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
         XCTAssertEqual(app.state, .runningForeground)
-        // «Sist sett» på forsiden har kanalen nå
-        XCTAssertTrue(find(app, "seksjon-sist").exists, "«Sist sett» mangler")
+        XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 10), "kom ikke tilbake fra spilleren")
+        // «Sist sett» øverst i «Alle kanaler» har kanalen nå
+        XCTAssertTrue(find(app, "seksjon-sist").exists, "«Sist sett» mangler øverst")
         wait(3)
         shot("09-sist-sett")
     }
@@ -271,7 +272,7 @@ final class FyrlysUITests: XCTestCase {
 
     func test09English() {
         let app = launch("tv", language: "en")
-        XCTAssertTrue(find(app, "hylle-alle").waitForExistence(timeout: 30))
+        XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 30))
         XCTAssertTrue(app.buttons.containing(NSPredicate(format: "label CONTAINS 'All channels'")).firstMatch.exists)
         wait(3)
         shot("13-english")
