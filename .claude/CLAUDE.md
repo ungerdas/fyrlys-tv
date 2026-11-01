@@ -368,3 +368,4 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Serier, uten «Fortsett å se» og rader med noe annet). Episodene spilles med en gang (`withFile` henter fila om den
   mangler), hold inne = «Gå til serien». Testene `test17Plex`/`test19PlexSerier` (Apple TV), `test18Plex`/
   `test20PlexSerier` (iPhone og iPad). Ikke sjekket mot hans server: om samlingene hans står i `/hubs/promoted`.
+  0.1.17 (bygg 33) er i TestFlight, VALID for TV_OS og IOS.
