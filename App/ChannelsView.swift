@@ -46,8 +46,8 @@ enum SidebarRow: Identifiable {
 
 /// TV-fanen som i Fyrlys på Windows: sidemenyen med alle kanaler, favoritter, sist sett, «Dine kategorier» (lagt
 /// øverst, i din rekkefølge) og resten av kategoriene, og kanalkortene til høyre (Apple TV og iPad; iPhone har
-/// `PhoneTV`). På Apple TV de store kortene, fem i bredden, med «Nå på favorittene» og «Sist sett» øverst i «Alle
-/// kanaler» (`TVChannelPanel`); på iPad de smale kortene.
+/// `PhoneTV`). På Apple TV de store kortene, fire i bredden, med «Nå på favorittene» og «Sist sett» øverst i «Alle
+/// kanaler» (`TVChannelPanel`), og Fyrlys-merket over sidemenyen; på iPad de smale kortene.
 struct ChannelsView: View {
     @Environment(AppModel.self) private var model
     let play: (Channel, [Channel]) -> Void
@@ -80,6 +80,15 @@ struct ChannelsView: View {
         HStack(alignment: .top, spacing: 0) {
             sidebar(rows(), current: shelf)
                 .frame(width: Metrics.sidebarWidth)
+                #if os(tvOS)
+                // sidemenyen ruller ikke opp under Fyrlys-merket over den (kortene til høyre ruller helt opp når
+                // fanelinja glir bort)
+                .clipped()
+                .overlay(alignment: .topLeading) {
+                    TVBrand()
+                        .alignmentGuide(.top) { $0[.bottom] + Metrics.brandGap }
+                }
+                #endif
                 .tvFocusSection()
             Rectangle()
                 .fill(Theme.line)
@@ -91,8 +100,8 @@ struct ChannelsView: View {
         #if os(tvOS)
         .padding(.horizontal, Theme.edge)
         // nærmere sidene og helt ned (den trygge sonen til Apple TV ga for mye luft). Toppen begynner under fanelinja,
-        // men rullelistene klippes ikke der: når fanelinja glir bort, ruller kortene og sidemenyen helt opp (0.1.2–0.1.7
-        // klippet dem, og da ble det en tom stripe øverst med kortene kuttet under)
+        // men kortene klippes ikke der: når fanelinja glir bort, ruller de helt opp (0.1.2–0.1.7 klippet dem, og da ble
+        // det en tom stripe øverst med kortene kuttet under)
         .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
         #else
         // rullelistene strekker seg ellers opp under linja øverst og klokka på iPad

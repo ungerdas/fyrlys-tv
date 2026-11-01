@@ -123,11 +123,14 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   valgte sidemeny + mindre kort): `ChannelsView` med sidemenyen som før og `TVChannelPanel` (`TVHome.swift`) til
   høyre: i «Alle kanaler» (standard på Apple TV) «Nå på favorittene» og «Sist sett» som rader (`TVStrip`,
   `scrollClipDisabled` + `StripClip`: kortet med fokus kuttes ikke, men kortene rulles ikke inn over sidemenyen), eller
-  tipset når begge er tomme, så tittel, antall og `BigCardGrid` med `Metrics.bigColumns` like brede kolonner (fem fra
-  0.1.9, eieren: seks var for små; `.flexible()`; kortene i radene har `containerRelativeFrame(count:)` med samme
-  antall, så de er like brede); søket bruker `BigCardGrid(columns: nil)` (adaptiv, minst `bigGridMin`). Ingen `GeometryReader` rundt rullelista (den skal nå toppen av den trygge sonen). Toppen: TV-siden
-  begynner under fanelinja, men rullelistene klippes ikke der (0.1.2–0.1.7 hadde `.clipped()`, og når fanelinja gled
-  bort, ble det en tom stripe med kortene kuttet under). Fanelinja følger en rulleliste alene på siden av seg selv
+  tipset når begge er tomme, så tittel, antall og `BigCardGrid` med `Metrics.bigColumns` like brede kolonner (fire fra
+  0.1.10; eieren syntes seks (0.1.8) og fem (0.1.9) var for små; `.flexible()`; kortene i radene har
+  `containerRelativeFrame(count:)` med samme antall, så de er like brede); søket bruker `BigCardGrid(columns: nil)` (adaptiv, minst `bigGridMin`). Ingen `GeometryReader` rundt rullelista (den skal nå toppen av den trygge sonen). Toppen: TV-siden
+  begynner under fanelinja, men kortene klippes ikke der (0.1.2–0.1.7 hadde `.clipped()`, og når fanelinja gled
+  bort, ble det en tom stripe med kortene kuttet under). Over sidemenyen står Fyrlys-merket (`TVBrand`: `FyrlysMark`
+  og «Fyrlys», som topplinja på iPhone; eieren 1.11: «Savner Fyrlys logo») som `overlay` med
+  `alignmentGuide(.top)`, så bunnen står `Metrics.brandGap` over sidemenyen, på linje med fanelinja i simulatoren;
+  sidemenyen er `.clipped()` under det. Fanelinja følger en rulleliste alene på siden av seg selv
   (0.1.7), men ingen av to ved siden av hverandre: i bygg 21 sto den fast over kortene (`18-…-rullet`). Derfor
   `movesTabBar()` i `ScrollIndex.swift`: UIScrollView-en rundt kortene blir `tabBarObservedScrollView` for fanen
   (barnet av UITabBarController, funnet via responder-kjeden), så UIKit flytter fanelinja i takt med kortene. `BigCard.swift` er felles: på Apple TV er hele kortet én
@@ -228,5 +231,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   brikker»); valgt fem (`Metrics.bigColumns`, med litt større tekst og logo). 0.1.9 (bygg 24) er i TestFlight, VALID for
   TV_OS og IOS; fartstesten 5,5 s uten lista fra sist og 4,2 s med. Samme natt (bilde av «Norway» på iPhone):
   «Liker godt UI på iPhone, så gjerne før over noe av det samme på AppleTV»; spurt hva (større kort/fire i bredden,
-  kategoritoppen med stjerne, stjerne på alle kort, forsiden fra iPhone), han ville prøve 0.1.9 først. Åpent.
+  kategoritoppen med stjerne, stjerne på alle kort, forsiden fra iPhone), han ville prøve 0.1.9 først.
+- 1.11.2026: 0.1.10: etter å ha prøvd 0.1.9: «Syntes flisene kan være bittelitt større. Savner Fyrlys logo osv» →
+  fire kort i bredden og Fyrlys-merket øverst til venstre (se Arkitektur). «osv» ikke avklart (topplinja på iPhone har
+  også sol/måne og Konto; Apple TV er alltid mørk og har Innstillinger i fanelinja).
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.

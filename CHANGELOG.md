@@ -1,5 +1,10 @@
 # Endringer
 
+## v0.1.10
+
+- Apple TV: kanalkortene er litt større, fire i bredden.
+- Fyrlys-merket og navnet står øverst til venstre, på linje med fanelinja, som på iPhone. Sidemenyen ruller under det.
+
 ## v0.1.9
 
 - Apple TV: større kanalkort, fem i bredden i stedet for seks (også i radene øverst og litt større i søket).

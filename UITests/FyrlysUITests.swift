@@ -87,10 +87,11 @@ final class FyrlysUITests: XCTestCase {
         shot("01-innlogging")
     }
 
-    /// «Alle kanaler» med sidemenyen og de store kortene, fem i bredden.
+    /// «Alle kanaler» med sidemenyen og de store kortene, fire i bredden, og Fyrlys-merket øverst til venstre.
     func test02TV() {
         let app = launch("tv")
         XCTAssertTrue(find(app, "kanal-1").waitForExistence(timeout: 30), "kanalkortene kom ikke")
+        XCTAssertTrue(find(app, "fyrlys-merke").exists, "Fyrlys-merket mangler")
         XCTAssertTrue(find(app, "hylle-2").exists, "kategorien Sport mangler i sidemenyen")
         XCTAssertFalse(find(app, "hylle-6").exists, "tomme kategorier skal ikke vises")
         wait(4) // logoer og programinfo
