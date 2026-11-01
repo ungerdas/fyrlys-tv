@@ -349,4 +349,5 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   «Fortsett å se», «Åpne i VLC». Så: «hvorfor kan den ikke spille av MKV? andre klienter klarer jo å spille av filmer
   og serier uten problem» → forklart (AVPlayer kan ikke mkv), foreslått en innebygd avspiller, han svarte «Ja». 0.1.15
   = VLC (se Arkitektur). Samme dag ønsket han Plex i stedet for Filmer/Serier («Gjør noe med det når du har
-  mulighet») → 0.1.16.
+  mulighet») → 0.1.16. 0.1.15 (bygg 31) er i TestFlight, VALID for TV_OS og IOS; VLC spilte testfilmen i
+  simulatorene (Apple TV riktig, iPhone/iPad med bildet forskjøvet mot høyre, rettet i 0.1.16).
