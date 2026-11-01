@@ -43,7 +43,7 @@ final class FyrlysUITests: XCTestCase {
             let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
             let id = focused.exists ? focused.identifier : ""
             let inSidebar = sidebar(id)
-            let onCard = id.hasPrefix("kanal-") || id.hasPrefix("vod-") || id.hasPrefix("episode-")
+            let onCard = ["kanal-", "vod-", "episode-", "rad-", "fortsett-"].contains { id.hasPrefix($0) }
             if !inSidebar && !onCard {
                 // i fanelinja (eller ingen fokus): ned
                 remote.press(.down)
@@ -294,17 +294,19 @@ final class FyrlysUITests: XCTestCase {
         return false
     }
 
-    /// Plex (koblet til fra før): bibliotekene som kategorier, «Fortsett å se» fra Plex, siden for en film med
-    /// «Fortsett» der Plex sier du slapp, og filmen (mkv) spilles rett fra serveren med VLC.
+    /// Plex (koblet til fra før): «Hjem» med radene fra Plex og «Fortsett å se», bibliotekene som kategorier, siden
+    /// for en film med «Fortsett» der Plex sier du slapp, og filmen (mkv) spilles rett fra serveren med VLC.
     func test17Plex() {
         let app = launch("plex")
-        let movie = find(app, "vod-1001")
-        XCTAssertTrue(movie.waitForExistence(timeout: 40), "filmene fra Plex kom ikke")
+        let movie = find(app, "rad-1001")
+        XCTAssertTrue(movie.waitForExistence(timeout: 40), "radene fra Plex kom ikke")
+        XCTAssertTrue(find(app, "vodkat-hjem").exists, "«Hjem» mangler")
         XCTAssertTrue(find(app, "vodkat-1").exists, "biblioteket Filmer mangler")
         XCTAssertFalse(find(app, "vodkat-3").exists, "musikkbiblioteket skal ikke vises")
         XCTAssertTrue(find(app, "fortsett-1001").exists, "«Fortsett å se» fra Plex mangler")
+        XCTAssertFalse(find(app, "rad-e2102").exists, "episodene skal stå under Serier")
         wait(2)
-        shot("28-plex-filmer")
+        shot("28-plex-hjem")
         XCTAssertTrue(focus(app, movie), "fikk ikke fokus på filmen")
         remote.press(.select)
         let play = find(app, "spill-av")
@@ -319,6 +321,28 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(changes(time, from: first), "tiden gikk ikke (filmen fra Plex spilte ikke)")
         wait(2)
         shot("30-plex-spiller")
+        let player = find(app, "vod-spiller")
+        for _ in 0..<3 where player.exists {
+            remote.press(.menu)
+            wait(2)
+        }
+        XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
+    }
+
+    /// Serier med Plex: radene med nye episoder, og en episode spilles med en gang der Plex sier du slapp.
+    func test19PlexSerier() {
+        let app = launch("plex-series")
+        let episode = find(app, "rad-e2102")
+        XCTAssertTrue(episode.waitForExistence(timeout: 40), "radene med episoder fra Plex kom ikke")
+        wait(2)
+        shot("33-plex-serier")
+        XCTAssertTrue(focus(app, episode), "fikk ikke fokus på episoden")
+        remote.press(.select)
+        let time = find(app, "vod-tid")
+        XCTAssertTrue(time.waitForExistence(timeout: 20), "episoden startet ikke")
+        XCTAssertTrue(changes(time, from: time.label), "tiden gikk ikke (episoden fra Plex spilte ikke)")
+        wait(1)
+        shot("34-plex-episode")
         let player = find(app, "vod-spiller")
         for _ in 0..<3 where player.exists {
             remote.press(.menu)

@@ -301,17 +301,40 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertFalse(player.exists, "krysset lukket ikke spilleren")
     }
 
-    /// Plex (koblet til fra før): filmene fra Plex, «Fortsett å se» fra Plex og siden for en film med «Fortsett».
+    /// Plex (koblet til fra før): «Hjem» med radene og «Fortsett å se» fra Plex, og siden for en film med «Fortsett».
     func test18Plex() {
         let app = launch("plex")
-        XCTAssertTrue(find(app, "vod-1001").waitForExistence(timeout: 40), "filmene fra Plex kom ikke")
+        XCTAssertTrue(find(app, "rad-1001").waitForExistence(timeout: 40), "radene fra Plex kom ikke")
         XCTAssertTrue(find(app, "fortsett-1001").exists, "«Fortsett å se» fra Plex mangler")
         wait(2)
-        shot("25-plex-filmer")
-        XCTAssertTrue(openPage(app, "vod-1001", then: "spill-av", timeout: 15), "siden for filmen kom ikke")
+        shot("25-plex-hjem")
+        XCTAssertTrue(openPage(app, "rad-1001", then: "spill-av", timeout: 15), "siden for filmen kom ikke")
         wait(2)
         XCTAssertTrue(find(app, "spill-av").label.contains("0:12"), "«Fortsett» der Plex sier du slapp mangler")
         shot("26-plex-film")
+    }
+
+    /// Serier med Plex: radene med nye episoder, og en episode spilles med en gang.
+    func test20PlexSerier() {
+        let app = launch("plex-series")
+        let episode = find(app, "rad-e2102")
+        XCTAssertTrue(episode.waitForExistence(timeout: 40), "radene med episoder fra Plex kom ikke")
+        wait(2)
+        shot("29-plex-serier")
+        episode.tap()
+        let time = find(app, "vod-tid")
+        XCTAssertTrue(time.waitForExistence(timeout: 20), "episoden startet ikke")
+        let first = time.label
+        var played = false
+        for _ in 0..<40 {
+            if time.exists, time.label != first, time.label != "0:00" {
+                played = true
+                break
+            }
+            wait(1)
+        }
+        XCTAssertTrue(played, "tiden gikk ikke (episoden fra Plex spilte ikke)")
+        shot("30-plex-episode")
     }
 
     /// Koble til Plex (iPhone: arket fra Konto, iPad: Innstillinger): koden vises, og så kobles det til serveren.

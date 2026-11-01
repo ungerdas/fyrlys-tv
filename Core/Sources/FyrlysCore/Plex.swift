@@ -414,19 +414,24 @@ public func parseDetails(_ m: [String: Any], client: PlexClient) -> VODDetails {
 }
 
 /// /library/metadata/<serie>/allLeaves: alle episodene, sesong for sesong.
+/// Én episode fra Plex.
+func plexEpisode(_ e: [String: Any], client: PlexClient) -> Episode? {
+    let id = text(e["ratingKey"])
+    guard !id.isEmpty, text(e["type"]).isEmpty || text(e["type"]) == "episode" else { return nil }
+    let n = int(e["index"]) ?? 0
+    let part = firstPart(e)
+    return Episode(id: id, season: int(e["parentIndex"]) ?? 1, number: n,
+                   title: nonEmpty(e["title"]) ?? L("Episode {n}", ["n": n]),
+                   plot: nonEmpty(e["summary"]) ?? "", duration: minutes(e["duration"]),
+                   image: client.imageURL(nonEmpty(e["thumb"]), width: 480, height: 270),
+                   ext: part.container ?? "mkv", source: "plex", fileKey: part.key,
+                   resume: Double(int(e["viewOffset"]) ?? 0) / 1000,
+                   watched: (int(e["viewCount"]) ?? 0) > 0)
+}
+
 public func parseEpisodes(_ container: [String: Any], client: PlexClient) -> [Season] {
-    let episodes: [Episode] = (container["Metadata"] as? [[String: Any]] ?? []).compactMap { e in
-        let id = text(e["ratingKey"])
-        guard !id.isEmpty, text(e["type"]).isEmpty || text(e["type"]) == "episode" else { return nil }
-        let n = int(e["index"]) ?? 0
-        let part = firstPart(e)
-        return Episode(id: id, season: int(e["parentIndex"]) ?? 1, number: n,
-                       title: nonEmpty(e["title"]) ?? L("Episode {n}", ["n": n]),
-                       plot: nonEmpty(e["summary"]) ?? "", duration: minutes(e["duration"]),
-                       image: client.imageURL(nonEmpty(e["thumb"]), width: 480, height: 270),
-                       ext: part.container ?? "mkv", source: "plex", fileKey: part.key,
-                       resume: Double(int(e["viewOffset"]) ?? 0) / 1000,
-                       watched: (int(e["viewCount"]) ?? 0) > 0)
+    let episodes: [Episode] = (container["Metadata"] as? [[String: Any]] ?? []).compactMap {
+        plexEpisode($0, client: client)
     }
     let groups = Dictionary(grouping: episodes, by: \.season)
     return groups.keys.sorted().map { number in
@@ -453,5 +458,108 @@ public func parseContinue(_ container: [String: Any], kind: VODKind, client: Ple
         }
         guard let item, seen.insert(item.id).inserted else { return nil }
         return item
+    }
+}
+
+// ── radene på «Hjem» (som Hjem i Plex) ──
+
+/// En film eller serie i en rad; i rader med episoder (som «Nytt fra …») også episoden, som spilles med en gang.
+public struct VODRowItem: Hashable, Identifiable, Sendable {
+    /// filmen eller serien (åpnes som egen side)
+    public let item: VODItem
+    public let episode: Episode?
+
+    public init(item: VODItem, episode: Episode? = nil) {
+        self.item = item
+        self.episode = episode
+    }
+
+    public var id: String { episode.map { "e\($0.id)" } ?? item.id }
+}
+
+/// En rad på «Hjem»: tittelen fra Plex («Nytt fra …», «Nylig lagt til …») og det som står i den.
+public struct VODRow: Hashable, Identifiable, Sendable {
+    public let id: String
+    public let title: String
+    public let items: [VODRowItem]
+
+    public init(id: String, title: String, items: [VODRowItem]) {
+        self.id = id
+        self.title = title
+        self.items = items
+    }
+}
+
+/// Serien en sesong eller episode hører til (med seriens plakat).
+func parentShow(_ m: [String: Any], key: String, client: PlexClient) -> VODItem? {
+    let id = text(m["\(key)RatingKey"]), name = text(m["\(key)Title"])
+    guard !id.isEmpty, !name.isEmpty else { return nil }
+    return VODItem(id: id, kind: .series, name: name, poster: client.imageURL(nonEmpty(m["\(key)Thumb"])),
+                   categoryId: text(m["librarySectionID"]), source: "plex")
+}
+
+func rowItem(_ m: [String: Any], kind: VODKind, client: PlexClient) -> VODRowItem? {
+    let library = text(m["librarySectionID"])
+    switch (kind, text(m["type"])) {
+    case (.movies, "movie"):
+        return plexItem(m, kind: .movies, client: client, library: library).map { VODRowItem(item: $0) }
+    case (.series, "show"):
+        return plexItem(m, kind: .series, client: client, library: library).map { VODRowItem(item: $0) }
+    case (.series, "season"):
+        return parentShow(m, key: "parent", client: client).map { VODRowItem(item: $0) }
+    case (.series, "episode"):
+        guard let show = parentShow(m, key: "grandparent", client: client),
+              let episode = plexEpisode(m, client: client) else { return nil }
+        return VODRowItem(item: show, episode: episode)
+    default:
+        return nil
+    }
+}
+
+/// /hubs/promoted og /hubs/sections/<n>: radene med filmer eller serier (episodene som episoder), uten «Fortsett å
+/// se» (den har sin egen rad) og uten rader med noe annet (musikk, spillelister, kanaler).
+public func parseHubs(_ container: [String: Any], kind: VODKind, client: PlexClient) -> [VODRow] {
+    (container["Hub"] as? [[String: Any]] ?? []).compactMap { hub in
+        let title = text(hub["title"]).trimmingCharacters(in: .whitespaces)
+        let id = nonEmpty(hub["hubIdentifier"]) ?? title
+        guard !title.isEmpty, !id.lowercased().contains("continuewatching"), !id.lowercased().contains("ondeck")
+        else { return nil }
+        var seen = Set<String>()
+        let items = (hub["Metadata"] as? [[String: Any]] ?? []).compactMap { m -> VODRowItem? in
+            guard let item = rowItem(m, kind: kind, client: client), seen.insert(item.id).inserted else { return nil }
+            return item
+        }
+        return items.isEmpty ? nil : VODRow(id: id, title: title, items: items)
+    }
+}
+
+extension PlexClient {
+    /// Radene på Hjem i Plex for bibliotekene med filmer eller serier; har ikke serveren noen der, radene i hvert
+    /// bibliotek (Anbefalt).
+    public func rows(_ kind: VODKind, libraries: [String]) async throws -> [VODRow] {
+        guard !libraries.isEmpty else { return [] }
+        let ids = libraries.joined(separator: ",")
+        let query = "count=20&excludeContinueWatching=1&includeMeta=1"
+        let home = "/hubs/promoted?contentDirectoryID=\(ids)&pinnedContentDirectoryID=\(ids)&" + query
+        var rows: [VODRow] = []
+        if let container = try? await json(home) {
+            rows = parseHubs(container, kind: kind, client: self)
+        }
+        if rows.isEmpty {
+            for library in libraries {
+                if let container = try? await json("/hubs/sections/\(library)?" + query) {
+                    rows += parseHubs(container, kind: kind, client: self)
+                }
+            }
+        }
+        var seen = Set<String>()
+        return rows.filter { seen.insert($0.id).inserted }
+    }
+
+    /// Én episode (fila mangler noen ganger i radene).
+    public func episode(_ id: String) async throws -> Episode? {
+        (try await json("/library/metadata/\(id)")["Metadata"] as? [[String: Any]])?.first.flatMap {
+            plexEpisode($0, client: self)
+        }
     }
 }

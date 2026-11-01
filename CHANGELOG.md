@@ -1,5 +1,11 @@
 # Endringer
 
+## v0.1.18
+
+- Plex: «Hjem» øverst i Filmer og Serier, med radene fra Hjem i Plex («Nytt fra …», «Nylig lagt til» og samlingene du
+  har lagt der) og «Fortsett å se». Filmer og serier åpnes som egen side; en episode i en rad spilles med en gang, der
+  du slapp. Hold inne på en episode for å gå til serien.
+
 ## v0.1.17
 
 - Undertekstene i filmer og serier som spilles med VLC (mkv og Plex) ser ut som Apple sine: hvit tekst på en

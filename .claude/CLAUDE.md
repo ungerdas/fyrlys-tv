@@ -359,4 +359,12 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   TestFlight, VALID for TV_OS og IOS; alle UI-testene grønne. Ikke prøvd mot hans Plex-server ennå (tilkoblingen
   utenfra/hjemmenettet, store bibliotek, hvor langt du har sett tilbake til Plex/Tautulli). Eieren prøvde 0.1.16
   samme dag: «Funker fint» (Tautulli viste Fyrlys på Apple TV med Direct Play av HEVC Main 10, EAC3 og norsk SRT),
-  «men vil ha teksten i orginal Apple stil» → 0.1.17.
+  «men vil ha teksten i orginal Apple stil» → 0.1.17. Så (bilde av radene i Plex: «Nytt fra TV 2», «Nytt fra
+  TVNorge / HBO Max / discovery+», «Nytt fra NRK»): «Ønsker også de radene slik som på plex.» → 0.1.18: «Hjem»
+  (`VODModel.home` = "hjem", først i sidemenyen når det finnes rader eller «Fortsett å se») med `PlexHomeView`
+  (`App/PlexHome.swift`): «Fortsett å se» (`fortsett-<id>`) og radene (`rad-<id>`, episoder `rad-e<id>`) fra
+  `PlexClient.rows` (`/hubs/promoted?contentDirectoryID=<bibliotekene>&pinnedContentDirectoryID=…&count=20&
+  excludeContinueWatching=1`, ellers `/hubs/sections/<n>`; `parseHubs`: filmer i Filmer, serier/sesonger/episoder i
+  Serier, uten «Fortsett å se» og rader med noe annet). Episodene spilles med en gang (`withFile` henter fila om den
+  mangler), hold inne = «Gå til serien». Testene `test17Plex`/`test19PlexSerier` (Apple TV), `test18Plex`/
+  `test20PlexSerier` (iPhone og iPad). Ikke sjekket mot hans server: om samlingene hans står i `/hubs/promoted`.

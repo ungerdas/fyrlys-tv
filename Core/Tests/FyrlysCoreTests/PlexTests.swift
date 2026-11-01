@@ -121,6 +121,37 @@ final class PlexTests: XCTestCase {
         XCTAssertEqual(parseContinue(deck, kind: .movies, client: client).map(\.name), ["Fyret"])
     }
 
+    /// Radene på Hjem: filmer og serier for hver sin fane, episodene med serien sin, uten «Fortsett å se».
+    func testHubs() {
+        let hubs = container("""
+        {"MediaContainer": {"Hub": [
+          {"title": "Fortsett å se", "hubIdentifier": "home.continueWatching", "Metadata": [
+            {"ratingKey": "101", "type": "movie", "title": "Fyret"}]},
+          {"title": "Nytt fra Kystkanalen", "hubIdentifier": "custom.collection.2.77", "type": "episode", "Metadata": [
+            {"ratingKey": "302", "type": "episode", "title": "Tåka", "parentIndex": 1, "index": 2,
+             "grandparentRatingKey": "201", "grandparentTitle": "Losene", "grandparentThumb": "/t/201",
+             "Media": [{"Part": [{"key": "/library/parts/32/1/file.mkv", "container": "mkv"}]}]},
+            {"ratingKey": "303", "type": "episode", "title": "Uten serie"}]},
+          {"title": "Nylig lagt til", "hubIdentifier": "home.recentlyAdded", "type": "mixed", "Metadata": [
+            {"ratingKey": "102", "type": "movie", "title": "Fjorden", "year": 2020},
+            {"ratingKey": "401", "type": "season", "title": "Sesong 2", "parentRatingKey": "202",
+             "parentTitle": "Havet", "parentThumb": "/t/202"}]},
+          {"title": "Spillelister", "hubIdentifier": "home.playlists", "Directory": [{"title": "Min liste"}]}]}}
+        """)
+        let series = parseHubs(hubs, kind: .series, client: client)
+        XCTAssertEqual(series.map(\.title), ["Nytt fra Kystkanalen", "Nylig lagt til"])
+        XCTAssertEqual(series[0].items.map(\.id), ["e302"])
+        XCTAssertEqual(series[0].items[0].item.name, "Losene")
+        XCTAssertEqual(series[0].items[0].item.id, "201")
+        XCTAssertEqual(series[0].items[0].episode?.fileKey, "/library/parts/32/1/file.mkv")
+        XCTAssertEqual(series[0].items[0].episode?.progressKey, "plex:302")
+        XCTAssertEqual(series[1].items.map(\.item.name), ["Havet"])
+        let movies = parseHubs(hubs, kind: .movies, client: client)
+        XCTAssertEqual(movies.map(\.title), ["Nylig lagt til"])
+        XCTAssertEqual(movies[0].items.map(\.id), ["102"])
+        XCTAssertNil(movies[0].items[0].episode)
+    }
+
     /// Den beste tilkoblingen som svarer: hjemmenettet foran utenfra, og relé bare når ingen andre svarer.
     func testReachable() async {
         let server = PlexServer(id: "s1", name: "Hjemme", accessToken: "t1", owned: true, connections: [

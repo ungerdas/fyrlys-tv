@@ -86,7 +86,7 @@ struct VODTab: View {
                 .fill(Theme.line)
                 .frame(width: 1)
                 .padding(.vertical, 12)
-            PosterGrid(model: model, category: model.chosen)
+            page(showsTitle: true)
                 .tvFocusSection()
         }
         #if os(tvOS)
@@ -124,10 +124,20 @@ struct VODTab: View {
             .accessibilityIdentifier("vod-kategori")
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            PosterGrid(model: model, category: model.chosen, showsTitle: false)
+            page(showsTitle: false)
         }
     }
     #endif
+
+    /// Plakatene i kategorien, eller «Hjem» med radene fra Plex.
+    @ViewBuilder
+    private func page(showsTitle: Bool) -> some View {
+        if model.chosen == VODModel.home {
+            PlexHomeView(model: model) { path.append($0) }
+        } else {
+            PosterGrid(model: model, category: model.chosen, showsTitle: showsTitle)
+        }
+    }
 }
 
 /// Plakatene i en kategori (hentes når kategorien velges), med «Fortsett å se» øverst.
@@ -226,9 +236,11 @@ private struct PosterGrid: View {
     }
 }
 
-/// Plakaten med tittel, år og terningkast.
-private struct PosterCard: View {
+/// Plakaten med tittel, år og terningkast; for en episode (radene fra Plex) seriens plakat med serien, episoden og
+/// sesong og nummer.
+struct PosterCard: View {
     let item: VODItem
+    var episode: Episode?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -248,7 +260,7 @@ private struct PosterCard: View {
                 }
                 .clipped()
                 .overlay(alignment: .topTrailing) {
-                    if item.watched == true {
+                    if episode?.watched ?? (item.watched == true) {
                         Image(systemName: "checkmark.circle.fill")
                             .symbolRenderingMode(.palette)
                             .font(.system(size: Metrics.posterTitle + 6, weight: .semibold))
@@ -261,8 +273,14 @@ private struct PosterCard: View {
                 Text(item.name)
                     .font(.system(size: Metrics.posterTitle, weight: .semibold))
                     .foregroundStyle(Theme.ink)
-                    .lineLimit(2, reservesSpace: true)
+                    .lineLimit(episode == nil ? 2 : 1, reservesSpace: true)
                     .multilineTextAlignment(.leading)
+                if let episode {
+                    Text(episode.title)
+                        .font(.system(size: Metrics.posterTitle - 2))
+                        .foregroundStyle(Theme.ink2)
+                        .lineLimit(1)
+                }
                 Text(verbatim: meta)
                     .font(.system(size: Metrics.posterTitle - 3))
                     .foregroundStyle(Theme.muted)
@@ -276,7 +294,8 @@ private struct PosterCard: View {
     }
 
     private var meta: String {
-        [item.year, item.rating.map { String(format: "★ %.1f", $0) }].compactMap { $0 }.joined(separator: "  ")
+        if let episode { return "S\(episode.season) · E\(episode.number)" }
+        return [item.year, item.rating.map { String(format: "★ %.1f", $0) }].compactMap { $0 }.joined(separator: "  ")
     }
 }
 

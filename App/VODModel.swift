@@ -32,6 +32,11 @@ final class VODModel {
     private(set) var isPlex = false
     /// Plex: «Fortsett å se» fra Plex
     private(set) var continueRow: [VODItem] = []
+    /// Plex: radene fra Hjem i Plex («Nytt fra …», «Nylig lagt til …»), vist under «Hjem» øverst i sidemenyen
+    private(set) var rows: [VODRow] = []
+
+    /// «Hjem» i sidemenyen (Plex)
+    static let home = "hjem"
     /// telles opp når kilden byttes (fanen henter kategoriene på nytt)
     private(set) var version = 0
     /// «Prøv igjen» når Plex ikke svarer
@@ -52,6 +57,7 @@ final class VODModel {
         categories = []
         items = [:]
         continueRow = []
+        rows = []
         loadingCategories = false
         loadingItems = []
         loaded = false
@@ -71,10 +77,14 @@ final class VODModel {
             case .xtream(let client):
                 found = try await client.vodCategories(kind)
             case .plex(let client):
-                found = try await client.libraries(kind)
+                let libraries = try await client.libraries(kind)
                 let resume = (try? await client.continueWatching(kind)) ?? []
+                let home = (try? await client.rows(kind, libraries: libraries.map(\.id))) ?? []
                 guard gen == generation else { return }
                 continueRow = resume
+                rows = home
+                found = (resume.isEmpty && home.isEmpty ? [] : [ChannelCategory(id: Self.home, name: L("Hjem"))])
+                    + libraries
             case .waiting:
                 return
             case .unavailable(let message):
@@ -94,7 +104,9 @@ final class VODModel {
     }
 
     func load(_ category: String) async {
-        guard let backend, items[category] == nil, !loadingItems.contains(category) else { return }
+        guard let backend, category != Self.home, items[category] == nil, !loadingItems.contains(category) else {
+            return
+        }
         let gen = generation
         loadingItems.insert(category)
         do {
@@ -122,12 +134,22 @@ final class VODModel {
         }
     }
 
-    /// Plex: «Fortsett å se» på nytt (etter at noe er sett).
+    /// Plex: «Fortsett å se» og radene på nytt (etter at noe er sett).
     func refreshContinue() async {
         guard case .plex(let client) = backend else { return }
         let gen = generation
         guard let resume = try? await client.continueWatching(kind), gen == generation else { return }
         continueRow = resume
+        let libraries = categories.map(\.id).filter { $0 != Self.home }
+        guard let home = try? await client.rows(kind, libraries: libraries), gen == generation else { return }
+        rows = home
+    }
+
+    /// Plex: episoden med fila (i radene mangler den noen ganger).
+    func withFile(_ episode: Episode) async -> Episode {
+        guard episode.fileKey == nil, case .plex(let client) = backend,
+              let full = try? await client.episode(episode.id) else { return episode }
+        return full
     }
 
     /// Adressene til en film, i den rekkefølgen de prøves.

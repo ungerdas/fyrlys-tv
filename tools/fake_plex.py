@@ -7,8 +7,9 @@ oppdiktede filmer og serier, på samme port. Nøkkelen er «test-token».
 - /api/v2/resources: serveren «Hjemmekino» med en tilkobling på hjemmenettet som ikke svarer (port 9) og en utenfra
   som er denne serveren (Fyrlys skal finne den som svarer), og en spiller som ikke er en server.
 - Serveren: bibliotekene Filmer (movie), Serier (show) og Musikk (artist), filmene 1001–1003 (1003 svarer 404),
-  serien 2001 med to sesonger, «Fortsett å se», plakatene (ensfargede PNG) og filene (tools/testdata/stormnatt.mkv,
-  med Range), og /:/timeline og /:/scrobble (skrives i loggen).
+  serien 2001 med to sesonger, «Fortsett å se», radene på Hjem (/hubs/promoted: «Nytt fra Kystkanalen» med episoder,
+  «Nylig lagt til» med filmer og en sesong), plakatene (ensfargede PNG) og filene (tools/testdata/stormnatt.mkv, med
+  Range), og /:/timeline og /:/scrobble (skrives i loggen).
 
 Bruk: python3 tools/fake_plex.py [--port 8897]
 """
@@ -170,6 +171,21 @@ class Handler(BaseHTTPRequestHandler):
             return self.container(Metadata=[SHOW])
         if path == "/library/sections/3/all":
             return self.container(Metadata=[])
+        if path == "/hubs/promoted" or path.startswith("/hubs/sections/"):
+            # Hjem: en samling med nye episoder, nylig lagt til (filmer og en sesong), og rader som skal hoppes over
+            season = {"ratingKey": "2100", "type": "season", "title": "Sesong 1", "parentRatingKey": "2001",
+                      "parentTitle": "Fyrvokterne", "parentThumb": "/library/metadata/2001/thumb/1",
+                      "librarySectionID": 2}
+            return self.container(Hub=[
+                {"title": "Fortsett å se", "hubIdentifier": "home.continueWatching", "type": "mixed",
+                 "Metadata": [METADATA["1001"]]},
+                {"title": "Nytt fra Kystkanalen", "hubIdentifier": "custom.collection.2.77", "type": "episode",
+                 "Metadata": [METADATA["2102"], METADATA["2103"]]},
+                {"title": "Nylig lagt til", "hubIdentifier": "home.recentlyAdded", "type": "mixed",
+                 "Metadata": [METADATA["1001"], METADATA["1002"], season]},
+                {"title": "Spillelister", "hubIdentifier": "home.playlists", "type": "playlist",
+                 "Directory": [{"title": "Favoritter", "key": "/playlists/1"}]},
+            ])
         if path == "/hubs/continueWatching/items":
             return self.container(Metadata=[METADATA["2102"], METADATA["1001"]])
         m = re.fullmatch(r"/library/metadata/(\d+)(/allLeaves)?", path)

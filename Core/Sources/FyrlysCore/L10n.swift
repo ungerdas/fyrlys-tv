@@ -179,6 +179,8 @@ public let english: [String: String] = [
     "Bytt server": "Switch server",
     "Plex: {server}": "Plex: {server}",
     "Plex …": "Plex …",
+    "Hjem": "Home",
+    "Gå til serien": "Go to the series",
     // VLC-spilleren
     "Av": "Off",
     "Spor {n}": "Track {n}",
