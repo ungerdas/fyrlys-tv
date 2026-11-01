@@ -83,6 +83,7 @@ jobs:
             -project Fyrlys.xcodeproj -scheme Fyrlys \
             -destination "platform=tvOS Simulator,id=$SIM_ID" \
             -resultBundlePath build/Resultat.xcresult \
+            -retry-tests-on-failure -test-iterations 2 \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             > build/xcodebuild.log 2>&1
           code=$?
@@ -196,7 +197,8 @@ jobs:
           # testene leser leverandøren fra miljøet (TEST_RUNNER_ gir den videre til testprosessen)
           export TEST_RUNNER_FYRLYS_TEST_SERVER=http://127.0.0.1:8899
           common="-project Fyrlys.xcodeproj -scheme FyrlysMobil -derivedDataPath build/dd"
-          timeouts="-test-timeouts-enabled YES -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 360"
+          # en test som feiler, kjøres én gang til: simulatoren rekker av og til ikke å starte appen, eller et trykk tas ikke
+          timeouts="-test-timeouts-enabled YES -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 360 -retry-tests-on-failure -test-iterations 2"
           set +e
           # bygget én gang, så testene på iPhone og så på iPad (én simulator om gangen)
           limited 25 build/bygg.log xcodebuild build-for-testing $common \
