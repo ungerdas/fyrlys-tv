@@ -34,6 +34,8 @@ jobs:
       - name: Merknad ved feil
         if: failure()
         run: |
+          # uten set +e stoppet steget ved første grep uten treff (pipefail), før merknadene for testene
+          set +e
           f=build/kjerne.log
           [ -f "$f" ] || exit 0
           { grep -E "error:|failed|XCTAssert" "$f" | awk 'length($0) < 500 && !seen[$0]++' | head -n 40
@@ -135,6 +137,8 @@ jobs:
       - name: Merknad ved feil
         if: failure()
         run: |
+          # uten set +e stoppet steget ved første grep uten treff (pipefail), før merknadene for testene
+          set +e
           for f in build/xcode.log build/vlckit.log build/xcodegen.log build/simulator.log; do
             [ -f "$f" ] || continue
             if grep -qiE "error|fatal|not found|unable" "$f"; then
@@ -263,7 +267,8 @@ jobs:
           [ -f build/tider.txt ] && cp build/tider.txt build/bilder/
           for f in build/bygg.log build/test-iphone.log build/test-ipad.log; do
             [ -f "$f" ] || continue
-            { grep -E "error:|warning: .*FyrlysMobil|Test (Case|Suite)|XCTAssert|Failed|failed|STOPPET|t = " "$f" | tail -n 400
+            { echo "== feilene"; grep -E "error:" "$f" | head -n 40; echo
+              grep -E "error:|warning: .*FyrlysMobil|Test (Case|Suite)|XCTAssert|Failed|failed|STOPPET|t = " "$f" | tail -n 400
               echo; echo "== slutten"; tail -n 120 "$f"; } | sed "s#$GITHUB_WORKSPACE/##g" | cut -c1-400 > "build/bilder/$(basename "$f" .log)-utdrag.txt"
           done
           exit 0
@@ -293,6 +298,8 @@ jobs:
       - name: Merknad ved feil
         if: failure()
         run: |
+          # uten set +e stoppet steget ved første grep uten treff (pipefail), før merknadene for testene
+          set +e
           for f in build/xcode.log build/vlckit.log build/xcodegen.log build/simulator.log; do
             [ -f "$f" ] || continue
             if grep -qiE "error|fatal|not found|unable" "$f"; then
@@ -471,6 +478,8 @@ jobs:
       - name: Merknad ved feil
         if: failure()
         run: |
+          # uten set +e stoppet steget ved første grep uten treff (pipefail), før merknadene for testene
+          set +e
           for f in build/vlckit.log build/asc.log build/arkiv.log build/arkiv-ios.log build/eksport.log build/eksport-ios.log; do
             [ -f "$f" ] || continue
             msg=$( { grep -E "error|rror:|ERROR|failed" "$f" | awk 'length($0) < 500 && !seen[$0]++' | tail -n 30; echo; tail -n 15 "$f"; } \
