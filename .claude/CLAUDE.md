@@ -234,5 +234,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   kategoritoppen med stjerne, stjerne på alle kort, forsiden fra iPhone), han ville prøve 0.1.9 først.
 - 1.11.2026: 0.1.10: etter å ha prøvd 0.1.9: «Syntes flisene kan være bittelitt større. Savner Fyrlys logo osv» →
   fire kort i bredden og Fyrlys-merket øverst til venstre (se Arkitektur). «osv» ikke avklart (topplinja på iPhone har
-  også sol/måne og Konto; Apple TV er alltid mørk og har Innstillinger i fanelinja).
+  også sol/måne og Konto; Apple TV er alltid mørk og har Innstillinger i fanelinja). 0.1.10 (bygg 25) er i
+  TestFlight, VALID for TV_OS og IOS; sertifikatet fra bygg 24 ble brukt igjen (merknaden «Bruker
+  distribusjonssertifikatet fra før»), så `DIST_KEY` virker. Fartstesten 5,8 s uten lista fra sist og 4,4 s med.
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.
