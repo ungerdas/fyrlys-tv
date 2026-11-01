@@ -195,15 +195,17 @@ def prepare(folder):
     kept = os.environ.get("DIST_KEY_PATH", "").strip()
     rsa_key(kept or None, key)
     cert = find_certificate(asc, key) if kept else None
+    # som merknad på bygget (loggen kan ikke leses fra Claude-økta)
     if cert:
-        print(f"Bruker distribusjonssertifikatet fra før (utløper {cert['attributes'].get('expirationDate')})")
+        print(f"::notice title=sertifikat::Bruker distribusjonssertifikatet fra før (utløper "
+              f"{cert['attributes'].get('expirationDate')})")
     else:
         subprocess.run([OPENSSL, "req", "-new", "-key", str(key), "-out", str(csr), "-subj",
                         f"/CN={APP_NAME} CI/O={env('APPLE_TEAM_ID')}"], check=True, capture_output=True)
         cert = asc.call("POST", "/v1/certificates", data("certificates", {
             "certificateType": "DISTRIBUTION", "csrContent": csr.read_text()}))["data"]
         if kept:
-            print(f"Laget distribusjonssertifikatet som beholdes til neste bygg (utløper "
+            print(f"::notice title=sertifikat::Laget distribusjonssertifikatet som beholdes til neste bygg (utløper "
                   f"{cert['attributes'].get('expirationDate')})")
         else:
             # trekkes tilbake av cleanup
@@ -267,7 +269,8 @@ def find_certificate(asc, key):
         if (row["attributes"].get("expirationDate") or "") > soon:
             return row
         code, res = asc.request("DELETE", f"/v1/certificates/{row['id']}")
-        print(f"Sertifikatet fra før går snart ut og ble trukket tilbake (HTTP {code}); lager et nytt")
+        print(f"::notice title=sertifikat::Sertifikatet fra før går snart ut og ble trukket tilbake (HTTP {code}); "
+              "lager et nytt")
     return None
 
 
@@ -289,8 +292,8 @@ def cleanup(folder):
             print(f"::warning::Sertifikatet ble ikke trukket tilbake: HTTP {code} {errors(res)}")
             failed = True
     if not failed:
-        print("Slettet profilene og trakk tilbake sertifikatet fra denne kjøringen" if state.get("certificate")
-              else "Slettet profilene (sertifikatet beholdes til neste bygg)")
+        print("::notice title=opprydding::" + ("Slettet profilene og trakk tilbake sertifikatet fra denne kjøringen"
+              if state.get("certificate") else "Slettet profilene (sertifikatet beholdes til neste bygg)"))
     sys.exit(1 if failed else 0)
 
 
