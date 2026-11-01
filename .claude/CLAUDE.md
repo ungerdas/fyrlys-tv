@@ -393,5 +393,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   innstillingene, lagret som `innebygde-strommer-av`; egne strømmer for samme kanal går foran).
   Første bygg av 0.1.19 (bygg 35): iPad feilet i `test20PlexSerier` (id-en «rad-e…» på en knapp med `.contextMenu`
   ble borte; nå settes id-en før hurtigmenyen) og `test21EgneStrommer` (Form på iPad er lat: testen ruller fram);
-  `Landscape.set(true)` i `onAppear` ble avvist mens arket kom inn (knappen virket senere), nå 0,6 s etter. Fortsatt bare for
+  `Landscape.set(true)` i `onAppear` ble avvist mens arket kom inn (knappen virket senere), nå 0,6 s etter.
+  0.1.19 (bygg 36) er i TestFlight, VALID for TV_OS og IOS; alle UI-testene grønne (undertekstene i boks på Apple
+  TV og iPhone, iPhone åpner spilleren liggende). Ikke prøvd på hans enheter ennå, heller ikke NRK-adressene. Fortsatt bare for
   kanaler leverandøren har (navnet må bli nrk1/nrk2/nrk3/nrksuper), så programinfo, logo og favoritter er som før.
