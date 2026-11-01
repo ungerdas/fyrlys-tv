@@ -284,6 +284,16 @@ final class AppModel {
     static let streamsKey = "egne-strommer"
     /// linjene som er lagt inn
     private(set) var streamLines: [String] = []
+    /// de innebygde (NRK direkte) brukes (kan slås av i innstillingene)
+    var useBuiltInStreams: Bool {
+        get { builtInOn }
+        set {
+            builtInOn = newValue
+            defaults.set(!newValue, forKey: "innebygde-strommer-av")
+            useStreams(streamLines)
+        }
+    }
+    private var builtInOn = !TestSupport.defaults.bool(forKey: "innebygde-strommer-av")
     @ObservationIgnored private var streamByKey: [String: URL] = [:]
 
     var streamOverrides: [StreamOverride] { parseStreamOverrides(streamLines.joined(separator: "\n")) }
@@ -294,7 +304,9 @@ final class AppModel {
 
     private func useStreams(_ lines: [String]) {
         streamLines = lines
-        streamByKey = Dictionary(streamOverrides.map { ($0.key, $0.url) }, uniquingKeysWith: { first, _ in first })
+        // de egne går foran de innebygde
+        let all = streamOverrides + (builtInOn ? builtInStreams : [])
+        streamByKey = Dictionary(all.map { ($0.key, $0.url) }, uniquingKeysWith: { first, _ in first })
     }
 
     func setStreams(_ text: String) {
@@ -313,7 +325,7 @@ final class AppModel {
 
     /// Kanalene hver egen strøm gjelder for (i bakgrunnen: lista kan ha titusenvis av kanaler).
     func streamMatches() async -> [String: [String]] {
-        let keys = Set(streamOverrides.map(\.key))
+        let keys = Set(streamOverrides.map(\.key) + builtInStreams.map(\.key))
         guard !keys.isEmpty else { return [:] }
         let list = self.channels
         return await Task.detached(priority: .userInitiated) {

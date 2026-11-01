@@ -195,6 +195,12 @@ public let english: [String: String] = [
     "Adresser (m3u8) som spilles i stedet for leverandørens, én per linje. Kanalen finnes ut fra navnet i adressen (…/nrk1/… er NRK1), eller skriv «Kanalnavn = adresse». De deles med iCloud.":
         "Addresses (m3u8) played instead of your provider's, one per line. The channel is found from the name in the address (…/nrk1/… is NRK1), or write «Channel name = address». They're shared with iCloud.",
     "Fant ingen kanal for «{key}»": "Found no channel for «{key}»",
+    "NRK direkte": "NRK direct",
+    "NRK direkte: på": "NRK direct: on",
+    "NRK direkte: av": "NRK direct: off",
+    "NRK1, NRK2, NRK3 og NRK Super direkte": "NRK1, NRK2, NRK3 and NRK Super direct",
+    "Innebygd i Fyrlys: NRK-kanalene spilles direkte i stedet for fra leverandøren.":
+        "Built into Fyrlys: the NRK channels are played directly instead of from your provider.",
     "{first} og {n} til": "{first} and {n} more",
     // VLC-spilleren
     "Av": "Off",

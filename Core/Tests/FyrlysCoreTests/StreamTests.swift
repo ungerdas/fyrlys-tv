@@ -18,6 +18,11 @@ final class StreamTests: XCTestCase {
         XCTAssertEqual(channelKey(of: URL(string: "https://cdn.example.com/nrksuper/index.m3u8?token=1")!), "nrksuper")
     }
 
+    func testBuiltIn() {
+        XCTAssertEqual(builtInStreams.map(\.key), ["nrk1", "nrk2", "nrk3", "nrksuper"])
+        XCTAssertTrue(builtInStreams.allSatisfy { $0.url.scheme == "https" && $0.url.pathExtension == "m3u8" })
+    }
+
     func testParse() {
         let found = parseStreamOverrides("""
         https://cdn.example.com/edge/nrk1/muxed.m3u8

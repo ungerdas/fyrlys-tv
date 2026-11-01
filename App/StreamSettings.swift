@@ -23,7 +23,16 @@ struct StreamSettings: View {
                 .foregroundStyle(Theme.ink2)
                 .frame(maxWidth: 760, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
-            list
+            Button {
+                model.useBuiltInStreams.toggle()
+            } label: {
+                Label(model.useBuiltInStreams ? L("NRK direkte: på") : L("NRK direkte: av"),
+                      systemImage: "antenna.radiowaves.left.and.right")
+                    .frame(minWidth: 520, alignment: .leading)
+            }
+            .accessibilityIdentifier("nrk-direkte")
+            if model.useBuiltInStreams { rows(builtInStreams) }
+            rows(model.streamOverrides)
             TextField(L("Legg til: adresse, eller kanalnavn = adresse"), text: $newLine)
                 .frame(maxWidth: 760)
                 .onSubmit {
@@ -45,6 +54,17 @@ struct StreamSettings: View {
         .task(id: model.channels.count) { matches = await model.streamMatches() }
         #else
         Section {
+            Toggle(L("NRK1, NRK2, NRK3 og NRK Super direkte"),
+                   isOn: Binding(get: { model.useBuiltInStreams }, set: { model.useBuiltInStreams = $0 }))
+                .accessibilityIdentifier("nrk-direkte")
+            if model.useBuiltInStreams { rows(builtInStreams) }
+        } header: {
+            Text(L("NRK direkte"))
+        } footer: {
+            Text(L("Innebygd i Fyrlys: NRK-kanalene spilles direkte i stedet for fra leverandøren."))
+        }
+        .listRowBackground(Theme.surface)
+        Section {
             TextEditor(text: $text)
                 .font(.system(size: 13, design: .monospaced))
                 .frame(minHeight: 120)
@@ -55,7 +75,7 @@ struct StreamSettings: View {
             Button(L("Lagre")) { model.setStreams(text) }
                 .disabled(text == model.streamLines.joined(separator: "\n"))
                 .accessibilityIdentifier("lagre-strommer")
-            list
+            rows(model.streamOverrides)
         } header: {
             Text(L("Egne strømmer"))
         } footer: {
@@ -72,10 +92,10 @@ struct StreamSettings: View {
         L("Adresser (m3u8) som spilles i stedet for leverandørens, én per linje. Kanalen finnes ut fra navnet i adressen (…/nrk1/… er NRK1), eller skriv «Kanalnavn = adresse». De deles med iCloud.")
     }
 
-    /// Hver egen strøm og kanalene den gjelder for.
+    /// Hver strøm og kanalene den gjelder for.
     @ViewBuilder
-    private var list: some View {
-        ForEach(model.streamOverrides, id: \.key) { stream in
+    private func rows(_ streams: [StreamOverride]) -> some View {
+        ForEach(streams, id: \.key) { stream in
             let found = matches[stream.key] ?? []
             VStack(alignment: .leading, spacing: 4) {
                 Text(verbatim: stream.url.host ?? stream.url.absoluteString)

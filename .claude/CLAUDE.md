@@ -4,7 +4,8 @@ Egen app for Apple TV (tvOS 17+) og iPhone/iPad (iOS 17+), Swift/SwiftUI med AVP
 (eget repo). Apple TV, iPhone og iPad er **én app** i App Store Connect og TestFlight (samme bundle-id, eierens valg
 31.10). Logger inn med Xtream Codes og henter alt rett fra leverandøren. Repoet er **offentlig**: hold appen, koden, testene,
 commit-meldingene og disse notatene fri for navn, hjemmenett, maskinnavn, leverandør, brukernavn, hemmeligheter og
-e-postadresser (eksempeladresser som iptv.example.com og 192.168.1.10 er greit). Testene bruker bare den falske
+e-postadresser (eksempeladresser som iptv.example.com og 192.168.1.10 er greit; unntaket er NRK-adressene i
+`Core/Sources/FyrlysCore/Streams.swift`, bygget inn etter eierens ønske 1.11.2026). Testene bruker bare den falske
 leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er forsiden på GitHub, skrevet for brukere.
 
 ## Arbeidsmåte
@@ -387,4 +388,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   iCloud-nøkkelen `egne-strommer` (`CloudStore.shared`), `App/StreamSettings.swift` (TextEditor på iPhone/iPad, på
   Apple TV lista og ett felt for én linje), `StreamSheet` fra Konto (`egne-strommer`), id-ene `egen-strom-<nøkkel>`.
   Testskjermen `strommer`, `FYRLYS_TEST_STREAMS`; testene `test20EgneStrommer` (Apple TV, også at spilleren bruker
-  adressen) og `test21EgneStrommer` (iPhone og iPad).
+  adressen) og `test21EgneStrommer` (iPhone og iPad). Eieren svarte så «Bygg inn for alle.» → `builtInStreams` i
+  Streams.swift (de fire NRK-adressene), brukt for alle (`AppModel.useBuiltInStreams`, «NRK direkte» av/på i
+  innstillingene, lagret som `innebygde-strommer-av`; egne strømmer for samme kanal går foran). Fortsatt bare for
+  kanaler leverandøren har (navnet må bli nrk1/nrk2/nrk3/nrksuper), så programinfo, logo og favoritter er som før.

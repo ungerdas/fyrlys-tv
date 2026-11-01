@@ -1,7 +1,7 @@
 import Foundation
 
-/// Egne strømmer: adresser brukeren har lagt inn selv, som spilles i stedet for leverandørens for kanalene de gjelder
-/// («…/nrk1/muxed.m3u8» for NRK1). Adressene ligger bare på enhetene (og i iCloud), aldri i appen eller repoet.
+/// Egne strømmer: adresser som spilles i stedet for leverandørens for kanalene de gjelder («…/nrk1/muxed.m3u8» for
+/// NRK1): de innebygde (`builtInStreams`) og dem brukeren har lagt inn selv (på enhetene og i iCloud).
 public struct StreamOverride: Hashable, Sendable {
     /// kanalnøkkelen (se `channelKey`), f.eks. «nrk1»
     public let key: String
@@ -67,3 +67,13 @@ public func parseStreamOverrides(_ text: String) -> [StreamOverride] {
         return StreamOverride(key: key, url: url)
     }
 }
+
+/// Innebygd for alle (eieren 1.11.2026: «Fyrlys skal kun bruke disse m3u8 fra NRK. Det er direkte.» og «Bygg inn for
+/// alle.»): NRK1, NRK2, NRK3 og NRK Super direkte, i stedet for leverandørens strøm for de kanalene. Kan slås av i
+/// innstillingene, og en egen strøm for samme kanal går foran.
+public let builtInStreams: [StreamOverride] = parseStreamOverrides("""
+https://cdn0-47115-liveedge0.dna.contentdelivery.net/47115-liveedge0/nrk1/muxed.m3u8
+https://cdn0-47115-liveedge0.dna.contentdelivery.net/47115-liveedge0/nrk2/muxed.m3u8
+https://cdn0-47115-liveedge0.dna.contentdelivery.net/47115-liveedge0/nrk3/muxed.m3u8
+https://cdn0-47115-liveedge0.dna.contentdelivery.net/47115-liveedge0/nrksuper/muxed.m3u8
+""")
