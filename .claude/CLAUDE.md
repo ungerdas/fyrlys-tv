@@ -290,4 +290,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   app-id-en, og eksporten med iCloud-rettigheten gikk. 0.1.12 ble bygget med `workflow_dispatch` etter at koden var
   pushet med [skip ci] (en push under en opplasting avbryter den). Første bygg av 0.1.13 (Top Shelf) ble avvist av
   App Store Connect: utvidelsen må ha `UIRequiredDeviceCapabilities: [arm64]` i Info.plist (signeringen og profilene
-  for `no.fyrlys.tv.topshelf` virket). Filmer i mkv er ikke prøvd mot leverandøren hans (bare den falske).
+  for `no.fyrlys.tv.topshelf` virket). Med det er 0.1.13 (bygg 29) i TestFlight, VALID for TV_OS og IOS: hele lista
+  fra «Kjør alt.» er ute. Ikke prøvd på hans enheter ennå: filmer/serier mot leverandøren hans (mkv?), TV-arkivet,
+  iCloud-delingen mellom iPhone og Apple TV, Top Shelf (vises logoene over http?), kanalbytte med opp/ned.
