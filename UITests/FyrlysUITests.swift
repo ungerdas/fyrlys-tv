@@ -474,6 +474,12 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(find(app, "egen-strom-nrk1").exists, "en adresse uten kanal mangler")
         wait(1)
         shot("36-egne-strommer")
+        // «Fjordkanalen HD» (91) spilles fra samme egne strøm som «Fjordkanalen» (1): én kanal, 19 i stedet for 20
+        let tv = launch("tv", extra: ["FYRLYS_TEST_STREAMS": Self.streams])
+        let all = find(tv, "hylle-alle")
+        XCTAssertTrue(all.waitForExistence(timeout: 30), "sidemenyen kom ikke")
+        for _ in 0..<10 where !all.label.contains("19") { wait(1) }
+        XCTAssertTrue(all.label.contains("19"), "kanalene ble ikke slått sammen: \(all.label)")
         let player = launch("player", extra: ["FYRLYS_TEST_STREAMS": Self.streams])
         XCTAssertTrue(find(player, "spiller-feil").waitForExistence(timeout: 60),
                       "spilleren brukte ikke den egne adressen")

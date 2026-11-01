@@ -129,7 +129,9 @@ public final class Library {
 
 /// Kanalene i den rekkefølgen id-ene står i (de som ikke finnes lenger, hoppes over).
 public func channels(_ ids: [String], in byId: [String: Channel]) -> [Channel] {
-    ids.compactMap { byId[$0] }
+    // kanaler som er slått sammen, peker til samme kanal: bare én gang
+    var seen = Set<String>()
+    return ids.compactMap { byId[$0] }.filter { seen.insert($0.id).inserted }
 }
 
 /// Søk i kanalnavnene: alle ordene må finnes, uten hensyn til store og små bokstaver.

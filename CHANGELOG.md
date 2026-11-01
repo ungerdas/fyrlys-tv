@@ -1,5 +1,13 @@
 # Endringer
 
+## v0.1.20
+
+- NRK1, NRK2, NRK3 og NRK Super står én gang hver. Leverandøren har ofte flere utgaver av samme kanal («NRK1 HD»,
+  «NRK1 FHD», «NRK 1»), men med NRK direkte spilles de fra samme strøm, så de er slått sammen: den med programinfo og
+  logo beholdes og står i alle kategoriene de andre sto i. Det samme gjelder kanaler du har lagt inn en egen strøm
+  for. Favoritter og «Sist sett» fra de andre utgavene peker til den som er igjen, og søket finner den på alle
+  navnene. Slås NRK direkte av, er de der hver for seg igjen.
+
 ## v0.1.19
 
 - Undertekstene i filmer og serier som spilles med VLC er hvit tekst på en halvgjennomsiktig mørk boks, som hos

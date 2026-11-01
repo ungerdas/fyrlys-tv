@@ -397,3 +397,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   0.1.19 (bygg 36) er i TestFlight, VALID for TV_OS og IOS; alle UI-testene grønne (undertekstene i boks på Apple
   TV og iPhone, iPhone åpner spilleren liggende). Ikke prøvd på hans enheter ennå, heller ikke NRK-adressene. Fortsatt bare for
   kanaler leverandøren har (navnet må bli nrk1/nrk2/nrk3/nrksuper), så programinfo, logo og favoritter er som før.
+  0.1.20: «Burde vi slå sammen da, NRK er en, NRK 2 er en …» → `ChannelIndex(lists, merging: keys)` (`mergeKeys` =
+  nøklene til de egne og innebygde strømmene, `AppModel.remerge()` når de endres): kanaler med samme `channelKey`
+  blir én (den med EPG og logo, i alle kategoriene til de andre; `byId` for de andre id-ene peker dit, `ids(of:)`,
+  `merged`; søket på alle navnene). Favoritt/ikke favoritt gjelder alle id-ene (`AppModel.isFavorite`/
+  `toggleFavorite`), og `channels(_:in:)` tar hver kanal én gang. Falsk leverandør: 91 «Fjordkanalen HD» (i Test),
+  slås sammen med 1 i `test20EgneStrommer`/`test21EgneStrommer` («Alle kanaler» 19).

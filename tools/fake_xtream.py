@@ -54,6 +54,8 @@ CHANNELS = [
     (42, "Havet", "5"),
     (43, "Rommet", "5"),
     (90, "Kanal uten signal", "9"),
+    # samme kanal som 1 i en annen utgave: slås sammen med den når en egen strøm gjelder for Fjordkanalen
+    (91, "Fjordkanalen HD", "9"),
 ]
 
 LOGOS = {1: (0xF2, 0xB5, 0x44), 11: (0x4F, 0xA3, 0xFF), 41: (0x5C, 0xC9, 0x8B)}

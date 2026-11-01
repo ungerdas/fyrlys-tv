@@ -377,6 +377,12 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(find(app, "egen-strom-kystnytt24").label.contains("Kystnytt 24"), "kanalen fra adressen mangler")
         wait(1)
         shot("31-egne-strommer")
+        // «Fjordkanalen HD» (91) spilles fra samme egne strøm som «Fjordkanalen» (1): én kanal, 19 i stedet for 20
+        let tv = launch("tv", extra: ["FYRLYS_TEST_STREAMS": streams])
+        let all = find(tv, "hylle-alle")
+        XCTAssertTrue(all.waitForExistence(timeout: 30), "«Alle kanaler» kom ikke")
+        for _ in 0..<10 where !all.label.contains("19") { wait(1) }
+        XCTAssertTrue(all.label.contains("19"), "kanalene ble ikke slått sammen: \(all.label)")
     }
 
     /// Koble til Plex (iPhone: arket fra Konto, iPad: Innstillinger): koden vises, og så kobles det til serveren.

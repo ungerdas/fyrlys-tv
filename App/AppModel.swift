@@ -175,9 +175,12 @@ final class AppModel {
         clock = nil
         let cache = cache
         let id = login.id
+        let keys = mergeKeys
         Task {
             // lista fra sist leses og pakkes ut i bakgrunnen: med titusenvis av kanaler sto appen ellers stille imens
-            let saved = await Task.detached(priority: .userInitiated) { cache.read(id).map(ChannelIndex.init) }.value
+            let saved = await Task.detached(priority: .userInitiated) {
+                cache.read(id).map { ChannelIndex($0, merging: keys) }
+            }.value
             guard gen == generation else { return }
             if let saved { show(saved) }
             phase = .ready
@@ -208,9 +211,10 @@ final class AppModel {
             let lists = Lists(categories: try await cats, channels: try await chans)
             guard gen == generation else { return }
             let current = index
+            let keys = mergeKeys
             // oppslagene lages i bakgrunnen, og bare når lista er endret: ellers tegnes alt på nytt for ingenting
             let next = await Task.detached(priority: .userInitiated) { () -> ChannelIndex? in
-                current.hasSameLists(as: lists) ? nil : ChannelIndex(lists)
+                current.hasSameLists(as: lists) && current.mergeKeys == keys ? nil : ChannelIndex(lists, merging: keys)
             }.value
             guard gen == generation else { return }
             if let next {
@@ -307,6 +311,23 @@ final class AppModel {
         // de egne går foran de innebygde
         let all = streamOverrides + (builtInOn ? builtInStreams : [])
         streamByKey = Dictionary(all.map { ($0.key, $0.url) }, uniquingKeysWith: { first, _ in first })
+        remerge()
+    }
+
+    /// Kanalene som spilles fra samme egne strøm (NRK1 HD, NRK1 FHD …), slås sammen til én.
+    private var mergeKeys: Set<String> { Set(streamByKey.keys) }
+
+    /// Oppslagene på nytt når de egne strømmene er endret (i bakgrunnen).
+    private func remerge() {
+        let current = index
+        let keys = mergeKeys
+        guard current.mergeKeys != keys, !current.lists.channels.isEmpty else { return }
+        let gen = generation
+        Task {
+            let next = await Task.detached(priority: .userInitiated) { ChannelIndex(current.lists, merging: keys) }.value
+            guard gen == generation, mergeKeys == keys else { return }
+            show(next)
+        }
     }
 
     func setStreams(_ text: String) {
@@ -323,11 +344,12 @@ final class AppModel {
         return client?.liveURL(channel)
     }
 
-    /// Kanalene hver egen strøm gjelder for (i bakgrunnen: lista kan ha titusenvis av kanaler).
+    /// Kanalene hver egen strøm gjelder for (i bakgrunnen: lista kan ha titusenvis av kanaler). Alle leverandørens,
+    /// også dem som er slått sammen til én.
     func streamMatches() async -> [String: [String]] {
         let keys = Set(streamOverrides.map(\.key) + builtInStreams.map(\.key))
         guard !keys.isEmpty else { return [:] }
-        let list = self.channels
+        let list = index.lists.channels
         return await Task.detached(priority: .userInitiated) {
             var found: [String: [String]] = [:]
             for channel in list {
@@ -421,13 +443,21 @@ final class AppModel {
         return FyrlysCore.channels(library?.recent ?? [], in: byId)
     }
 
+    /// En sammenslått kanal er favoritt når en av dem er det.
     func isFavorite(_ channel: Channel) -> Bool {
         _ = libraryVersion
-        return library?.isFavorite(channel.id) ?? false
+        guard let library else { return false }
+        return index.ids(of: channel).contains { library.isFavorite($0) }
     }
 
     func toggleFavorite(_ channel: Channel) {
-        library?.toggleFavorite(channel.id)
+        guard let library else { return }
+        let favorited = index.ids(of: channel).filter { library.isFavorite($0) }
+        if favorited.isEmpty {
+            library.toggleFavorite(channel.id)
+        } else {
+            for id in favorited { library.toggleFavorite(id) }
+        }
         libraryVersion += 1
         shareFavorites()
     }
