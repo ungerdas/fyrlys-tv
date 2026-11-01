@@ -277,6 +277,10 @@ final class FyrlysUITests: XCTestCase {
         remote.press(.right)
         wait(3)
         shot("26-mkv-spolt")
+        // Menu skjuler kontrollene først: undertekstene alene (i Apple sin stil)
+        remote.press(.menu)
+        wait(2)
+        shot("26b-mkv-tekst")
         let player = find(app, "vod-spiller")
         for _ in 0..<3 where player.exists {
             remote.press(.menu)

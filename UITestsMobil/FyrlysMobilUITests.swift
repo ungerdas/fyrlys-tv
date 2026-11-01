@@ -295,6 +295,14 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(find(app, "vod-tekst").exists, "valget av undertekster mangler")
         wait(2)
         shot("24-mkv")
+        // et trykk på bildet (ikke på knappene) skjuler kontrollene: undertekstene alene, i Apple sin stil
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.28)).tap()
+        wait(2)
+        shot("24-mkv-tekst")
+        if !find(app, "lukk-vod").exists {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.28)).tap()
+        }
+        XCTAssertTrue(find(app, "lukk-vod").waitForExistence(timeout: 5), "kontrollene kom ikke tilbake")
         find(app, "lukk-vod").tap()
         let player = find(app, "vod-spiller")
         for _ in 0..<10 where player.exists { wait(1) }
