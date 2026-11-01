@@ -149,11 +149,16 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `no.fyrlys.tv`, appen i App Store Connect; `ensure_platform` legger IOS til appen med `POST /v1/appStoreVersions`
   første gang), arkiv uten signering for begge plattformene (`CODE_SIGNING_ALLOWED=NO`: å signere for en
   Apple TV krever en utviklerprofil, og den krever en registrert enhet), `tools/adhoc_sign.sh` (ad hoc med
-  application-identifier og team), `asc.py prepare` (distribusjonssertifikat og en profil per plattform,
+  application-identifier og team), `asc.py prepare` (distribusjonssertifikat og en profil per plattform; med
+  hemmeligheten `DIST_KEY` (privat RSA-nøkkel, PKCS#1 eller #8, `DIST_KEY_PATH` i jobben) finnes sertifikatet med
+  samme offentlige nøkkel igjen hos Apple (`find_certificate`, sammenligner modulus; går det ut innen to uker, trekkes
+  det tilbake og et nytt lages) eller lages første gang, og beholdes; uten den ett per kjøring som `cleanup` trekker
+  tilbake,
   `TVOS_APP_STORE` og `IOS_APP_STORE`, med `ExportOptions-tvOS.plist`/`-iOS.plist`, for kjøringen gjennom REST-API-et, JWT med openssl, bare standardbiblioteket; egen nøkkelring), `xcodebuild
   -exportArchive` med `destination upload` og API-nøkkelen per plattform (laster opp selv), `asc.py wait <byggnummer>`
-  (venter på bygget for både TV_OS og IOS; feiler hvis ett ikke dukker opp i App Store Connect, eller blir INVALID), og `asc.py cleanup` (sletter profilen og trekker
-  tilbake sertifikatet; eieren får en e-post om det for hvert bygg). Prøvd og forlatt 31.10: Apples skysignering
+  (venter på bygget for både TV_OS og IOS; feiler hvis ett ikke dukker opp i App Store Connect, eller blir INVALID), og `asc.py cleanup` (sletter profilene og
+  trekker tilbake sertifikatet hvis det ble laget for kjøringen; da får eieren en e-post «Your Certificate Has Been
+  Revoked» for hvert bygg). Hemmelighetene kan ikke leses eller settes herfra (proxyen stenger `actions/secrets`). Prøvd og forlatt 31.10: Apples skysignering
   (`-allowProvisioningUpdates` med API-nøkkelen) eksporterte uten feil, men App Store Connect avviste bygget
   («Invalid Signature … Fyrlys.app/Fyrlys»); med `altool --upload-app` forsvant byggene stille (bygg 3 og 4).
   `.github/workflows/status.yml` (startes for hånd: `gh api -X POST
@@ -179,10 +184,11 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   står under fanelinja som før.
 - Åpent (31.10): 0.1.2 er ikke prøvd på Apple TV-en hans ennå (fart med 25 000 kanaler, de nye kortene, «Dine
   kategorier», at ingenting går inn under fanelinja). «Hjem» (startsiden i Windows-appen) finnes ikke i Apple TV-appen.
-  Han får en e-post «Your Certificate Has Been Revoked» for hvert bygg (fra `asc.py cleanup`); anbefalt 31.10 i stedet
-  for p12-forslaget: bare en privat nøkkel som hemmelighet `DIST_KEY` (`openssl genrsa -out fyrlys-dist.key 2048`), så
-  lager `asc.py prepare` sertifikatet med den første gang og finner det igjen hos Apple (lik offentlig nøkkel), og
-  `cleanup` sletter bare profilen; uten hemmeligheten som i dag. Ikke besvart, ikke laget.
+  Han får en e-post «Your Certificate Has Been Revoked» for hvert bygg (fra `asc.py cleanup`; 1.11 spurte han hvordan
+  han fikser det). Laget 1.11: hemmeligheten `DIST_KEY` (se TestFlight under); han må lage nøkkelen
+  (`openssl genrsa -out fyrlys-dist.key 2048`) og legge den inn selv. Ikke prøvd mot Apple ennå (bare
+  nøkkelhåndteringen og sammenligningen lokalt); når den er lagt inn, kan et bygg startes med
+  `gh api -X POST repos/ungerdas/fyrlys-tv/actions/workflows/build.yml/dispatches -f ref=main`.
 - 31.10.2026: eieren laget en ekstern TestFlight-gruppe med offentlig lenke; 0.1.3 (bygg 7) ble sendt til Apples
   beta-gjennomgang (Waiting for Review). Nye versjoner kommer ikke av seg selv til den eksterne gruppa (må legges til
   og gjennomgås); tilbudt å automatisere det i bygget, og en demo-innlogging hvis gjennomgangen stopper på innloggingen.

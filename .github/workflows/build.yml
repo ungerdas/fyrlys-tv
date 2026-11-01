@@ -344,12 +344,19 @@ jobs:
       - name: API-nøkkelen
         env:
           P8: ${{ secrets.ASC_KEY_P8 }}
+          DIST: ${{ secrets.DIST_KEY }}
         run: |
           umask 077
           mkdir -p "$HOME/.appstoreconnect/private_keys"
           key="$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8"
           printf '%s\n' "$P8" > "$key"
           echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+          # nøkkelen til distribusjonssertifikatet som beholdes (valgfri; uten den lages og trekkes et sertifikat
+          # tilbake i hver kjøring, og Apple sender en e-post om det)
+          if [ -n "$DIST" ]; then
+            printf '%s\n' "$DIST" > "$HOME/.appstoreconnect/distribution.key"
+            echo "DIST_KEY_PATH=$HOME/.appstoreconnect/distribution.key" >> "$GITHUB_ENV"
+          fi
 
       - name: Sjekk App Store Connect
         run: python3 tools/asc.py check 2>&1 | tee build/asc.log
@@ -374,8 +381,8 @@ jobs:
           tools/adhoc_sign.sh build/FyrlysMobil.xcarchive
 
       # Apples skysignering (-allowProvisioningUpdates med API-nøkkelen) ga et bygg App Store Connect avviste
-      # stille («Invalid Signature» for Fyrlys.app/Fyrlys), så bygget signeres med et sertifikat og en profil som
-      # lages gjennom API-et for denne kjøringen og slettes etterpå.
+      # stille («Invalid Signature» for Fyrlys.app/Fyrlys), så bygget signeres med et distribusjonssertifikat (det
+      # faste med DIST_KEY, ellers et for denne kjøringen) og profiler som lages gjennom API-et og slettes etterpå.
       - name: Signer og last opp
         run: |
           umask 077

@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """App Store Connect fra GitHub Actions (uten Mac og uten Xcode-konto), med API-nøkkelen i miljøet:
-ASC_KEY_PATH (.p8-fila), ASC_KEY_ID, ASC_ISSUER_ID og APPLE_TEAM_ID.
+ASC_KEY_PATH (.p8-fila), ASC_KEY_ID, ASC_ISSUER_ID og APPLE_TEAM_ID. Valgfritt DIST_KEY_PATH: en privat RSA-nøkkel
+(hemmeligheten DIST_KEY) for et distribusjonssertifikat som beholdes fra bygg til bygg. Uten den lages et sertifikat
+per kjøring, og det trekkes tilbake etterpå (Apple sender en e-post om det hver gang).
 
     python3 tools/asc.py check                  sjekker nøkkelen, app-id-en og appen i App Store Connect, og legger
                                                 til iOS i appen første gang (Apple TV, iPhone og iPad er én app)
-    python3 tools/asc.py prepare <mappe>        lager et distribusjonssertifikat og en App Store-profil per plattform
-                                                for denne kjøringen (nøkkel, sertifikat, profiler og
-                                                ExportOptions-tvOS.plist/-iOS.plist, der eksporten laster bygget rett
-                                                opp til App Store Connect)
-    python3 tools/asc.py cleanup <mappe>        sletter profilene og trekker tilbake sertifikatet prepare laget
+    python3 tools/asc.py prepare <mappe>        finner eller lager distribusjonssertifikatet og lager en App
+                                                Store-profil per plattform for denne kjøringen (nøkkel, sertifikat,
+                                                profiler og ExportOptions-tvOS.plist/-iOS.plist, der eksporten laster
+                                                bygget rett opp til App Store Connect)
+    python3 tools/asc.py cleanup <mappe>        sletter profilene, og trekker tilbake sertifikatet hvis det ble laget
+                                                bare for denne kjøringen (uten DIST_KEY_PATH)
     python3 tools/asc.py builds                 de siste byggene i App Store Connect og om de er klare for TestFlight
     python3 tools/asc.py wait <byggnummer>      venter (høyst 25 min) til bygget for begge plattformene dukker opp i
                                                 App Store Connect
@@ -187,23 +190,28 @@ def prepare(folder):
             "identifier": BUNDLE_ID, "name": APP_NAME, "platform": "IOS"}))["data"]
         print(f"Registrerte app-id-en {BUNDLE_ID}")
 
-    # nøkkelen (RSA 2048, PKCS#1 som «security import -f openssl» leser) og forespørselen om sertifikat
+    # nøkkelen (RSA, PKCS#1 som «security import -f openssl» leser): den faste fra DIST_KEY, ellers en ny
     key, csr = folder / "distribution.key", folder / "distribution.csr"
-    subprocess.run([OPENSSL, "genrsa", "-out", str(key) + ".tmp", "2048"], check=True, capture_output=True)
-    subprocess.run([OPENSSL, "rsa", "-in", str(key) + ".tmp", "-out", str(key)], check=True, capture_output=True)
-    if "BEGIN RSA PRIVATE KEY" not in key.read_text():  # OpenSSL 3 skriver PKCS#8 uten -traditional
-        subprocess.run([OPENSSL, "rsa", "-in", str(key) + ".tmp", "-out", str(key), "-traditional"], check=True,
-                       capture_output=True)
-    os.remove(str(key) + ".tmp")
-    os.chmod(key, 0o600)
-    subprocess.run([OPENSSL, "req", "-new", "-key", str(key), "-out", str(csr), "-subj",
-                    f"/CN={APP_NAME} CI/O={env('APPLE_TEAM_ID')}"], check=True, capture_output=True)
-    cert = asc.call("POST", "/v1/certificates", data("certificates", {
-        "certificateType": "DISTRIBUTION", "csrContent": csr.read_text()}))["data"]
-    state["certificate"] = cert["id"]
-    save()
+    kept = os.environ.get("DIST_KEY_PATH", "").strip()
+    rsa_key(kept or None, key)
+    cert = find_certificate(asc, key) if kept else None
+    if cert:
+        print(f"Bruker distribusjonssertifikatet fra før (utløper {cert['attributes'].get('expirationDate')})")
+    else:
+        subprocess.run([OPENSSL, "req", "-new", "-key", str(key), "-out", str(csr), "-subj",
+                        f"/CN={APP_NAME} CI/O={env('APPLE_TEAM_ID')}"], check=True, capture_output=True)
+        cert = asc.call("POST", "/v1/certificates", data("certificates", {
+            "certificateType": "DISTRIBUTION", "csrContent": csr.read_text()}))["data"]
+        if kept:
+            print(f"Laget distribusjonssertifikatet som beholdes til neste bygg (utløper "
+                  f"{cert['attributes'].get('expirationDate')})")
+        else:
+            # trekkes tilbake av cleanup
+            state["certificate"] = cert["id"]
+            save()
+            print(f"Laget et distribusjonssertifikat for denne kjøringen (utløper "
+                  f"{cert['attributes'].get('expirationDate')})")
     (folder / "distribution.cer").write_bytes(base64.b64decode(cert["attributes"]["certificateContent"]))
-    print(f"Laget et distribusjonssertifikat for denne kjøringen (utløper {cert['attributes'].get('expirationDate')})")
 
     run = f"{os.environ.get('GITHUB_RUN_ID', int(time.time()))}-{os.environ.get('GITHUB_RUN_ATTEMPT', 1)}"
     for platform, kind, _ in PLATFORMS:
@@ -218,6 +226,49 @@ def prepare(folder):
             base64.b64decode(profile["attributes"]["profileContent"]))
         export_options(folder, manual_profile=name, file=f"ExportOptions-{platform}.plist")
         print(f"Laget App Store-profilen «{name}»")
+
+
+def rsa_key(source, out):
+    """Skriver nøkkelen i [source] (PKCS#1 eller PKCS#8, også med CRLF), eller en ny (RSA 2048), som PKCS#1 til [out]."""
+    tmp = Path(str(out) + ".tmp")
+    if source:
+        tmp.write_bytes(Path(source).read_bytes().replace(b"\r", b""))
+    else:
+        subprocess.run([OPENSSL, "genrsa", "-out", str(tmp), "2048"], check=True, capture_output=True)
+    os.chmod(tmp, 0o600)
+    res = subprocess.run([OPENSSL, "rsa", "-in", str(tmp), "-out", str(out)], capture_output=True)
+    if res.returncode != 0:
+        tmp.unlink()
+        sys.exit("Nøkkelen i DIST_KEY er ikke en privat RSA-nøkkel (lag den med «openssl genrsa -out fyrlys-dist.key "
+                 "2048» og lim inn hele fila, med BEGIN- og END-linjene)")
+    if "BEGIN RSA PRIVATE KEY" not in out.read_text():  # OpenSSL 3 skriver PKCS#8 uten -traditional
+        subprocess.run([OPENSSL, "rsa", "-in", str(tmp), "-out", str(out), "-traditional"], check=True,
+                       capture_output=True)
+    tmp.unlink()
+    os.chmod(out, 0o600)
+
+
+def modulus(args, data=None):
+    res = subprocess.run([OPENSSL] + args + ["-noout", "-modulus"], input=data, capture_output=True)
+    text = res.stdout.decode(errors="replace").strip()
+    return text.split("=", 1)[1].upper() if res.returncode == 0 and "=" in text else None
+
+
+def find_certificate(asc, key):
+    """Distribusjonssertifikatet hos Apple med samme offentlige nøkkel som [key]. Går det ut innen to uker, trekkes
+    det tilbake (en gang i året), så prepare lager et nytt."""
+    mine = modulus(["rsa", "-in", str(key)])
+    soon = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() + 14 * 86400))
+    rows = asc.call("GET", "/v1/certificates?filter[certificateType]=DISTRIBUTION&limit=200").get("data", [])
+    for row in rows:
+        content = row["attributes"].get("certificateContent")
+        if not content or modulus(["x509", "-inform", "DER"], base64.b64decode(content)) != mine:
+            continue
+        if (row["attributes"].get("expirationDate") or "") > soon:
+            return row
+        code, res = asc.request("DELETE", f"/v1/certificates/{row['id']}")
+        print(f"Sertifikatet fra før går snart ut og ble trukket tilbake (HTTP {code}); lager et nytt")
+    return None
 
 
 def cleanup(folder):
@@ -238,7 +289,8 @@ def cleanup(folder):
             print(f"::warning::Sertifikatet ble ikke trukket tilbake: HTTP {code} {errors(res)}")
             failed = True
     if not failed:
-        print("Slettet profilene og trakk tilbake sertifikatet fra denne kjøringen")
+        print("Slettet profilene og trakk tilbake sertifikatet fra denne kjøringen" if state.get("certificate")
+              else "Slettet profilene (sertifikatet beholdes til neste bygg)")
     sys.exit(1 if failed else 0)
 
 
