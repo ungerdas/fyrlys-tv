@@ -180,7 +180,9 @@ final class FyrlysUITests: XCTestCase {
         let grid = Date().timeIntervalSince(start)
 
         // tilbake til flisene (450 kategorier) og nedover; flisene øverst lastes ut når de er rullet bort, så fokus
-        // flyttes ikke tilbake til dem etterpå
+        // flyttes ikke tilbake til dem etterpå. Menu trykkes fra et kort: de raske trykkene kan ha flyttet fokus opp i
+        // fanelinja, og der lukker Menu appen.
+        XCTAssertTrue(focus(app, first), "fikk ikke fokus på det første kortet igjen")
         remote.press(.menu)
         XCTAssertTrue(all.waitForExistence(timeout: 10), "kom ikke tilbake til forsiden")
         wait(1)
