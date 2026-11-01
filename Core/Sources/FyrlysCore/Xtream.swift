@@ -56,7 +56,7 @@ public struct XtreamClient: Sendable {
 
     /// Kanalen som HLS (det Apple TV spiller).
     public func liveURL(_ channel: Channel) -> URL {
-        URL(string: "\(login.server)/live/\(credsPath)/\(channel.id).m3u8")!
+        URL(string: "\(login.server)/live/\(credsPath)/\(channel.streamId).m3u8")!
     }
 
     /// Tekst som kan vises eller logges: uten brukernavn og passord.
@@ -108,7 +108,7 @@ public struct XtreamClient: Sendable {
 
     /// Programmene som går nå og senere for en kanal.
     public func epg(_ channel: Channel, limit: Int = 8) async throws -> [Program] {
-        cleanPrograms(parseShortEPG(try await api("get_short_epg", ["stream_id": channel.id, "limit": String(limit)])))
+        cleanPrograms(parseShortEPG(try await api("get_short_epg", ["stream_id": channel.streamId, "limit": String(limit)])))
     }
 }
 

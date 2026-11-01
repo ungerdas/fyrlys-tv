@@ -1,5 +1,13 @@
 # Endringer
 
+## v0.1.21
+
+- NRK-kanalene slås sammen også når leverandøren har landskoden bak navnet («NRK 1 HD NO», «NRK 1 FHD NO»), og
+  utgavene med lydtekst og tegnspråk regnes som samme kanal («NRK 2 Lydtekst HD NO» er NRK2). Med NRK direkte spilles
+  de fra NRK med vanlig lyd.
+- «NRK 3/SUPER» blir to kanaler, NRK3 og NRK Super, som spilles fra hver sin strøm hos NRK. Programinfoen og
+  TV-arkivet er leverandørens for den delte kanalen. NRK Super har ingen egen logo der, så kortet viser navnet.
+
 ## v0.1.20
 
 - NRK1, NRK2, NRK3 og NRK Super står én gang hver. Leverandøren har ofte flere utgaver av samme kanal («NRK1 HD»,

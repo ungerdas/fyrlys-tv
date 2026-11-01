@@ -13,6 +13,20 @@ final class StreamTests: XCTestCase {
         XCTAssertEqual(channelKey("NRK1 Midtnytt"), "nrk1midtnytt")
         XCTAssertEqual(channelKey("NRK3 | Norge"), "nrk3")
         XCTAssertEqual(channelKey("TV 2 Direkte"), "tv2direkte")
+        // landskoden bak, og lydtekst/tegnspråk er samme kanal
+        XCTAssertEqual(channelKey("NRK 1 HD NO"), "nrk1")
+        XCTAssertEqual(channelKey("NRK 1 FHD NO"), "nrk1")
+        XCTAssertEqual(channelKey("NRK 2 Lydtekst HD NO"), "nrk2")
+        XCTAssertEqual(channelKey("NRK1 Tegnspråk"), "nrk1")
+        XCTAssertEqual(channelKey("TV 2 NO"), "tv2")
+        XCTAssertEqual(channelKey("NO"), "no")
+        XCTAssertEqual(channelAlternatives("NRK 3/SUPER HD NO"), ["NRK 3 HD NO", "NRK SUPER HD NO"])
+        XCTAssertEqual(channelAlternatives("NRK1 HD"), ["NRK1 HD"])
+        let both = matchingStreamKeys("NRK 3/SUPER NO", in: ["nrk3", "nrksuper"])
+        XCTAssertEqual(both.map(\.key), ["nrk3", "nrksuper"])
+        XCTAssertEqual(both.map(\.name), ["NRK 3 NO", "NRK SUPER NO"])
+        XCTAssertEqual(matchingStreamKeys("NRK 3/SUPER NO", in: ["nrk3"]).map(\.key), ["nrk3"])
+        XCTAssertTrue(matchingStreamKeys("Sport 24/7", in: ["nrk3"]).isEmpty)
         XCTAssertEqual(channelKey(of: URL(string: "https://cdn.example.com/edge/nrk1/muxed.m3u8")!), "nrk1")
         XCTAssertEqual(channelKey(of: URL(string: "https://cdn.example.com/live/fjordkanalen.m3u8")!), "fjordkanalen")
         XCTAssertEqual(channelKey(of: URL(string: "https://cdn.example.com/nrksuper/index.m3u8?token=1")!), "nrksuper")
@@ -66,5 +80,43 @@ final class StreamTests: XCTestCase {
         XCTAssertEqual(index.mergeKeys, ["nrk1", "nrk2", "nrksuper"])
         // favoritter og «sist sett» lagret med id-ene til flere av dem: kanalen én gang
         XCTAssertEqual(channels(["12", "20", "10", "11"], in: index.byId).map(\.id), ["11", "20"])
+    }
+
+    /// Navnene slik én leverandør har dem: landskoden bak, lydtekst, og NRK3 og NRK Super på samme plass.
+    func testMergingWithCountryLast() {
+        let cats = [ChannelCategory(id: "1", name: "Norway"), ChannelCategory(id: "2", name: "Norway FHD")]
+        let chans = [
+            Channel(id: "9", name: "N1 Info & Updates NO", categoryId: "1"),
+            Channel(id: "10", name: "NRK 1 HD NO", categoryId: "1", logo: "nrk1.png"),
+            Channel(id: "11", name: "NRK 1 FHD NO", categoryId: "2", logo: "nrk1.png"),
+            Channel(id: "20", name: "NRK 2 HD NO", categoryId: "1", logo: "nrk2.png"),
+            Channel(id: "21", name: "NRK 2 FHD NO", categoryId: "2", logo: "nrk2.png"),
+            Channel(id: "22", name: "NRK 2 Lydtekst HD NO", categoryId: "1", logo: "nrk2.png"),
+            Channel(id: "30", name: "NRK 3/SUPER NO", categoryId: "1", logo: "nrk3.png", archiveDays: 7),
+            Channel(id: "31", name: "NRK 3/SUPER HD NO", categoryId: "1", logo: "nrk3.png"),
+            Channel(id: "40", name: "TV 2 Direkte NO", categoryId: "1"),
+        ]
+        let lists = Lists(categories: cats, channels: chans)
+        let index = ChannelIndex(lists, merging: Set(builtInStreams.map(\.key)))
+        XCTAssertEqual(index.channels.map(\.id), ["9", "10", "20", "30", "30~nrksuper", "40"])
+        XCTAssertEqual(index.channels.map(\.name),
+                       ["N1 Info & Updates NO", "NRK 1 HD NO", "NRK 2 HD NO", "NRK 3 NO", "NRK SUPER NO",
+                        "TV 2 Direkte NO"])
+        XCTAssertEqual(index.channels(in: "2").map(\.id), ["10", "20"])
+        // NRK Super er delt ut av NRK 3/SUPER: programinfoen og arkivet derfra, men ikke NRK3-logoen
+        let superChannel = index.byId["30~nrksuper"]!
+        XCTAssertEqual(superChannel.streamId, "30")
+        XCTAssertEqual(superChannel.archiveDays, 7)
+        XCTAssertNil(superChannel.logo)
+        XCTAssertEqual(index.byId["31~nrksuper"]?.id, "30~nrksuper")
+        XCTAssertEqual(index.byId["31"]?.id, "30")
+        XCTAssertEqual(index.byId["22"]?.id, "20")
+        XCTAssertEqual(index.ids(of: index.byId["20"]!), ["20", "21", "22"])
+        XCTAssertEqual(index.search("super", favoring: []).map(\.id), ["30~nrksuper"])
+        // adressen hos leverandøren er kanalen den er delt ut av
+        let client = XtreamClient(login: Login(server: "http://iptv.example.com", username: "u", password: "p"))
+        XCTAssertEqual(client.liveURL(superChannel).lastPathComponent, "30.m3u8")
+        // uten egne strømmer er alt som før
+        XCTAssertEqual(ChannelIndex(lists).channels.count, chans.count)
     }
 }

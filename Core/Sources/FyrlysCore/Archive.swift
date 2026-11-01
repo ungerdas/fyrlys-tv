@@ -77,7 +77,7 @@ extension XtreamClient {
     /// Programmene i arkivet for en kanal (tom når kanalen ikke har arkiv).
     public func archive(_ channel: Channel, now: Date = Date()) async throws -> [ArchiveItem] {
         guard channel.archiveDays > 0 else { return [] }
-        return parseArchive(try await api("get_simple_data_table", ["stream_id": channel.id]), now: now,
+        return parseArchive(try await api("get_simple_data_table", ["stream_id": channel.streamId]), now: now,
                             days: channel.archiveDays)
     }
 
@@ -95,7 +95,7 @@ extension XtreamClient {
         let at = Date(timeIntervalSince1970: raw - raw.truncatingRemainder(dividingBy: 60))
         let minutes = max(1, Int((program.stop.timeIntervalSince(at) / 60).rounded(.up)))
         let start = xtreamTime(at, offset: archiveOffset(at, server: serverClock, zone: zone, now: now))
-        let base = "\(login.server)/timeshift/\(credsPath)/\(minutes)/\(start)/\(channel.id)"
+        let base = "\(login.server)/timeshift/\(credsPath)/\(minutes)/\(start)/\(channel.streamId)"
         return ["\(base).m3u8", "\(base).ts"].compactMap { URL(string: $0) }
     }
 }

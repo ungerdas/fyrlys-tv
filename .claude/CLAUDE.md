@@ -408,3 +408,10 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `test-*-utdrag.txt` begynner med alle «error:»-linjene. 0.1.20 (bygg 38) er i TestFlight, VALID for TV_OS og IOS.
   Fartstesten i bygg 38: 37,2 s uten lista fra sist (bygg 37 med samme kode: 5,6 s), 5,0 s med; trolig en treg
   runner, men se etter om det skjer igjen.
+  Eieren sendte samme dag et bilde fra iPhone (0.1.20, kategorien Norway): leverandøren har landskoden bak («NRK 1 HD
+  NO», «NRK 1 FHD NO», «NRK 2 Lydtekst HD NO», «NRK 3/SUPER NO», «NRK 3/SUPER HD NO»), så ingenting ble slått sammen.
+  0.1.21: `channelKey` tar bort landskoden bak (`trailingCountryCodes`, når det er flere ord) og «lydtekst»/«tegnspråk»;
+  `channelAlternatives`/`matchingStreamKeys`: «a/b» i navnet er to kanaler; `ChannelIndex` deler en slik i to når
+  begge har en strøm (den første beholder id-en og får navnet «NRK 3 NO», den andre er `Channel.split`: id
+  `<id>~<nøkkel>`, `source` = leverandørens id, uten logo; `Channel.streamId` brukes for adressen, EPG og arkivet).
+  Delte kanaler taper mot ekte når de slås sammen (poeng 4). Testen `testMergingWithCountryLast`.

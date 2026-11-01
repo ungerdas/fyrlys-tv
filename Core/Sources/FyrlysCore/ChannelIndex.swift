@@ -22,25 +22,53 @@ public struct ChannelIndex: Sendable {
     let positions: [String: [Int]]
 
     /// [keys]: kanaler med samme nøkkel (`channelKey`) blir én, som når de spilles fra samme egne strøm (NRK1 HD,
-    /// NRK1 FHD og NRK 1 → NRK1). Den med programinfo og logo beholdes og står i alle kategoriene de andre sto i;
-    /// id-ene til de andre peker til den.
+    /// NRK1 FHD og NRK 1 HD NO → NRK1). Den med programinfo og logo beholdes og står i alle kategoriene de andre sto
+    /// i; id-ene til de andre peker til den. En kanal med «a/b» i navnet blir to når begge har en strøm
+    /// («NRK 3/SUPER NO» → «NRK 3 NO» og «NRK SUPER NO», med id-en `<id>~nrksuper`).
     public init(_ lists: Lists, merging keys: Set<String> = []) {
         self.lists = lists
         mergeKeys = keys
-        let source = lists.channels
-        // gruppene: bare kanaler der nøkkelen kan finnes i navnet regnes ut (det regulære uttrykket koster)
+        var source: [Channel] = []
+        var keyAt: [Int: String] = [:]
+        // delt ut av en annen kanal (har ikke egen programinfo eller logo)
+        var derived = Set<Int>()
+        if keys.isEmpty {
+            source = lists.channels
+        } else {
+            source.reserveCapacity(lists.channels.count + 8)
+            for channel in lists.channels {
+                // bare kanaler der nøkkelen kan finnes i navnet regnes ut (de regulære uttrykkene koster)
+                let compact = String(channel.name.lowercased().filter { $0.isLetter || $0.isNumber })
+                guard channel.name.contains("/") || keys.contains(where: { compact.contains($0) }) else {
+                    source.append(channel)
+                    continue
+                }
+                let found = matchingStreamKeys(channel.name, in: keys)
+                guard !found.isEmpty else {
+                    source.append(channel)
+                    continue
+                }
+                for (n, match) in found.enumerated() {
+                    keyAt[source.count] = match.key
+                    if n == 0 {
+                        source.append(match.name == channel.name ? channel : channel.renamed(match.name))
+                    } else {
+                        derived.insert(source.count)
+                        source.append(channel.split(match.name, key: match.key))
+                    }
+                }
+            }
+        }
+        // gruppene: kanalene med samme nøkkel
         var keptFor: [Int: Int] = [:]
         var merged: [String: [String]] = [:]
-        if !keys.isEmpty {
+        if !keyAt.isEmpty {
             var groups: [String: [Int]] = [:]
-            for (i, channel) in source.enumerated() {
-                let compact = String(channel.name.lowercased().filter { $0.isLetter || $0.isNumber })
-                guard keys.contains(where: { compact.contains($0) }) else { continue }
-                let key = channelKey(channel.name)
-                if keys.contains(key) { groups[key, default: []].append(i) }
-            }
+            for (i, key) in keyAt.sorted(by: { $0.key < $1.key }) { groups[key, default: []].append(i) }
             for members in groups.values where members.count > 1 {
-                let score = { (i: Int) -> Int in (source[i].hasEpg ? 2 : 0) + (source[i].logo == nil ? 0 : 1) }
+                let score = { (i: Int) -> Int in
+                    (derived.contains(i) ? 0 : 4) + (source[i].hasEpg ? 2 : 0) + (source[i].logo == nil ? 0 : 1)
+                }
                 let kept = members.reduce(members[0]) { best, i in score(i) > score(best) ? i : best }
                 for i in members { keptFor[i] = kept }
                 merged[source[kept].id] = [source[kept].id] + members.filter { $0 != kept }.map { source[$0].id }

@@ -353,8 +353,9 @@ final class AppModel {
         return await Task.detached(priority: .userInitiated) {
             var found: [String: [String]] = [:]
             for channel in list {
-                let key = channelKey(channel.name)
-                if keys.contains(key) { found[key, default: []].append(channel.name) }
+                for match in matchingStreamKeys(channel.name, in: keys) {
+                    found[match.key, default: []].append(channel.name)
+                }
             }
             return found
         }.value

@@ -19,14 +19,23 @@ let genericStreamNames: Set<String> = [
     "media", "prog_index", "out", "output",
 ]
 
-/// Ord i kanalnavn som ikke skiller kanaler fra hverandre: kvalitet, koding og slikt.
+/// Ord i kanalnavn som ikke skiller kanaler fra hverandre: kvalitet, koding og slikt, og utgavene med lydtekst og
+/// tegnspråk (eieren 1.11.2026: «NRK 2 er en … ikke 3 ulike»).
 let ignoredChannelWords: Set<String> = [
     "hd", "fhd", "uhd", "sd", "4k", "hq", "lq", "hevc", "h265", "h264", "1080p", "1080i", "720p", "50fps", "60fps",
-    "fps", "backup", "raw", "ᴴᴰ", "ʰᵈ",
+    "fps", "backup", "raw", "ᴴᴰ", "ʰᵈ", "lydtekst", "tegnspråk", "tegnsprak",
 ]
 
-/// Nøkkelen en kanal kjennes igjen på: små bokstaver og tall uten landskode foran og uten kvalitet bak.
-/// «NO: NRK1 HD», «NO | NRK 1» og «NRK1 FHD» → «nrk1»; «NRK Super» → «nrksuper»; «NRK1 Midtnytt» → «nrk1midtnytt».
+/// Landskoder leverandørene setter bak navnet («NRK 1 HD NO»).
+let trailingCountryCodes: Set<String> = [
+    "no", "nor", "se", "swe", "dk", "den", "fi", "fin", "is", "uk", "gb", "us", "usa", "de", "ger", "fr", "nl", "be",
+    "es", "it", "pl", "pt", "ch", "at", "ie", "ca", "au", "nz", "tr", "ru", "ar", "gr", "hu", "cz", "sk", "ro", "bg",
+    "hr", "rs", "si", "ba", "al", "mk", "ee", "lv", "lt", "ua", "il", "in", "pk", "br", "mx", "za", "ex",
+]
+
+/// Nøkkelen en kanal kjennes igjen på: små bokstaver og tall uten landskode foran eller bak og uten kvalitet.
+/// «NO: NRK1 HD», «NO | NRK 1», «NRK1 FHD» og «NRK 1 HD NO» → «nrk1»; «NRK Super» → «nrksuper»;
+/// «NRK 2 Lydtekst HD NO» → «nrk2»; «NRK1 Midtnytt» → «nrk1midtnytt».
 public func channelKey(_ name: String) -> String {
     var s = name.lowercased().trimmingCharacters(in: .whitespaces)
     // landskode foran: «no:», «no |», «[no]», «|no|», «no -»
@@ -35,8 +44,29 @@ public func channelKey(_ name: String) -> String {
     }
     // bare det første av «kanal | noe annet»
     if let bar = s.range(of: " | ") { s = String(s[..<bar.lowerBound]) }
-    let words = s.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
-    return words.filter { !ignoredChannelWords.contains($0) }.joined()
+    var words = s.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
+        .filter { !ignoredChannelWords.contains($0) }
+    if words.count > 1, let last = words.last, trailingCountryCodes.contains(last) { words.removeLast() }
+    return words.joined()
+}
+
+/// Kanalene et navn kan stå for: «NRK 3/SUPER NO» er både «NRK 3 NO» og «NRK SUPER NO» (to kanaler som deler plass
+/// hos leverandøren); uten «a/b» bare navnet selv.
+public func channelAlternatives(_ name: String) -> [String] {
+    guard name.contains("/"),
+          let r = name.range(of: #"[\p{L}\p{N}]+(/[\p{L}\p{N}]+)+"#, options: .regularExpression) else { return [name] }
+    return name[r].split(separator: "/").map { name.replacingCharacters(in: r, with: $0) }
+}
+
+/// Strømmene ([keys]) en kanal med [name] spilles fra, med navnet den har for hver: én, flere når navnet er «a/b» og
+/// begge har en strøm, eller ingen.
+public func matchingStreamKeys(_ name: String, in keys: Set<String>) -> [(key: String, name: String)] {
+    var seen = Set<String>()
+    return channelAlternatives(name).compactMap { alt in
+        let key = channelKey(alt)
+        guard keys.contains(key), seen.insert(key).inserted else { return nil }
+        return (key, alt)
+    }
 }
 
 /// Nøkkelen en adresse gjelder for: filnavnet uten filtype, eller mappen over når filnavnet er generelt.

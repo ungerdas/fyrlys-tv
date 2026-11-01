@@ -24,9 +24,11 @@ public struct Channel: Codable, Hashable, Identifiable, Sendable {
     public let archiveDays: Int
     /// leverandøren har programinfo for kanalen (epg_channel_id); uten den hentes ingen
     public let hasEpg: Bool
+    /// kanalen hos leverandøren når denne er delt ut av den («NRK SUPER» fra «NRK 3/SUPER», se `ChannelIndex`)
+    public let source: String?
 
     public init(id: String, name: String, categoryId: String, number: Int? = nil, logo: String? = nil,
-                archiveDays: Int = 0, hasEpg: Bool = true) {
+                archiveDays: Int = 0, hasEpg: Bool = true, source: String? = nil) {
         self.id = id
         self.name = name
         self.categoryId = categoryId
@@ -34,10 +36,27 @@ public struct Channel: Codable, Hashable, Identifiable, Sendable {
         self.logo = logo
         self.archiveDays = archiveDays
         self.hasEpg = hasEpg
+        self.source = source
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, categoryId, number, logo, archiveDays, hasEpg
+        case id, name, categoryId, number, logo, archiveDays, hasEpg, source
+    }
+
+    /// Id-en hos leverandøren (adressen, programinfoen og arkivet).
+    public var streamId: String { source ?? id }
+
+    /// Samme kanal med et annet navn.
+    public func renamed(_ name: String) -> Channel {
+        Channel(id: id, name: name, categoryId: categoryId, number: number, logo: logo, archiveDays: archiveDays,
+                hasEpg: hasEpg, source: source)
+    }
+
+    /// En kanal delt ut av denne ([key] er nøkkelen den spilles fra): egen id, programinfo og arkiv herfra, men ikke
+    /// logoen (den er den første kanalens).
+    public func split(_ name: String, key: String) -> Channel {
+        Channel(id: "\(id)~\(key)", name: name, categoryId: categoryId, number: number, logo: nil,
+                archiveDays: archiveDays, hasEpg: hasEpg, source: streamId)
     }
 
     /// (lister lagret før hasEpg fantes, leses med programinfo for alle)
@@ -50,6 +69,7 @@ public struct Channel: Codable, Hashable, Identifiable, Sendable {
         logo = try c.decodeIfPresent(String.self, forKey: .logo)
         archiveDays = try c.decodeIfPresent(Int.self, forKey: .archiveDays) ?? 0
         hasEpg = try c.decodeIfPresent(Bool.self, forKey: .hasEpg) ?? true
+        source = try c.decodeIfPresent(String.self, forKey: .source)
     }
 
     /// Programinfo hentes bare for kanaler som har det, og ikke for eventkanaler (kampen står i navnet, som i Fyrlys
