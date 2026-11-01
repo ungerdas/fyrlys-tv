@@ -414,4 +414,5 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `channelAlternatives`/`matchingStreamKeys`: «a/b» i navnet er to kanaler; `ChannelIndex` deler en slik i to når
   begge har en strøm (den første beholder id-en og får navnet «NRK 3 NO», den andre er `Channel.split`: id
   `<id>~<nøkkel>`, `source` = leverandørens id, uten logo; `Channel.streamId` brukes for adressen, EPG og arkivet).
-  Delte kanaler taper mot ekte når de slås sammen (poeng 4). Testen `testMergingWithCountryLast`.
+  Delte kanaler taper mot ekte når de slås sammen (poeng 4). Testen `testMergingWithCountryLast`. 0.1.21 (bygg 39) er
+  i TestFlight, VALID for TV_OS og IOS (fartstesten 15,1 s uten lista fra sist, 4,9 s med). Ikke prøvd på hans enheter.
