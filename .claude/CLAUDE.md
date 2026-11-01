@@ -214,6 +214,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   den på at `spiller` er borte.
 - 1.11.2026: 0.1.8: eieren syntes Apple TV-versjonen 0.1.7 var «rart med den toppen» (bilde: den øverste raden kuttet
   under en tom stripe der fanelinja hadde vært) og «uoversiktlig» (fem store kort i bredden). Valgte «Sidemeny + mindre
-  kort»: sidemenyen tilbake, radene øverst i «Alle kanaler», seks kort i bredden, ingen klipping under fanelinja (se
-  Arkitektur).
+  kort»: sidemenyen tilbake, radene øverst i «Alle kanaler», seks kort i bredden, ingen klipping under fanelinja, og
+  fanelinja følger kortene (`movesTabBar`, se Arkitektur). 0.1.8 (bygg 22) er i TestFlight, VALID for både TV_OS og IOS
+  (1.11); alle UI-testene grønne. Fartstesten: første kort etter 6,7 s uten lista fra sist og 4,4 s med (bygg 21: 4,9
+  og 4,0), 24 steg i kortene 5,5 s, 20 steg i sidemenyen 4,3 s. Ikke prøvd på ekte Apple TV ennå.
 - Senere (avtalt med eieren: «TV først»): filmer og serier, TV-arkiv, flere innlogginger.
