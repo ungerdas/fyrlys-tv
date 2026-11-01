@@ -212,7 +212,7 @@ jobs:
           iphone=$?
           xcrun simctl shutdown "$IPHONE_ID" 2>/dev/null
           only=""
-          for t in test01Login test02TV test04DineKategorier test05Guide test07Player test09Settings test11Rulling test12Lys; do
+          for t in test01Login test02TV test04DineKategorier test05Guide test07Player test09Settings test11Rulling test12Lys test13Filmer; do
             only="$only -only-testing:FyrlysMobilUITests/FyrlysMobilUITests/$t"
           done
           limited 20 build/test-ipad.log \

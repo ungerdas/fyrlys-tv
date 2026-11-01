@@ -60,11 +60,14 @@ final class Images: @unchecked Sendable {
 /// Et bilde fra nettet, eller [fallback] mens det hentes og når det ikke finnes.
 struct RemoteImage<Fallback: View>: View {
     let url: URL?
+    /// fyll rammen (plakater), ellers hele bildet inni (logoer)
+    var fill = false
     @ViewBuilder let fallback: () -> Fallback
     @State private var image: UIImage?
 
-    init(url: URL?, @ViewBuilder fallback: @escaping () -> Fallback) {
+    init(url: URL?, fill: Bool = false, @ViewBuilder fallback: @escaping () -> Fallback) {
         self.url = url
+        self.fill = fill
         self.fallback = fallback
         _image = State(initialValue: url.flatMap { Images.shared.cached($0) })
     }
@@ -72,7 +75,11 @@ struct RemoteImage<Fallback: View>: View {
     var body: some View {
         Group {
             if let image {
-                Image(uiImage: image).resizable().scaledToFit()
+                if fill {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    Image(uiImage: image).resizable().scaledToFit()
+                }
             } else {
                 fallback()
             }

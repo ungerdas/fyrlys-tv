@@ -189,6 +189,24 @@ final class NameTests: XCTestCase {
 }
 
 final class LibraryTests: XCTestCase {
+    func testMergeIdsKeepsBothDevicesFavorites() {
+        XCTAssertEqual(mergeIds(["1", "2"], ["3", "1", "4"]), ["1", "2", "3", "4"])
+        XCTAssertEqual(mergeIds([], ["5"]), ["5"])
+        XCTAssertEqual(mergeIds(["5"], []), ["5"])
+    }
+
+    func testReloadReadsWhatAnotherDeviceWrote() {
+        let store = MemoryStore()
+        let library = Library(store: store, loginId: "a")
+        _ = library.toggleFavorite("1")
+        store.set(["1", "9"], for: "favorites@a")
+        store.set(["k2"], for: "favoriteCategories@a")
+        library.reload()
+        XCTAssertEqual(library.favorites, ["1", "9"])
+        XCTAssertTrue(library.isFavorite("9"))
+        XCTAssertEqual(library.favoriteCategories, ["k2"])
+    }
+
     func testFavoritesAndRecentPerLogin() {
         let store = MemoryStore()
         let home = Library(store: store, loginId: "a")
@@ -350,6 +368,105 @@ final class ChannelIndexTests: XCTestCase {
         XCTAssertEqual(hits.first?.categoryId, "3")
         XCTAssertLessThan(built, 5)
         XCTAssertLessThan(searched, 2)
+    }
+}
+
+final class VODTests: XCTestCase {
+    func testItemsWithLooseTypes() {
+        let json: Any = [
+            ["stream_id": 501, "name": "Fjorden (2021)", "stream_icon": "http://x/p.jpg", "category_id": "7",
+             "rating": "7,5", "container_extension": "mkv"],
+            ["stream_id": "502", "name": "Uten bilde", "rating_5based": 4, "added": "1700000000"],
+            ["stream_id": "501", "name": "dobbel"],
+            ["name": "uten id"],
+        ]
+        let items = parseVODItems(json, kind: .movies)
+        XCTAssertEqual(items.map(\.id), ["501", "502"])
+        XCTAssertEqual(items[0].year, "2021")
+        XCTAssertEqual(items[0].rating, 7.5)
+        XCTAssertEqual(items[0].ext, "mkv")
+        XCTAssertEqual(items[1].rating, 8)
+        XCTAssertNil(items[1].poster)
+        let series = parseVODItems([["series_id": 9, "name": "Kysten", "cover": "c.jpg", "releaseDate": "2019-03-01"]],
+                                   kind: .series)
+        XCTAssertEqual(series.first?.year, "2019")
+        XCTAssertEqual(series.first?.poster, "c.jpg")
+    }
+
+    func testMovieInfo() {
+        let d = parseMovieInfo(["info": ["plot": "Om fjorden.", "genre": "Drama", "duration": "01:45:00",
+                                         "releasedate": "2021-04-01", "backdrop_path": ["", "http://x/b.jpg"]],
+                                "movie_data": ["stream_id": 501, "container_extension": "mp4"]])
+        XCTAssertEqual(d.plot, "Om fjorden.")
+        XCTAssertEqual(d.year, "2021")
+        XCTAssertEqual(d.backdrop, "http://x/b.jpg")
+        XCTAssertEqual(d.ext, "mp4")
+        // info som tom liste
+        XCTAssertEqual(parseMovieInfo(["info": [], "movie_data": ["container_extension": "mkv"]]).ext, "mkv")
+    }
+
+    func testSeriesInfoAsMapAndAsList() {
+        let episodes: [[String: Any]] = [
+            ["id": "1002", "episode_num": 2, "title": "To", "container_extension": "mp4", "season": 1],
+            ["id": "1001", "episode_num": "1", "title": "", "info": ["plot": "Først", "duration": "45 min"]],
+        ]
+        let d = parseSeriesInfo(["info": ["name": "Kysten (2019)"], "episodes": ["1": episodes, "2": [["id": "2001"]]]])
+        XCTAssertEqual(d.seasons.map(\.number), [1, 2])
+        XCTAssertEqual(d.seasons[0].episodes.map(\.id), ["1001", "1002"])
+        XCTAssertEqual(d.seasons[0].episodes[0].plot, "Først")
+        XCTAssertEqual(d.year, "2019")
+        let list = parseSeriesInfo(["episodes": [episodes]])
+        XCTAssertEqual(list.seasons.first?.episodes.count, 2)
+    }
+
+    func testAddressesAndPlayableExtensions() {
+        let client = XtreamClient(login: Login(server: "http://iptv.example.com", username: "u", password: "p"))
+        XCTAssertEqual(client.movieURL("501", ext: "mp4").absoluteString, "http://iptv.example.com/movie/u/p/501.mp4")
+        XCTAssertEqual(client.episodeURL(Episode(id: "7", season: 1, number: 1, title: "", ext: "mkv")).absoluteString,
+                       "http://iptv.example.com/series/u/p/7.mkv")
+        XCTAssertEqual(playableExtensions("MP4"), ["mp4"])
+        XCTAssertEqual(playableExtensions("mkv"), ["m3u8", "mkv"])
+        XCTAssertEqual(playableExtensions(nil), ["mp4", "m3u8"])
+    }
+}
+
+final class ArchiveTests: XCTestCase {
+    func testServerClockAndTimeFormat() {
+        // serveren går 1 time foran UTC (vintertid i Norge)
+        let offset = serverClockOffset(["timestamp_now": 1_793_500_000, "time_now": "2026-11-01 03:26:40"])
+        XCTAssertEqual(offset, 3600)
+        XCTAssertNil(serverClockOffset(["timestamp_now": 1_793_500_000]))
+        let t = Date(timeIntervalSince1970: 1_793_500_000)  // 2026-11-01 02:26:40 UTC
+        XCTAssertEqual(xtreamTime(t, offset: 3600), "2026-11-01:03-26")
+        // serveren går likt med enheten: enhetens sone med sommertid for et tidspunkt i juli
+        let oslo = TimeZone(identifier: "Europe/Oslo")!
+        let july = Date(timeIntervalSince1970: 1_783_000_000)
+        XCTAssertEqual(archiveOffset(july, server: 3600, zone: oslo, now: t), 7200)
+        // ellers serverens forskjell
+        XCTAssertEqual(archiveOffset(july, server: 0, zone: oslo, now: t), 0)
+    }
+
+    func testArchiveListAndURLs() {
+        let now = Date(timeIntervalSince1970: 1_793_500_000)
+        let json: [String: Any] = ["epg_listings": [
+            ["title": "RGFnc3JldnllbiBpIGRhZw==", "start_timestamp": "1793492800", "stop_timestamp": "1793496400",
+             "has_archive": 1],
+            ["title": "R2FtbWVs", "start_timestamp": "1793300000", "stop_timestamp": "1793303600", "has_archive": 0],
+            ["title": "TsOl", "start_timestamp": "1793499000", "stop_timestamp": "1793502600", "has_archive": 0],
+            ["title": "U2VuZXJl", "start_timestamp": "1793510000", "stop_timestamp": "1793513600"],
+            ["title": "Rm9yIGdhbW1lbA==", "start_timestamp": "1792000000", "stop_timestamp": "1792003600"],
+        ]]
+        let items = parseArchive(json, now: now, days: 7)
+        XCTAssertEqual(items.map(\.program.title), ["Gammel", "Dagsrevyen i dag", "Nå"])
+        XCTAssertEqual(items.map(\.available), [false, true, true])
+        let client = XtreamClient(login: Login(server: "http://iptv.example.com", username: "u", password: "p"))
+        let channel = Channel(id: "11", name: "Kanal", categoryId: "1", archiveDays: 7)
+        let urls = client.archiveURLs(channel, items[1].program, from: 90, serverClock: 3600,
+                                      zone: TimeZone(identifier: "UTC")!, now: now)
+        // fra 90 s inn, rundet ned til minuttet: 59 minutter igjen
+        XCTAssertEqual(urls.first?.absoluteString,
+                       "http://iptv.example.com/timeshift/u/p/59/2026-11-01:01-28/11.m3u8")
+        XCTAssertEqual(urls.last?.pathExtension, "ts")
     }
 }
 

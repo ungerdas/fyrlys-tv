@@ -1,5 +1,19 @@
 # Endringer
 
+## v0.1.12
+
+- Filmer og serier: egne faner på Apple TV, iPhone og iPad, med kategoriene, plakatene, en side for hver film og
+  serie (handling, år, sjanger, lengde og terningkast) og episodene sesong for sesong. «Fortsett» begynner der du
+  slapp. Filmer i formater Apple-enhetene ikke kan spille (som mkv), prøves først som strøm fra leverandøren; går det
+  ikke, står det hvorfor.
+- TV-arkiv: hold inne på en kanal som har arkiv hos leverandøren og velg «TV-arkiv». Velg dag og program, og se det
+  fra start – også det som går nå. Du kan spole i programmet.
+- Flere innlogginger: legg til en innlogging under Innstillinger (Konto på iPhone), og bytt mellom dem der. Logger du
+  ut av én, brukes den neste.
+- Favorittene og «Dine kategorier» er de samme på iPhone, iPad og Apple TV med samme Apple-ID (iCloud). Legger du til
+  en favoritt på telefonen, er den på TV-en også. Første gang flettes det hver enhet hadde fra før, så ingenting
+  forsvinner. «Sist sett» er fortsatt per enhet.
+
 ## v0.1.11
 
 Apple TV:

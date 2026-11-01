@@ -237,6 +237,42 @@ final class FyrlysMobilUITests: XCTestCase {
     }
 
     /// Lys modus («Nordisk lys»): sola i topplinja på iPhone, valgt i innstillingene på iPad.
+    /// Filmer: plakatene, siden for en film og spilleren i et ark.
+    func test13Filmer() {
+        let app = launch("movies")
+        XCTAssertTrue(find(app, "vod-501").waitForExistence(timeout: 30), "filmene kom ikke")
+        wait(2)
+        shot("18-filmer")
+        XCTAssertTrue(openPage(app, "vod-501", then: "spill-av", timeout: 15), "siden for filmen kom ikke")
+        wait(2)
+        shot("19-film")
+        find(app, "spill-av").tap()
+        XCTAssertTrue(find(app, "vod-spiller").waitForExistence(timeout: 20), "spilleren kom ikke")
+        wait(6)
+        shot("20-film-spiller")
+    }
+
+    /// Serier: siden for en serie med sesongene og episodene.
+    func test14Serier() {
+        let app = launch("series")
+        XCTAssertTrue(find(app, "vod-9001").waitForExistence(timeout: 30), "seriene kom ikke")
+        XCTAssertTrue(openPage(app, "vod-9001", then: "episode-900111", timeout: 15), "episodene kom ikke")
+        XCTAssertTrue(find(app, "sesong-2").exists, "sesong 2 mangler")
+        wait(2)
+        shot("21-serie")
+    }
+
+    /// TV-arkivet for en kanal: dagene og programmene.
+    func test15Arkiv() {
+        let app = launch("archive")
+        XCTAssertTrue(find(app, "arkiv").waitForExistence(timeout: 30), "arkivet kom ikke")
+        let program = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'arkiv-'")).firstMatch
+        XCTAssertTrue(program.waitForExistence(timeout: 15), "programmene i arkivet kom ikke")
+        wait(2)
+        shot("22-arkiv")
+    }
+
     func test12Lys() {
         if isPad {
             let app = launch("tv", theme: "light")

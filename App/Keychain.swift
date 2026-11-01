@@ -2,38 +2,43 @@ import FyrlysCore
 import Foundation
 import Security
 
-/// Innloggingen i nøkkelringen på Apple TV-en (kryptert, og bare for denne appen).
+/// Innloggingene i nøkkelringen på enheten (kryptert, og bare for denne appen): den som er i bruk, først. Før 0.1.12
+/// var det bare én («login»); den flyttes over første gang.
 enum Keychain {
     static let service = "no.fyrlys.tv.login"
-    static let account = "login"
 
-    static var baseQuery: [String: Any] {
+    static func query(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
          kSecAttrService as String: service,
          kSecAttrAccount as String: account]
     }
 
-    static func save(_ login: Login) {
-        guard let data = try? JSONEncoder().encode(login) else { return }
-        delete()
-        var query = baseQuery
-        query[kSecValueData as String] = data
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        SecItemAdd(query as CFDictionary, nil)
+    static func saveAll(_ logins: [Login]) {
+        SecItemDelete(query("logins") as CFDictionary)
+        SecItemDelete(query("login") as CFDictionary)
+        guard !logins.isEmpty, let data = try? JSONEncoder().encode(logins) else { return }
+        var q = query("logins")
+        q[kSecValueData as String] = data
+        q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        SecItemAdd(q as CFDictionary, nil)
     }
 
-    static func load() -> Login? {
-        var query = baseQuery
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data else {
-            return nil
+    static func loadAll() -> [Login] {
+        if let data = read("logins"), let logins = try? JSONDecoder().decode([Login].self, from: data) {
+            return logins
         }
-        return try? JSONDecoder().decode(Login.self, from: data)
+        if let data = read("login"), let login = try? JSONDecoder().decode(Login.self, from: data) {
+            return [login]
+        }
+        return []
     }
 
-    static func delete() {
-        SecItemDelete(baseQuery as CFDictionary)
+    private static func read(_ account: String) -> Data? {
+        var q = query(account)
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: AnyObject?
+        guard SecItemCopyMatching(q as CFDictionary, &result) == errSecSuccess else { return nil }
+        return result as? Data
     }
 }

@@ -24,6 +24,13 @@ struct BigChannelCard: View {
                     Label(favorite ? L("Fjern fra favoritter") : L("Legg til i favoritter"),
                           systemImage: favorite ? "star.slash" : "star")
                 }
+                if channel.archiveDays > 0 {
+                    Button {
+                        model.archiveChannel = channel
+                    } label: {
+                        Label(L("TV-arkiv"), systemImage: "clock.arrow.circlepath")
+                    }
+                }
             }
             #if os(iOS)
             // ett element med de to knappene i, så «kanal-…» ikke skriver over id-en til stjerneknappen

@@ -11,6 +11,10 @@ final class AppModel {
 
     var phase: Phase = .starting
     private(set) var login: Login?
+    /// innloggingene som er lagret på enheten, den som er i bruk først
+    private(set) var logins: [Login] = []
+    /// innloggingssiden vises for å legge til en innlogging (med «Avbryt» tilbake til den som er i bruk)
+    var addingLogin = false
     private(set) var client: XtreamClient?
     /// kategoriene og kanalene med oppslagene (lages i bakgrunnen og byttes bare når lista er endret)
     private(set) var index = ChannelIndex.empty
@@ -25,8 +29,28 @@ final class AppModel {
     @ObservationIgnored private var library: Library?
 
     let programs = ProgramStore()
+    /// kanalen TV-arkivet er åpnet for (fra hurtigmenyen på et kort)
+    var archiveChannel: Channel?
+    /// hvor langt serverens klokke er foran UTC (for adressene i arkivet), spurt én gang per innlogging
+    @ObservationIgnored private var clock: TimeInterval??
+    /// filmer og serier (VOD)
+    let movies = VODModel(kind: .movies)
+    let series = VODModel(kind: .series)
     private let cache = TestSupport.listCache
     private let defaults = TestSupport.defaults
+    @ObservationIgnored private var cloudStore: CloudStore?
+
+    /// Favorittene og «Dine kategorier» i iCloud, delt mellom enhetene (ikke i testene: de skal begynne tomme).
+    private var store: KeyValueStore {
+        if TestSupport.isActive { return defaults }
+        if let cloudStore { return cloudStore }
+        let cloud = CloudStore(local: defaults)
+        cloud.observe { [weak self] in
+            MainActor.assumeIsolated { self?.libraryChangedElsewhere() }
+        }
+        cloudStore = cloud
+        return cloud
+    }
     /// lista er forsøkt hentet minst én gang (før det vises «Henter kanalene …» når den er tom)
     private(set) var triedOnce = false
     /// økes for hver innlogging og utlogging, så svar for en tidligere innlogging ikke brukes
@@ -49,7 +73,8 @@ final class AppModel {
             } else {
                 phase = .signedOut
             }
-        } else if let saved = Keychain.load() {
+        } else if let saved = Keychain.loadAll().first {
+            logins = Keychain.loadAll()
             use(saved)
         } else {
             phase = .signedOut
@@ -64,14 +89,40 @@ final class AppModel {
         if !account.status.isEmpty && account.status.lowercased() != "active" {
             throw SourceError(L("Abonnementet er ikke aktivt ({status})", ["status": account.status]))
         }
-        if !TestSupport.isActive { Keychain.save(login) }
+        logins = [login] + logins.filter { $0.id != login.id }
+        if !TestSupport.isActive { Keychain.saveAll(logins) }
+        addingLogin = false
         use(login)
         self.account = account
     }
 
+    /// Bytter til en annen lagret innlogging.
+    func switchTo(_ other: Login) {
+        guard other.id != login?.id else { return }
+        logins = [other] + logins.filter { $0.id != other.id }
+        if !TestSupport.isActive { Keychain.saveAll(logins) }
+        account = nil
+        use(other)
+    }
+
+    /// Fjerner en lagret innlogging som ikke er i bruk.
+    func remove(_ other: Login) {
+        guard other.id != login?.id else { return }
+        cache.remove(other.id)
+        logins.removeAll { $0.id == other.id }
+        if !TestSupport.isActive { Keychain.saveAll(logins) }
+    }
+
+    /// Logger ut av den som er i bruk; finnes det flere, brukes den neste.
     func signOut() {
         if let login { cache.remove(login.id) }
-        if !TestSupport.isActive { Keychain.delete() }
+        logins.removeAll { $0.id == login?.id }
+        if !TestSupport.isActive { Keychain.saveAll(logins) }
+        if let next = logins.first {
+            account = nil
+            use(next)
+            return
+        }
         generation += 1
         loadingFor = nil
         loading = false
@@ -83,6 +134,8 @@ final class AppModel {
         index = .empty
         allChannels = []
         programs.reset(client: nil)
+        movies.reset(client: nil)
+        series.reset(client: nil)
         phase = .signedOut
     }
 
@@ -96,9 +149,12 @@ final class AppModel {
         error = nil
         index = .empty
         allChannels = []
-        library = Library(store: defaults, loginId: login.id)
+        library = Library(store: store, loginId: login.id)
         libraryVersion += 1
         programs.reset(client: client)
+        movies.reset(client: client)
+        series.reset(client: client)
+        clock = nil
         let cache = cache
         let id = login.id
         Task {
@@ -163,7 +219,38 @@ final class AppModel {
         allChannels = index.channels(favoring: library?.favoriteCategories ?? [])
     }
 
+    /// Serverens klokke for arkivet (nil: serveren sier ikke noe, og enhetens tidssone brukes).
+    func serverClock() async -> TimeInterval? {
+        if let clock { return clock }
+        guard let client else { return nil }
+        let found = await client.serverClock()
+        clock = .some(found)
+        return found
+    }
+
+    // ── hvor langt man har sett filmer og episoder (sekunder, per innlogging, på enheten) ──
+
+    func progress(_ key: String) -> Double {
+        guard let login else { return 0 }
+        return defaults.double(forKey: "sett@\(login.id)@\(key)")
+    }
+
+    /// nil: ferdig sett eller nesten ingenting sett (begynn fra start neste gang)
+    func setProgress(_ key: String, _ seconds: Double?) {
+        guard let login else { return }
+        let k = "sett@\(login.id)@\(key)"
+        if let seconds { defaults.set(seconds, forKey: k) } else { defaults.removeObject(forKey: k) }
+    }
+
     // ── favoritter og «sist sett» ──
+
+    /// Favorittene eller «Dine kategorier» er endret på en annen enhet (iCloud).
+    private func libraryChangedElsewhere() {
+        guard let library else { return }
+        library.reload()
+        libraryVersion += 1
+        reorder()
+    }
 
     var favorites: [Channel] {
         _ = libraryVersion

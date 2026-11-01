@@ -28,6 +28,23 @@ struct SettingsView: View {
                     Text(L("{n} kanaler i {c} kategorier", ["n": model.channels.count, "c": model.categories.count]))
                 }
                 .listRowBackground(Theme.surface)
+                Section(L("Innlogginger")) {
+                    ForEach(model.logins.filter { $0.id != model.login?.id }, id: \.id) { other in
+                        Button(L("Bytt til {name}", ["name": other.label])) { model.switchTo(other) }
+                            .swipeActions {
+                                Button(role: .destructive) { model.remove(other) } label: {
+                                    Label(L("Fjern"), systemImage: "trash")
+                                }
+                            }
+                    }
+                    Button {
+                        model.addingLogin = true
+                    } label: {
+                        Label(L("Legg til innlogging"), systemImage: "plus")
+                    }
+                    .accessibilityIdentifier("legg-til-innlogging")
+                }
+                .listRowBackground(Theme.surface)
                 Section(L("Utseende")) {
                     Picker(L("Utseende"), selection: $appearance) {
                         Text(L("Som enheten")).tag("")

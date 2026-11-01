@@ -33,13 +33,14 @@ final class FyrlysUITests: XCTestCase {
     /// rulles fram underveis).
     @discardableResult
     func focus(_ app: XCUIApplication, _ target: XCUIElement, tries: Int = 30) -> Bool {
-        let wantsSidebar = target.identifier.hasPrefix("hylle-")
+        let sidebar = { (id: String) in id.hasPrefix("hylle-") || id.hasPrefix("vodkat-") }
+        let wantsSidebar = sidebar(target.identifier)
         for _ in 0..<tries {
             if target.hasFocus { return true }
             let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
             let id = focused.exists ? focused.identifier : ""
-            let inSidebar = id.hasPrefix("hylle-")
-            let onCard = id.hasPrefix("kanal-")
+            let inSidebar = sidebar(id)
+            let onCard = id.hasPrefix("kanal-") || id.hasPrefix("vod-") || id.hasPrefix("episode-")
             if !inSidebar && !onCard {
                 // i fanelinja (eller ingen fokus): ned
                 remote.press(.down)
@@ -199,6 +200,56 @@ final class FyrlysUITests: XCTestCase {
         let warm = Date().timeIntervalSince(start)
         print(String(format: "YTELSE: 25 000 kanaler i simulatoren: første kort etter %.1f s uten lista fra sist og "
                      + "%.1f s med; 24 steg i kortene %.1f s; 20 steg i sidemenyen %.1f s", cold, warm, grid, sidebar))
+    }
+
+    /// Filmer: kategoriene og plakatene, siden for en film og spilleren (Menu lukker den).
+    func test12Filmer() {
+        let app = launch("movies")
+        let movie = find(app, "vod-501")
+        XCTAssertTrue(movie.waitForExistence(timeout: 30), "filmene kom ikke")
+        XCTAssertTrue(find(app, "vodkat-31").exists, "kategorien mangler")
+        wait(2)
+        shot("20-filmer")
+        XCTAssertTrue(focus(app, movie), "fikk ikke fokus på filmen")
+        remote.press(.select)
+        XCTAssertTrue(find(app, "vod-side").waitForExistence(timeout: 15), "siden for filmen kom ikke")
+        XCTAssertTrue(find(app, "spill-av").waitForExistence(timeout: 15), "«Spill av» mangler")
+        wait(2)
+        shot("21-film")
+        remote.press(.select)
+        let player = find(app, "vod-spiller")
+        XCTAssertTrue(player.waitForExistence(timeout: 20), "spilleren kom ikke")
+        wait(8)
+        shot("22-film-spiller")
+        for _ in 0..<3 where player.exists {
+            remote.press(.menu)
+            wait(2)
+        }
+        XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
+    }
+
+    /// Serier: siden for en serie med sesongene og episodene.
+    func test13Serier() {
+        let app = launch("series")
+        let series = find(app, "vod-9001")
+        XCTAssertTrue(series.waitForExistence(timeout: 30), "seriene kom ikke")
+        XCTAssertTrue(focus(app, series), "fikk ikke fokus på serien")
+        remote.press(.select)
+        XCTAssertTrue(find(app, "episode-900111").waitForExistence(timeout: 15), "episodene kom ikke")
+        XCTAssertTrue(find(app, "sesong-2").exists, "sesong 2 mangler")
+        wait(2)
+        shot("23-serie")
+    }
+
+    /// TV-arkivet for en kanal: dagene og programmene, og et program spilles fra start.
+    func test14Arkiv() {
+        let app = launch("archive")
+        XCTAssertTrue(find(app, "arkiv").waitForExistence(timeout: 30), "arkivet kom ikke")
+        let program = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'arkiv-'")).firstMatch
+        XCTAssertTrue(program.waitForExistence(timeout: 15), "programmene i arkivet kom ikke")
+        wait(2)
+        shot("24-arkiv")
     }
 
     func test04Guide() {

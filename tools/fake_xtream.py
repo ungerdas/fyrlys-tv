@@ -56,6 +56,17 @@ CHANNELS = [
 
 LOGOS = {1: (0xF2, 0xB5, 0x44), 11: (0x4F, 0xA3, 0xFF), 41: (0x5C, 0xC9, 0x8B)}
 
+# filmer og serier (oppdiktede): 501 spilles (HLS), 502 er mkv og lar seg ikke spille
+VOD_CATEGORIES = [("31", "Norske filmer"), ("32", "Dokumentarer")]
+MOVIES = [
+    (501, "Fyret i nord (2021)", "31", "m3u8", "7.4"),
+    (502, "Stormnatt (2019)", "31", "mkv", "6.1"),
+    (503, "Kysten fra lufta", "32", "m3u8", "8.0"),
+]
+SERIES_CATEGORIES = [("41", "Norske serier")]
+SERIES = [(9001, "Losene", "41", "2020-09-01", "7.9")]
+EPISODES = {9001: {1: ["Utløpet", "Tåka", "Fyrvokteren"], 2: ["Vinterstorm", "Hjem"]}}
+
 TITLES = {
     "1": ["Nyhetene", "Været", "Dagsrevyen", "Debatt", "Kveldsnytt", "Nyhetsmorgen"],
     "2": ["Studio sport", "Høydepunkter", "Direkte: fotball", "Sportsnytt", "Magasinet"],
@@ -154,6 +165,26 @@ def programs(cid, cat, now):
     return out
 
 
+def history(cid, cat, now):
+    """TV-arkivet: programmer fra to døgn før nå til litt etter, med has_archive (hvert sjuende mangler)."""
+    t = int(now // 1800 * 1800) - 2 * 86400
+    titles = TITLES.get(cat, ["Nyhetene", "Dokumentar", "Filmkveld", "Serie", "Sportsnytt", "Magasinet"])
+    out = []
+    i = cid
+    while t < now + 3600:
+        length = LENGTHS[i % len(LENGTHS)] * 60
+        title = titles[i % len(titles)]
+        out.append({
+            "id": str(i), "epg_id": str(cid), "title": b64(title),
+            "description": b64(f"{title} på kanal {cid}. Et oppdiktet program i arkivet."),
+            "start_timestamp": str(t), "stop_timestamp": str(t + length),
+            "has_archive": 0 if i % 7 == 0 else 1,
+        })
+        t += length
+        i += 1
+    return out
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "FakeXtream/1"
 
@@ -205,6 +236,49 @@ class Handler(BaseHTTPRequestHandler):
                     "epg_channel_id": None if cid in NO_EPG else f"kanal{cid}", "category_id": c,
                     "tv_archive": 1 if cid in (1, 11) else 0, "tv_archive_duration": 7 if cid in (1, 11) else 0,
                 } for n, (cid, name, c) in enumerate(CHANNELS) if cat is None or cat == c])
+            if action == "get_vod_categories":
+                return self.json([{"category_id": c, "category_name": n, "parent_id": 0} for c, n in VOD_CATEGORIES])
+            if action == "get_series_categories":
+                return self.json([{"category_id": c, "category_name": n, "parent_id": 0}
+                                  for c, n in SERIES_CATEGORIES])
+            if action == "get_vod_streams":
+                cat = q.get("category_id")
+                return self.json([{
+                    "num": i + 1, "name": name, "stream_type": "movie", "stream_id": mid, "stream_icon": "",
+                    "rating": rating, "added": str(int(now) - i * 86400), "category_id": c,
+                    "container_extension": ext,
+                } for i, (mid, name, c, ext, rating) in enumerate(MOVIES) if cat is None or cat == c])
+            if action == "get_vod_info":
+                mid = int(q.get("vod_id", "0"))
+                for m, name, c, ext, rating in MOVIES:
+                    if m == mid:
+                        return self.json({"info": {"plot": f"En oppdiktet film om {name.split(' (')[0].lower()}.",
+                                                   "genre": "Drama", "duration": "01:32:00", "rating": rating,
+                                                   "releasedate": "2021-03-04", "cast": "Kari Nordmann, Ola Nordmann"},
+                                          "movie_data": {"stream_id": m, "name": name, "container_extension": ext}})
+                return self.json({"info": [], "movie_data": {}})
+            if action == "get_series":
+                cat = q.get("category_id")
+                return self.json([{"series_id": sid, "name": name, "cover": "", "category_id": c,
+                                   "releaseDate": date, "rating": rating}
+                                  for sid, name, c, date, rating in SERIES if cat is None or cat == c])
+            if action == "get_series_info":
+                sid = int(q.get("series_id", "0"))
+                seasons = EPISODES.get(sid, {})
+                return self.json({
+                    "info": {"name": "Losene", "plot": "En oppdiktet serie om losene langs kysten.", "genre": "Drama",
+                             "releaseDate": "2020-09-01", "rating": "7.9"},
+                    "episodes": {str(season): [{
+                        "id": str(sid * 100 + season * 10 + n + 1), "episode_num": n + 1, "title": title,
+                        "container_extension": "m3u8", "season": season,
+                        "info": {"plot": f"Episode {n + 1}: {title.lower()}.", "duration": "44 min"},
+                    } for n, title in enumerate(titles)] for season, titles in seasons.items()},
+                })
+            if action == "get_simple_data_table":
+                cid = int(q.get("stream_id", "0"))
+                if cid not in (1, 11):
+                    return self.json({"epg_listings": []})
+                return self.json({"epg_listings": history(cid, CATEGORY_OF.get(cid), now)})
             if action == "get_short_epg":
                 cid = int(q.get("stream_id", "0"))
                 cat = CATEGORY_OF.get(cid)
@@ -219,6 +293,20 @@ class Handler(BaseHTTPRequestHandler):
             cid = int(parts[1].split(".")[0]) if parts[1].split(".")[0].isdigit() else 0
             if cid in LOGO_OF:
                 return self.send(200, LOGO_PNG[LOGO_OF[cid]], "image/png")
+            return self.send(404, b"", "text/plain")
+
+        if len(parts) == 6 and parts[0] == "timeshift":
+            if parts[1] != USER or parts[2] != PASSWORD:
+                return self.send(401, b"", "text/plain")
+            if parts[5].endswith(".m3u8"):
+                return self.send(302, b"", "text/plain", {"Location": SAMPLE})
+            return self.send(404, b"", "text/plain")
+
+        if len(parts) == 4 and parts[0] in ("movie", "series"):
+            if parts[1] != USER or parts[2] != PASSWORD:
+                return self.send(401, b"", "text/plain")
+            if parts[3].endswith(".m3u8") and parts[3].split(".")[0] != "502":
+                return self.send(302, b"", "text/plain", {"Location": SAMPLE})
             return self.send(404, b"", "text/plain")
 
         if len(parts) == 4 and parts[0] == "live":

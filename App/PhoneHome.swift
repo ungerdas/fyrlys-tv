@@ -4,7 +4,7 @@ import SwiftUI
 import UIKit
 
 /// iPhone (og iPad i et smalt vindu), som Fyrlys-nettsiden på en telefon: topplinja med fyret, «Fyrlys», lys/mørk og
-/// Konto, og fanene TV og TV-guide nederst.
+/// Konto, og fanene TV, TV-guide, Filmer og Serier nederst.
 struct PhoneHome: View {
     @Environment(AppModel.self) private var model
     @Binding var tab: HomeView.Tab
@@ -34,6 +34,12 @@ struct PhoneHome: View {
                         }
                     }
                     .tag(HomeView.Tab.guide)
+                VODTab(kind: .movies)
+                    .tabItem { Label(L("Filmer"), systemImage: "film") }
+                    .tag(HomeView.Tab.movies)
+                VODTab(kind: .series)
+                    .tabItem { Label(L("Serier"), systemImage: "play.rectangle.on.rectangle") }
+                    .tag(HomeView.Tab.series)
             }
             .tint(Theme.signal)
         }
@@ -158,6 +164,23 @@ private struct AccountMenu: View {
                 .accessibilityIdentifier("logg-ut")
             }
             .padding(.top, 8)
+            ForEach(model.logins.filter { $0.id != model.login?.id }, id: \.id) { other in
+                Button {
+                    model.switchTo(other)
+                    done()
+                } label: {
+                    menuButton(L("Bytt til {name}", ["name": other.label]))
+                }
+                .buttonStyle(PressStyle())
+            }
+            Button {
+                model.addingLogin = true
+                done()
+            } label: {
+                menuButton(L("Legg til innlogging"))
+            }
+            .buttonStyle(PressStyle())
+            .accessibilityIdentifier("legg-til-innlogging")
             Text(L("Fyrlys {version}", ["version": appVersion]))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Theme.muted)

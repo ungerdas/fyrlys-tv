@@ -139,6 +139,35 @@ def check():
         sys.exit(f"Ingen app med {BUNDLE_ID} i App Store Connect (Apps → + → New App, tvOS)")
     print(f"Nøkkelen virker, og appen «{apps[0]['attributes'].get('name')}» finnes i App Store Connect")
     ensure_platform(asc, apps[0]["id"], "IOS")
+    # iCloud (nøkkel–verdi-lagringen, for favorittene på alle enhetene): signeringen tar den med bare når den er på
+    if ensure_capability(asc, bundle_id(asc)["id"], "ICLOUD",
+                         [{"key": "ICLOUD_VERSION", "options": [{"key": "XCODE_6"}]}]):
+        github_env("ICLOUD_KVS", "1")
+
+
+def github_env(name, value):
+    path = os.environ.get("GITHUB_ENV")
+    if path:
+        with open(path, "a") as f:
+            f.write(f"{name}={value}\n")
+
+
+def ensure_capability(asc, bundle, kind, settings=None):
+    """Slår på tjenesten [kind] for app-id-en (profilene som lages etterpå, får den med). Sant hvis den er på."""
+    code, res = asc.request("GET", f"/v1/bundleIds/{bundle}/bundleIdCapabilities?limit=200")
+    if code == 200 and any(r["attributes"].get("capabilityType") == kind for r in res.get("data", [])):
+        return True
+    attrs = {"capabilityType": kind}
+    if settings:
+        attrs["settings"] = settings
+    code, res = asc.request("POST", "/v1/bundleIdCapabilities", data("bundleIdCapabilities", attrs, {
+        "bundleId": {"data": {"type": "bundleIds", "id": bundle}}}))
+    if code not in (200, 201):
+        print(f"::warning title=app-id::Fikk ikke slått på {kind} for {BUNDLE_ID}: HTTP {code} {errors(res)}; "
+              "bygget lages uten")
+        return False
+    print(f"::notice title=app-id::Slo på {kind} for {BUNDLE_ID}")
+    return True
 
 
 def ensure_platform(asc, app, platform):

@@ -1,5 +1,16 @@
 import Foundation
 
+/// [first] i sin rekkefølge og så det i [second] som ikke er der fra før (to enheters favoritter første gang de møtes i
+/// iCloud: ingen av dem mister noe).
+public func mergeIds(_ first: [String], _ second: [String]) -> [String] {
+    var seen = Set(first)
+    var out = first
+    for id in second where seen.insert(id).inserted {
+        out.append(id)
+    }
+    return out
+}
+
 /// Der små ting lagres (UserDefaults i appen, i minnet i testene).
 public protocol KeyValueStore: AnyObject {
     func strings(_ key: String) -> [String]
@@ -43,6 +54,14 @@ public final class Library {
     }
 
     static func key(_ name: String, _ loginId: String) -> String { "\(name)@\(loginId)" }
+
+    /// Leser alt på nytt fra lagringen (når en annen enhet har endret favorittene via iCloud).
+    public func reload() {
+        favorites = store.strings(key("favorites"))
+        favoriteSet = Set(favorites)
+        favoriteCategories = store.strings(key("favoriteCategories"))
+        recent = store.strings(key("recent"))
+    }
 
     func key(_ name: String) -> String { Library.key(name, loginId) }
 

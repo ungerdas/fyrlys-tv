@@ -52,7 +52,11 @@ struct RootView: View {
             case .signedOut:
                 LoginView()
             case .ready:
-                HomeView()
+                if model.addingLogin {
+                    LoginView()
+                } else {
+                    HomeView()
+                }
             }
         }
         .task { model.start() }

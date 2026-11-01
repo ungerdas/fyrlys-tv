@@ -101,6 +101,13 @@ struct LoginView: View {
             #endif
             .disabled(busy)
             .accessibilityIdentifier("logg-inn")
+            if model.addingLogin {
+                Button(L("Avbryt")) { model.addingLogin = false }
+                    #if os(tvOS)
+                    .frame(minWidth: 300)
+                    #endif
+                    .accessibilityIdentifier("avbryt-innlogging")
+            }
         }
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()

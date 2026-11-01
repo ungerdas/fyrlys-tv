@@ -104,6 +104,14 @@ enum Metrics {
     static let bigStarBox: CGFloat = 46
     static let bigGridMin: CGFloat = 320
     static let bigGap: CGFloat = 24
+    // filmer og serier
+    static let posterMin: CGFloat = 230
+    static let posterGap: CGFloat = 40
+    static let posterTitle: CGFloat = 22
+    static let detailPadding: CGFloat = 60
+    static let detailPoster: CGFloat = 340
+    static let detailTitle: CGFloat = 52
+    static let detailText: CGFloat = 26
     // Fyrlys-merket øverst til venstre: bunnen står [brandGap] over sidemenyen, så det er på linje med fanelinja
     static let brandMark: CGFloat = 54
     static let brandFont: CGFloat = 34
@@ -142,6 +150,14 @@ enum Metrics {
     static let bigGap: CGFloat = 12
     static let rowTitle: CGFloat = 21
     static let rowClock: CGFloat = 16
+    // filmer og serier
+    static let posterMin: CGFloat = 104
+    static let posterGap: CGFloat = 12
+    static let posterTitle: CGFloat = 13
+    static let detailPadding: CGFloat = 18
+    static let detailPoster: CGFloat = 120
+    static let detailTitle: CGFloat = 22
+    static let detailText: CGFloat = 15
     #endif
 }
 

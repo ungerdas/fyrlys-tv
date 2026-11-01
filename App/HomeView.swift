@@ -12,7 +12,7 @@ struct PlayRequest: Identifiable {
 /// Fyrlys-nettsiden på en telefon (`PhoneHome`, med forsiden og flisene i `PhoneTV`). TV-fanen på Apple TV og iPad er
 /// sidemenyen og kortene (`ChannelsView`). Spilleren legger seg over alt.
 struct HomeView: View {
-    enum Tab: Hashable { case tv, guide, search, settings }
+    enum Tab: Hashable { case tv, guide, movies, series, search, settings }
 
     @Environment(AppModel.self) private var model
     #if os(iOS)
@@ -30,6 +30,8 @@ struct HomeView: View {
     init() {
         switch TestSupport.screen {
         case "guide": _tab = State(initialValue: .guide)
+        case "movies": _tab = State(initialValue: .movies)
+        case "series": _tab = State(initialValue: .series)
         case "search": _tab = State(initialValue: .search)
         case "settings": _tab = State(initialValue: .settings)
         default: _tab = State(initialValue: .tv)
@@ -48,6 +50,17 @@ struct HomeView: View {
 
     var body: some View {
         content
+            #if os(tvOS)
+            .fullScreenCover(item: archive) { channel in
+                ArchiveView(channel: channel)
+                    .environment(model)
+            }
+            #else
+            .sheet(item: archive) { channel in
+                ArchiveView(channel: channel)
+                    .environment(model)
+            }
+            #endif
             .fullScreenCover(item: $playing) { request in
                 PlayerView(request: request)
                     .environment(model)
@@ -83,6 +96,12 @@ struct HomeView: View {
             GuideView(play: play)
                 .tabItem { tabLabel(L("TV-guide"), "calendar.day.timeline.left") }
                 .tag(Tab.guide)
+            VODTab(kind: .movies)
+                .tabItem { tabLabel(L("Filmer"), "film") }
+                .tag(Tab.movies)
+            VODTab(kind: .series)
+                .tabItem { tabLabel(L("Serier"), "play.rectangle.on.rectangle") }
+                .tag(Tab.series)
             SearchView(play: play, query: $query)
                 .tabItem {
                     #if os(tvOS)
@@ -99,6 +118,11 @@ struct HomeView: View {
         #if os(iOS)
         .tint(Theme.signal)
         #endif
+    }
+
+    /// TV-arkivet for kanalen som er valgt i hurtigmenyen på et kort.
+    private var archive: Binding<Channel?> {
+        Binding(get: { model.archiveChannel }, set: { model.archiveChannel = $0 })
     }
 
     /// TV-fanen på Apple TV og iPad: sidemenyen og kortene.
@@ -122,9 +146,13 @@ struct HomeView: View {
 
     /// Testene: rett til spilleren (player: den første kanalen, player-error: en kanal som ikke virker).
     private func playForTest() {
-        guard !testPlayed, let screen = TestSupport.screen, screen.hasPrefix("player"), !model.channels.isEmpty else {
+        guard !testPlayed, let screen = TestSupport.screen, !model.channels.isEmpty else { return }
+        if screen == "archive", let channel = model.byId["1"] {
+            testPlayed = true
+            model.archiveChannel = channel
             return
         }
+        guard screen.hasPrefix("player") else { return }
         let channel = screen == "player-error" ? model.byId["90"] : model.channels.first
         guard let channel else { return }
         testPlayed = true

@@ -40,6 +40,34 @@ struct SettingsView: View {
                     row(L("{n} kanaler i {c} kategorier", ["n": model.channels.count, "c": model.categories.count]))
                 }
 
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(L("Innlogginger"))
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(Theme.muted)
+                    ForEach(model.logins.filter { $0.id != model.login?.id }, id: \.id) { other in
+                        Button {
+                            model.switchTo(other)
+                        } label: {
+                            Text(L("Bytt til {name}", ["name": other.label]))
+                                .frame(minWidth: 520, alignment: .leading)
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                model.remove(other)
+                            } label: {
+                                Label(L("Fjern {name}", ["name": other.label]), systemImage: "trash")
+                            }
+                        }
+                    }
+                    Button {
+                        model.addingLogin = true
+                    } label: {
+                        Label(L("Legg til innlogging"), systemImage: "plus")
+                            .frame(minWidth: 520, alignment: .leading)
+                    }
+                    .accessibilityIdentifier("legg-til-innlogging")
+                }
+
                 VStack(alignment: .leading, spacing: 24) {
                     Button {
                         Task { await model.reload() }

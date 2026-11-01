@@ -92,7 +92,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `byId`, `byCategory`, kategoriene med kanaler, `channels(favoring:)` = favorittkategoriene først, `search(_:favoring:
   limit:)` med navnene i små bokstaver ferdig, `hasSameLists`; lages i bakgrunnen, 25 000 kanaler ≈ 50 ms på Linux),
   `Store.swift` (`Library`: favoritter, favorittkategorier (`moveFavoriteCategory` bytter med naboen som vises, som i
-  Windows-appen) og sist sett per innlogging, i minnet og skrevet til UserDefaults ved endring; `search`),
+  Windows-appen) og sist sett per innlogging, i minnet og skrevet til lagringen ved endring, `reload()`; `mergeIds`;
+  `search`),
   `ListCache.swift` (kategoriene og kanalene på disk), `Guide.swift` (`GuideTime`: seks timer fra halvtimen før denne),
   `Names.swift` (`nameParts` (regex bare når navnet begynner med et siffer), `logoText` = tre første tegn som i
   Windows-appen, `initials`, `hhmm`), `L10n.swift`.
@@ -143,6 +144,36 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `TVTiles`, `TVShelfPage`); de er tatt bort. UI-testene for Apple TV flytter fokus mot målet med rammene (`focus`);
   `test11StorListe` måler kortene og sidemenyen og tar bilder av toppen (`17-…-sidemeny`, `18-…-rullet`,
   `19-…-fanelinja` etter Menu).
+- **iCloud fra 0.1.12**: `CloudStore` (`App/CloudStore.swift`) er lagringen til `Library` utenom testene: favorittene
+  og favorittkategoriene (nøklene `favorites@…`/`favoriteCategories@…`, per innlogging) i `NSUbiquitousKeyValueStore`
+  og UserDefaults, «sist sett» bare lokalt. Første gang per nøkkel og ved `InitialSyncChange` flettes det enheten hadde
+  inn (`mergeIds`, merket `icloud-flettet@…`), ellers vinner iCloud; endringer fra andre enheter → `Library.reload()` i
+  `AppModel.libraryChangedElsewhere`. `asc.py check` slår på ICLOUD for app-id-en (`ensure_capability`,
+  `POST /v1/bundleIdCapabilities`) og setter `ICLOUD_KVS=1` i `GITHUB_ENV`; da tar `adhoc_sign.sh` med
+  `com.apple.developer.ubiquity-kvstore-identifier` = `<team>.no.fyrlys.tv` (samme for tvOS og iOS, så de deler).
+- **Filmer og serier fra 0.1.12**: `Core/.../VOD.swift` (`VODKind`, `VODItem`, `Episode`, `Season`, `VODDetails`,
+  `vodCategories`/`vodItems` (per kategori)/`vodDetails`, `movieURL`/`episodeURL` (`/movie|series/<bruker>/<passord>/
+  <id>.<ext>`), `playableExtensions`: mp4/m4v/mov/m3u8 som de er, ellers først `.m3u8` (mange Xtream-servere gir HLS)
+  og så filtypen; AVPlayer kan ikke mkv). `App/VODModel.swift` (`AppModel.movies`/`.series`, kategoriene første gang
+  fanen vises, lista per kategori når den velges). `App/VODViews.swift`: `VODTab` (fanene Filmer og Serier; sidemeny
+  med `vodkat-<id>` på Apple TV og iPad, meny `vod-kategori` på iPhone; `NavigationStack` med `VODDetailView`),
+  plakater `vod-<id>` (`.card` på Apple TV), siden `vod-side` med `spill-av`/`fra-start` eller `sesong-<n>` og
+  `episode-<id>`, `VODPlayerView` (`vod-spiller`/`vod-feil`; fullskjerm på Apple TV, ark på iPhone/iPad) med
+  `VODPlayerModel`: prøver adressene etter tur, begynner der du slapp, lagrer hvor langt (`AppModel.progress`, nøkkel
+  `sett@<innlogging>@<film|episode>`, hvert 10. s og ved lukking; glemmes nær slutten). Falsk leverandør: filmene
+  501–503 (502 er mkv og feiler) og serien 9001; testskjermene `movies` og `series`.
+- **TV-arkiv fra 0.1.12** (som Fyrlys for Windows, `lib/core/xtream_source.dart`): `Core/.../Archive.swift`
+  (`parseArchive` fra `get_simple_data_table` med `has_archive`, de siste `archiveDays` dagene; `serverClockOffset`
+  fra `server_info` (`time_now` mot `timestamp_now`, rundet til kvarter); `archiveOffset` (enhetens sone med
+  sommertid når serveren går likt, ellers serverens); `xtreamTime` «YYYY-MM-DD:HH-MM»; `archiveURLs` =
+  `/timeshift/<bruker>/<passord>/<minutter>/<start>/<id>.m3u8` (+ `.ts`), på minuttet). `App/ArchiveView.swift`:
+  dagene og programmene (nyeste først), spilles i `VODPlayerView`; åpnes med «TV-arkiv» i hurtigmenyen på kortene
+  (`AppModel.archiveChannel`, vist i `HomeView`; testskjermen `archive` = kanal 1). `AppModel.serverClock()` spør én
+  gang per innlogging.
+- **Flere innlogginger fra 0.1.12**: `Keychain.saveAll/loadAll` (kontoen `logins`, en JSON-liste med den som er i bruk
+  først; den gamle `login` flyttes over), `AppModel.logins`, `switchTo`, `remove`, `addingLogin` (RootView viser
+  `LoginView` med `avbryt-innlogging`), `signOut` går til den neste. Innstillinger (Apple TV, iPad) og Konto (iPhone):
+  «Bytt til …», «Legg til innlogging» (`legg-til-innlogging`), fjern med hurtigmeny/sveip.
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -245,4 +276,5 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   radene øverst og merket er altså godkjent; ikke endre uten at han ber om det.
 - 1.11.2026 kl. 05: eieren spurte «Hva mer kan forbedres?», fikk lista (kanalbytte med fjernkontrollen, valg i guiden
   på Apple TV, felles favoritter via iCloud, Top Shelf, filmer og serier, TV-arkiv, flere innlogginger) og svarte
-  «Kjør alt.» Tas i den rekkefølgen, én versjon om gangen: 0.1.11 = kanalbytte + guidevalg.
+  «Kjør alt.» 0.1.11 = kanalbytte + guidevalg; 0.1.12 = filmer og serier, TV-arkiv, flere innlogginger og felles
+  favoritter via iCloud; Top Shelf til slutt (krever en egen utvidelse med egen app-id og profil i signeringen).

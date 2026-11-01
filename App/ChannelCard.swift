@@ -20,6 +20,13 @@ struct ChannelCard: View {
                     Label(favorite ? L("Fjern fra favoritter") : L("Legg til i favoritter"),
                           systemImage: favorite ? "star.slash" : "star")
                 }
+                if channel.archiveDays > 0 {
+                    Button {
+                        model.archiveChannel = channel
+                    } label: {
+                        Label(L("TV-arkiv"), systemImage: "clock.arrow.circlepath")
+                    }
+                }
             }
             .accessibilityIdentifier("kanal-\(channel.id)")
             .onAppear { model.programs.want(channel) }

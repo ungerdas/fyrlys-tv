@@ -3,7 +3,8 @@ import Foundation
 
 /// Når appen startes av testene på GitHub: en falsk leverandør (FYRLYS_TEST_SERVER), ingen nøkkelring, egne
 /// innstillinger som tømmes, og eventuelt rett til en skjerm (FYRLYS_TEST_SCREEN: login, tv, guide, search, settings,
-/// player, player-error; på iPhone også category = Sport og all = Alle kanaler).
+/// player, player-error, movies, series, archive = TV-arkivet for kanal 1; på iPhone også category = Sport og all =
+/// Alle kanaler).
 enum TestSupport {
     static let env = ProcessInfo.processInfo.environment
 

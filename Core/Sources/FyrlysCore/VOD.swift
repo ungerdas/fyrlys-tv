@@ -1,0 +1,231 @@
+import Foundation
+
+/// Filmer og serier (VOD) fra Xtream: kategoriene, listene, detaljene og adressene.
+public enum VODKind: String, Codable, Hashable, Sendable {
+    case movies, series
+}
+
+/// En film eller en serie i en liste.
+public struct VODItem: Codable, Hashable, Identifiable, Sendable {
+    /// stream_id (film) eller series_id (serie)
+    public let id: String
+    public let kind: VODKind
+    public let name: String
+    public let poster: String?
+    public let categoryId: String
+    /// 0–10
+    public let rating: Double?
+    public let year: String?
+    /// filmer: filtypen hos leverandøren (mp4, mkv …)
+    public let ext: String?
+
+    public init(id: String, kind: VODKind, name: String, poster: String? = nil, categoryId: String = "",
+                rating: Double? = nil, year: String? = nil, ext: String? = nil) {
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.poster = poster
+        self.categoryId = categoryId
+        self.rating = rating
+        self.year = year
+        self.ext = ext
+    }
+
+    /// nøkkelen for hvor langt man har sett (filmer; episodene har sin egen)
+    public var progressKey: String { "\(kind.rawValue):\(id)" }
+}
+
+/// En episode i en serie.
+public struct Episode: Hashable, Identifiable, Sendable {
+    public let id: String
+    public let season: Int
+    public let number: Int
+    public let title: String
+    public let plot: String
+    /// «45 min» eller «01:02:03» som leverandøren skriver det
+    public let duration: String
+    public let image: String?
+    public let ext: String
+
+    public init(id: String, season: Int, number: Int, title: String, plot: String = "", duration: String = "",
+                image: String? = nil, ext: String = "mp4") {
+        self.id = id
+        self.season = season
+        self.number = number
+        self.title = title
+        self.plot = plot
+        self.duration = duration
+        self.image = image
+        self.ext = ext
+    }
+
+    public var progressKey: String { "episode:\(id)" }
+}
+
+public struct Season: Hashable, Identifiable, Sendable {
+    public let number: Int
+    public let episodes: [Episode]
+    public var id: Int { number }
+}
+
+/// Det som står på siden for en film eller serie.
+public struct VODDetails: Sendable {
+    public var plot = ""
+    public var genre = ""
+    public var cast = ""
+    public var director = ""
+    public var duration = ""
+    public var year: String?
+    public var backdrop: String?
+    public var poster: String?
+    public var rating: Double?
+    /// filmer: filtypen fra detaljene (mer pålitelig enn lista)
+    public var ext: String?
+    /// serier
+    public var seasons: [Season] = []
+
+    public init() {}
+}
+
+extension XtreamClient {
+    public func vodCategories(_ kind: VODKind) async throws -> [ChannelCategory] {
+        parseCategories(try await api(kind == .movies ? "get_vod_categories" : "get_series_categories"))
+    }
+
+    /// Filmene eller seriene i en kategori.
+    public func vodItems(_ kind: VODKind, category: String) async throws -> [VODItem] {
+        parseVODItems(try await api(kind == .movies ? "get_vod_streams" : "get_series", ["category_id": category]),
+                      kind: kind)
+    }
+
+    public func vodDetails(_ item: VODItem) async throws -> VODDetails {
+        switch item.kind {
+        case .movies: return parseMovieInfo(try await api("get_vod_info", ["vod_id": item.id]))
+        case .series: return parseSeriesInfo(try await api("get_series_info", ["series_id": item.id]))
+        }
+    }
+
+    /// Filmen som fil. [ext] er filtypen hos leverandøren.
+    public func movieURL(_ id: String, ext: String) -> URL {
+        URL(string: "\(login.server)/movie/\(credsPath)/\(id).\(ext)")!
+    }
+
+    public func episodeURL(_ episode: Episode, ext: String? = nil) -> URL {
+        URL(string: "\(login.server)/series/\(credsPath)/\(episode.id).\(ext ?? episode.ext)")!
+    }
+}
+
+/// Filtypene AVPlayer spiller selv. Andre (mkv, avi …) prøves først som HLS (.m3u8), som mange Xtream-servere også
+/// kan gi, og så som de er.
+public func playableExtensions(_ ext: String?) -> [String] {
+    let e = (ext ?? "").lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ". "))
+    if ["mp4", "m4v", "mov", "m3u8"].contains(e) { return [e] }
+    if e.isEmpty { return ["mp4", "m3u8"] }
+    return ["m3u8", e]
+}
+
+// ── tolking ──
+
+func rating(_ value: Any?) -> Double? {
+    let s = text(value).replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespaces)
+    guard let r = Double(s), r > 0 else { return nil }
+    return min(r, 10)
+}
+
+/// Året fra «2021-05-03», «2021» eller navnet («Film (2021)»).
+func year(_ values: Any?..., name: String = "") -> String? {
+    for value in values {
+        let s = text(value).trimmingCharacters(in: .whitespaces)
+        if s.count >= 4, let y = Int(s.prefix(4)), (1900...2100).contains(y) { return String(y) }
+    }
+    if let r = name.range(of: #"\((19|20)\d\d\)"#, options: .regularExpression) {
+        return String(name[r].dropFirst().dropLast())
+    }
+    return nil
+}
+
+func nonEmpty(_ value: Any?) -> String? {
+    let s = text(value).trimmingCharacters(in: .whitespaces)
+    return s.isEmpty ? nil : s
+}
+
+/// backdrop_path er en liste med adresser (eller én adresse).
+func firstURL(_ value: Any?) -> String? {
+    if let list = value as? [Any] { return list.lazy.compactMap { nonEmpty($0) }.first }
+    return nonEmpty(value)
+}
+
+public func parseVODItems(_ json: Any, kind: VODKind) -> [VODItem] {
+    guard let list = json as? [[String: Any]] else { return [] }
+    var seen = Set<String>()
+    return list.compactMap { v in
+        let id = text(v[kind == .movies ? "stream_id" : "series_id"])
+        let name = text(v["name"]).trimmingCharacters(in: .whitespaces)
+        guard !id.isEmpty, !name.isEmpty, seen.insert(id).inserted else { return nil }
+        let poster = nonEmpty(v[kind == .movies ? "stream_icon" : "cover"])
+        let r = rating(v["rating"]) ?? rating(v["rating_5based"]).map { $0 * 2 }
+        return VODItem(id: id, kind: kind, name: name, poster: poster, categoryId: text(v["category_id"]),
+                       rating: r, year: year(v["year"], v["releaseDate"], v["release_date"], name: name),
+                       ext: nonEmpty(v["container_extension"]))
+    }
+}
+
+/// get_vod_info: {"info": {...}, "movie_data": {...}} (info kan være en tom liste).
+public func parseMovieInfo(_ json: Any) -> VODDetails {
+    let root = json as? [String: Any] ?? [:]
+    let info = root["info"] as? [String: Any] ?? [:]
+    let data = root["movie_data"] as? [String: Any] ?? [:]
+    var d = VODDetails()
+    d.plot = nonEmpty(info["plot"]) ?? nonEmpty(info["description"]) ?? ""
+    d.genre = nonEmpty(info["genre"]) ?? ""
+    d.cast = nonEmpty(info["cast"]) ?? nonEmpty(info["actors"]) ?? ""
+    d.director = nonEmpty(info["director"]) ?? ""
+    d.duration = nonEmpty(info["duration"]) ?? ""
+    d.year = year(info["releasedate"], info["release_date"], info["year"], name: text(data["name"]))
+    d.backdrop = firstURL(info["backdrop_path"])
+    d.poster = nonEmpty(info["movie_image"]) ?? nonEmpty(info["cover_big"])
+    d.rating = rating(info["rating"])
+    d.ext = nonEmpty(data["container_extension"])
+    return d
+}
+
+/// get_series_info: {"info": {...}, "episodes": {"1": [...], ...}} (episodene kan også være en liste med lister).
+public func parseSeriesInfo(_ json: Any) -> VODDetails {
+    let root = json as? [String: Any] ?? [:]
+    let info = root["info"] as? [String: Any] ?? [:]
+    var d = VODDetails()
+    d.plot = nonEmpty(info["plot"]) ?? ""
+    d.genre = nonEmpty(info["genre"]) ?? ""
+    d.cast = nonEmpty(info["cast"]) ?? ""
+    d.director = nonEmpty(info["director"]) ?? ""
+    d.year = year(info["releaseDate"], info["release_date"], name: text(info["name"]))
+    d.backdrop = firstURL(info["backdrop_path"])
+    d.poster = nonEmpty(info["cover"])
+    d.rating = rating(info["rating"])
+
+    var raw: [(Int, [[String: Any]])] = []
+    if let map = root["episodes"] as? [String: Any] {
+        for (key, value) in map { raw.append((Int(key) ?? 0, value as? [[String: Any]] ?? [])) }
+    } else if let lists = root["episodes"] as? [Any] {
+        for (i, value) in lists.enumerated() { raw.append((i + 1, value as? [[String: Any]] ?? [])) }
+    }
+    var seasons: [Season] = []
+    for (number, list) in raw {
+        let episodes: [Episode] = list.compactMap { e in
+            let id = text(e["id"])
+            guard !id.isEmpty else { return nil }
+            let info = e["info"] as? [String: Any] ?? [:]
+            let season = int(e["season"]) ?? number
+            let n = int(e["episode_num"]) ?? 0
+            return Episode(id: id, season: season, number: n,
+                           title: nonEmpty(e["title"]) ?? L("Episode {n}", ["n": n]),
+                           plot: nonEmpty(info["plot"]) ?? "",
+                           duration: nonEmpty(info["duration"]) ?? "",
+                           image: nonEmpty(info["movie_image"]),
+                           ext: nonEmpty(e["container_extension"]) ?? "mp4")
+        }.sorted { $0.number < $1.number }
+        if !episodes.isEmpty { seasons.append(Season(number: episodes[0].season, episodes: episodes)) }
+    }
+    d.seasons = seasons.sorted { $0.number < $1.number }
+    return d
+}
