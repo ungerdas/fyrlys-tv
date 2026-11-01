@@ -261,6 +261,9 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(find(app, "vod-9001").waitForExistence(timeout: 30), "seriene kom ikke")
         XCTAssertTrue(openPage(app, "vod-9001", then: "episode-900111", timeout: 15), "episodene kom ikke")
         XCTAssertTrue(find(app, "sesong-2").exists, "sesong 2 mangler")
+        let next = find(app, "fortsett-serie")
+        XCTAssertTrue(next.exists, "knappen til episoden du skal se, mangler")
+        XCTAssertTrue(next.label.contains("S1 E1"), "første episode skulle stå på knappen: \(next.label)")
         wait(2)
         shot("21-serie")
     }
@@ -303,6 +306,14 @@ final class FyrlysMobilUITests: XCTestCase {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.28)).tap()
         }
         XCTAssertTrue(find(app, "lukk-vod").waitForExistence(timeout: 5), "kontrollene kom ikke tilbake")
+        // iPhone: spilleren står liggende; knappen snur den til stående
+        if !isPad {
+            let rotate = find(app, "snu-skjermen")
+            XCTAssertTrue(rotate.exists, "knappen som snur skjermen, mangler")
+            rotate.tap()
+            wait(3)
+            shot("24-mkv-staende")
+        }
         find(app, "lukk-vod").tap()
         let player = find(app, "vod-spiller")
         for _ in 0..<10 where player.exists { wait(1) }

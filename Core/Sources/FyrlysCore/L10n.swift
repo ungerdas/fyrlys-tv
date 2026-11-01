@@ -181,6 +181,10 @@ public let english: [String: String] = [
     "Plex …": "Plex …",
     "Hjem": "Home",
     "Gå til serien": "Go to the series",
+    "Fortsett {episode} ({time})": "Continue {episode} ({time})",
+    "Neste: {episode}": "Next: {episode}",
+    "Spill av {episode}": "Play {episode}",
+    "Snu skjermen": "Rotate the screen",
     // VLC-spilleren
     "Av": "Off",
     "Spor {n}": "Track {n}",

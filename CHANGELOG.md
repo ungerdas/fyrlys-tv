@@ -1,5 +1,16 @@
 # Endringer
 
+## v0.1.19
+
+- Undertekstene i filmer og serier som spilles med VLC er hvit tekst på en halvgjennomsiktig mørk boks, som hos
+  Apple. I 0.1.17 ble boksen borte, og teksten ble grå når kontrollene var framme. Tittelen VLC viste øverst i
+  starten, er borte.
+- iPhone: filmer og serier spilles liggende, som i Apple TV-appen, også når skjermretningen er låst. Knappen oppe til
+  høyre snur mellom liggende og stående, og når du lukker, er telefonen tilbake slik den sto.
+- Seriesiden har en knapp rett til episoden du skal se: «Fortsett S1 E3 (4:45)» når du er midt i en, ellers «Neste:
+  S1 E4» etter den siste du har sett, eller «Spill av S1 E1». Sesongen med episoden er valgt når siden åpnes.
+  Episoder du har sett ferdig, er merket «Sett» (også fra IPTV-leverandøren).
+
 ## v0.1.18
 
 - Plex: «Hjem» øverst i Filmer og Serier, med radene fra Hjem i Plex («Nytt fra …», «Nylig lagt til» og samlingene du

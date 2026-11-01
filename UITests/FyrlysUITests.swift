@@ -240,6 +240,9 @@ final class FyrlysUITests: XCTestCase {
         remote.press(.select)
         XCTAssertTrue(find(app, "episode-900111").waitForExistence(timeout: 15), "episodene kom ikke")
         XCTAssertTrue(find(app, "sesong-2").exists, "sesong 2 mangler")
+        let next = find(app, "fortsett-serie")
+        XCTAssertTrue(next.exists, "knappen til episoden du skal se, mangler")
+        XCTAssertTrue(next.label.contains("S1 E1"), "første episode skulle stå på knappen: \(next.label)")
         wait(2)
         shot("23-serie")
     }
@@ -280,7 +283,7 @@ final class FyrlysUITests: XCTestCase {
         // Menu skjuler kontrollene først: undertekstene alene (i Apple sin stil)
         remote.press(.menu)
         wait(2)
-        shot("26b-mkv-tekst")
+        shot("26-mkv-tekst")
         let player = find(app, "vod-spiller")
         for _ in 0..<3 where player.exists {
             remote.press(.menu)
@@ -353,6 +356,16 @@ final class FyrlysUITests: XCTestCase {
             wait(2)
         }
         XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
+        // seriesiden: knappen går rett til episoden Plex sier du er midt i
+        let series = find(app, "rad-2001")
+        XCTAssertTrue(series.waitForExistence(timeout: 10), "serien mangler i radene")
+        XCTAssertTrue(focus(app, series), "fikk ikke fokus på serien")
+        remote.press(.select)
+        let next = find(app, "fortsett-serie")
+        XCTAssertTrue(next.waitForExistence(timeout: 15), "knappen til episoden du skal se, mangler")
+        XCTAssertTrue(next.label.contains("S1 E2"), "episoden du er midt i, skulle stå på knappen: \(next.label)")
+        wait(2)
+        shot("35-plex-serie")
     }
 
     /// Koble til Plex under Innstillinger: koden vises, og når den er «skrevet inn» (den falske plex.tv gir nøkkelen

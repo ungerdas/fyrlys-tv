@@ -427,6 +427,9 @@ struct VODDetailView: View {
                 if item.kind == .movies {
                     movieButtons
                         .padding(.top, 10)
+                } else if let details, let next = nextEpisode(details) {
+                    seriesButton(next)
+                        .padding(.top, 10)
                 }
             }
         }
@@ -466,6 +469,34 @@ struct VODDetailView: View {
         }
     }
 
+    /// Episoden du skal se: den du er midt i, ellers den etter den siste du har sett, ellers den første.
+    private func nextEpisode(_ details: VODDetails) -> (episode: Episode, seen: Double, after: Bool)? {
+        let _ = watched
+        let all = details.seasons.flatMap(\.episodes)
+        guard let first = all.first else { return nil }
+        if let current = all.last(where: { app.progress($0.progressKey) > 0 }) {
+            return (current, app.progress(current.progressKey), false)
+        }
+        if let last = all.lastIndex(where: { $0.watched || app.isFinished($0.progressKey) }) {
+            return last + 1 < all.count ? (all[last + 1], 0, true) : (first, 0, false)
+        }
+        return (first, 0, false)
+    }
+
+    /// «Fortsett S1 E3 (4:45)», «Neste: S1 E4» eller «Spill av S1 E1»: rett til episoden du skal se.
+    private func seriesButton(_ next: (episode: Episode, seen: Double, after: Bool)) -> some View {
+        let code = "S\(next.episode.season) E\(next.episode.number)"
+        let title = next.seen > 0 ? L("Fortsett {episode} ({time})", ["episode": code, "time": playTime(next.seen)])
+            : next.after ? L("Neste: {episode}", ["episode": code]) : L("Spill av {episode}", ["episode": code])
+        return Button {
+            play(next.episode)
+        } label: {
+            Label(title, systemImage: "play.fill")
+        }
+        .vodPrimary()
+        .accessibilityIdentifier("fortsett-serie")
+    }
+
     @ViewBuilder
     private var episodes: some View {
         if let details {
@@ -502,7 +533,8 @@ struct VODDetailView: View {
                             Button {
                                 play(episode)
                             } label: {
-                                EpisodeRow(episode: episode, seen: app.progress(episode.progressKey))
+                                EpisodeRow(episode: episode, seen: app.progress(episode.progressKey),
+                                           finished: episode.watched || app.isFinished(episode.progressKey))
                             }
                             .posterButtonStyle()
                             .accessibilityIdentifier("episode-\(episode.id)")
@@ -523,6 +555,8 @@ struct VODDetailView: View {
             if item.isPlex { syncProgress(found) }
             details = found
             error = nil
+            // sesongen med episoden du skal se
+            if season == nil, let next = nextEpisode(found) { season = next.episode.season }
         } catch {
             self.error = error.localizedDescription
         }
@@ -576,6 +610,7 @@ struct VODDetailView: View {
 private struct EpisodeRow: View {
     let episode: Episode
     let seen: Double
+    var finished = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 18) {
@@ -599,7 +634,7 @@ private struct EpisodeRow: View {
                     Text(L("Sett til {time}", ["time": playTime(seen)]))
                         .font(.system(size: Metrics.detailText - 5, weight: .medium))
                         .foregroundStyle(Theme.signal)
-                } else if episode.watched {
+                } else if finished {
                     Label(L("Sett"), systemImage: "checkmark")
                         .font(.system(size: Metrics.detailText - 5, weight: .medium))
                         .foregroundStyle(Theme.muted)
@@ -826,6 +861,7 @@ final class VODPlayerModel {
         let done = duration.isFinite && duration > 0 && duration - t < 120
         if done {
             app.setProgress(play.progressKey, nil)
+            app.setFinished(play.progressKey)
             // en ferdig film tas ut av «Fortsett å se» (en serie står til neste episode)
             if let item = play.item, item.kind == .movies, !item.isPlex { app.forgetContinue(item) }
         } else {
@@ -868,6 +904,10 @@ struct VODPlayerView: View {
     @Environment(\.dismiss) private var dismiss
     let play: VODPlay
     @State private var model: VODPlayerModel?
+    #if os(iOS)
+    /// telefonen sto liggende før spilleren ble åpnet (da står den slik etterpå også)
+    @State private var wasLandscape = false
+    #endif
 
     var body: some View {
         ZStack {
@@ -897,6 +937,11 @@ struct VODPlayerView: View {
         .accessibilityIdentifier(model?.error == nil ? "vod-spiller" : "vod-feil")
         .onAppear {
             guard model == nil else { return }
+            #if os(iOS)
+            // iPhone: liggende, som i Apple TV-appen (også når skjermretningen er låst)
+            wasLandscape = Landscape.isLandscape
+            Landscape.set(true)
+            #endif
             let player = VODPlayerModel(app: app, play: play)
             model = player
             player.start()
@@ -904,7 +949,12 @@ struct VODPlayerView: View {
         .onChange(of: model?.finished ?? false) { _, done in
             if done { dismiss() }
         }
-        .onDisappear { model?.stop() }
+        .onDisappear {
+            model?.stop()
+            #if os(iOS)
+            if !wasLandscape { Landscape.set(false) }
+            #endif
+        }
     }
 }
 

@@ -312,6 +312,17 @@ final class AppModel {
         return defaults.double(forKey: "sett@\(login.id)@\(key)")
     }
 
+    /// Sett ferdig (på enheten): for «Neste episode» på seriesiden og «Sett» på episodene (Plex husker det selv).
+    func isFinished(_ key: String) -> Bool {
+        guard let login else { return false }
+        return defaults.bool(forKey: "ferdig@\(login.id)@\(key)")
+    }
+
+    func setFinished(_ key: String) {
+        guard let login else { return }
+        defaults.set(true, forKey: "ferdig@\(login.id)@\(key)")
+    }
+
     /// nil: ferdig sett eller nesten ingenting sett (begynn fra start neste gang)
     func setProgress(_ key: String, _ seconds: Double?) {
         guard let login else { return }

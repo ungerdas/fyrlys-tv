@@ -1,4 +1,3 @@
-import CoreText
 import FyrlysCore
 import MediaAccessibility
 import SwiftUI
@@ -166,51 +165,25 @@ final class VLCEngine {
         subtitleTrack = player.currentVideoSubTitleIndex
     }
 
-    /// Undertekstene i Apple sin stil: skriften, størrelsen, fargene, bakgrunnen og kanten fra «Undertekster og
-    /// teksting» i innstillingene på enheten (som standard hvit tekst på halvgjennomsiktig svart, uten kant), i
-    /// stedet for VLC sin hvite tekst med tykk svart kant.
+    /// Undertekstene i Apple sin stil: hvit tekst på en halvgjennomsiktig mørk boks, uten kant og skygge, i stedet
+    /// for VLC sin hvite tekst med tykk svart kant (0.1.17 tok fargene fra «Undertekster og teksting», og der er
+    /// bakgrunnen gjennomsiktig som standard, så boksen ble borte). Størrelsen følger fortsatt den innstillingen.
+    /// Tittelen VLC ellers viser over bildet i starten, er slått av.
     static func subtitleStyle() -> [String] {
-        let domain = MACaptionAppearanceDomain.user
-        let font = MACaptionAppearanceCopyFontDescriptorForStyle(domain, nil, .default).takeRetainedValue()
-        var family = CTFontDescriptorCopyAttribute(font, kCTFontFamilyNameAttribute) as? String ?? ""
-        // systemskriften har et skjult navn VLC ikke finner
-        if family.isEmpty || family.hasPrefix(".") { family = "Helvetica Neue" }
-        // VLC: skjermhøyden delt på tallet (18 er litt mindre enn VLC sin standard, som Apple)
-        let size = MACaptionAppearanceGetRelativeCharacterSize(domain, nil)
+        // VLC: høyden på bildet delt på tallet (18 er litt mindre enn VLC sin standard, som Apple)
+        let size = MACaptionAppearanceGetRelativeCharacterSize(.user, nil)
         let relative = Int((18 / max(0.5, min(size > 0 ? size : 1, 2))).rounded())
-        let foreground = MACaptionAppearanceCopyForegroundColor(domain, nil).takeRetainedValue()
-        let background = MACaptionAppearanceCopyBackgroundColor(domain, nil).takeRetainedValue()
-        var options = [
-            "--freetype-font=\(family)",
+        return [
+            "--freetype-font=Helvetica Neue Medium",
             "--freetype-rel-fontsize=\(relative)",
-            "--freetype-color=\(rgb(foreground, or: 0xFFFFFF))",
-            "--freetype-opacity=\(byte(MACaptionAppearanceGetForegroundOpacity(domain, nil), or: 1))",
-            "--freetype-background-color=\(rgb(background, or: 0))",
-            "--freetype-background-opacity=\(byte(MACaptionAppearanceGetBackgroundOpacity(domain, nil), or: 0.5))",
+            "--freetype-color=\(0xFFFFFF)",
+            "--freetype-opacity=255",
+            "--freetype-background-color=0",
+            "--freetype-background-opacity=150",
+            "--freetype-outline-thickness=0",
+            "--freetype-shadow-opacity=0",
+            "--no-video-title-show",
         ]
-        switch MACaptionAppearanceGetTextEdgeStyle(domain, nil) {
-        case .uniform:
-            options += ["--freetype-outline-thickness=2", "--freetype-shadow-opacity=0"]
-        case .dropShadow, .raised, .depressed:
-            options += ["--freetype-outline-thickness=0", "--freetype-shadow-opacity=160"]
-        default:
-            options += ["--freetype-outline-thickness=0", "--freetype-shadow-opacity=0"]
-        }
-        return options
-    }
-
-    /// 0xRRGGBB som tall (det VLC vil ha).
-    private static func rgb(_ color: CGColor, or fallback: Int) -> Int {
-        guard let srgb = CGColorSpace(name: CGColorSpace.sRGB),
-              let c = color.converted(to: srgb, intent: .defaultIntent, options: nil)?.components, c.count >= 3
-        else { return fallback }
-        let v = c.prefix(3).map { Int((max(0, min(1, $0)) * 255).rounded()) }
-        return v[0] << 16 | v[1] << 8 | v[2]
-    }
-
-    /// 0–1 som 0–255; negativ (ikke satt) gir [fallback].
-    private static func byte(_ value: CGFloat, or fallback: CGFloat) -> Int {
-        Int((max(0, min(1, value < 0 ? fallback : value)) * 255).rounded())
     }
 
     private static func tracks(_ names: [Any], _ ids: [Any]) -> [Track] {
@@ -605,6 +578,18 @@ struct VLCPlayerScreen: View {
                 Spacer(minLength: 0)
                 if engine.hasAudioChoice { VLCAudioMenu(engine: engine) }
                 if engine.hasSubtitles { VLCSubtitleMenu(engine: engine) }
+                if Landscape.isPhone {
+                    Button {
+                        Landscape.set(!Landscape.isLandscape)
+                        show()
+                    } label: {
+                        Image(systemName: "rectangle.landscape.rotate")
+                            .font(.system(size: 19, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(L("Snu skjermen"))
+                    .accessibilityIdentifier("snu-skjermen")
+                }
             }
             .padding(.horizontal, 8)
             .padding(.top, 8)
@@ -640,7 +625,7 @@ struct VLCPlayerScreen: View {
         }
         .foregroundStyle(Color.white)
         .background(
-            LinearGradient(colors: [Color.black.opacity(0.7), .clear, .clear, Color.black.opacity(0.7)],
+            LinearGradient(colors: [Color.black.opacity(0.6), .clear, .clear, Color.black.opacity(0.45)],
                            startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
@@ -673,6 +658,29 @@ struct VLCPlayerScreen: View {
             guard !Task.isCancelled, engine.isPlaying, scrub == nil else { return }
             withAnimation { controls = false }
         }
+    }
+}
+#endif
+
+#if os(iOS)
+/// iPhone: filmer og serier liggende, som i Apple TV-appen (også når skjermretningen er låst), og tilbake når
+/// spilleren lukkes. iPad: som den står.
+enum Landscape {
+    static var isPhone: Bool { UIDevice.current.userInterfaceIdiom == .phone }
+
+    private static var scene: UIWindowScene? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+    }
+
+    static var isLandscape: Bool { scene?.interfaceOrientation.isLandscape ?? false }
+
+    static func set(_ landscape: Bool) {
+        guard isPhone, let scene else { return }
+        for window in scene.windows {
+            window.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        }
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: landscape ? .landscape : .portrait)) { _ in }
     }
 }
 #endif

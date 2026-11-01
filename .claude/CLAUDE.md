@@ -368,4 +368,13 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Serier, uten «Fortsett å se» og rader med noe annet). Episodene spilles med en gang (`withFile` henter fila om den
   mangler), hold inne = «Gå til serien». Testene `test17Plex`/`test19PlexSerier` (Apple TV), `test18Plex`/
   `test20PlexSerier` (iPhone og iPad). Ikke sjekket mot hans server: om samlingene hans står i `/hubs/promoted`.
-  0.1.17 (bygg 33) er i TestFlight, VALID for TV_OS og IOS.
+  0.1.17 (bygg 33) er i TestFlight, VALID for TV_OS og IOS. Eieren om 0.1.17 på iPhone (bilde av Mayday): «Teksten er
+  ikke Apple stil» (grå tekst uten boks: «Undertekster og teksting» har gjennomsiktig bakgrunn som standard, og
+  skyggen bak kontrollene la seg over), «når jeg forsøker å få liggende visning fra stående, så funker ikke det», og
+  «ønsker også en fortsett å se knapp på serier som går rett til den episoden jeg skal se» → 0.1.19: fast stil
+  (`subtitleStyle`: «Helvetica Neue Medium», hvit, boks svart 150, uten kant/skygge, `--no-video-title-show`; bare
+  størrelsen fra MediaAccessibility), `Landscape` (`App/VLCPlayer.swift`: `requestGeometryUpdate` til liggende når
+  `VODPlayerView` åpnes på iPhone, tilbake til stående ved lukking hvis den sto slik; knappen `snu-skjermen` i
+  VLC-kontrollene), og `fortsett-serie` på seriesiden (`nextEpisode`: den du er midt i, ellers den etter den siste
+  sett ferdig (`watched` fra Plex eller `AppModel.isFinished`, satt av `VODPlayerModel.save` nær slutten), ellers den
+  første; sesongen velges). Skjermbildene må hete `NN-…` (`tools/screenshots.py`), ikke `26b-…`.
