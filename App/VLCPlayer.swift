@@ -1,4 +1,6 @@
+import CoreText
 import FyrlysCore
+import MediaAccessibility
 import SwiftUI
 #if os(tvOS)
 import TVVLCKit
@@ -36,12 +38,13 @@ final class VLCEngine {
     /// filmen er ferdig
     @ObservationIgnored var onEnd: (() -> Void)?
 
-    private let player = VLCMediaPlayer()
+    private let player: VLCMediaPlayer
     private let events = VLCEvents()
     @ObservationIgnored private var done = false
     @ObservationIgnored private var watchdog: Task<Void, Never>?
 
     init() {
+        player = VLCMediaPlayer(options: Self.subtitleStyle())
         surface = VLCSurfaceView()
         surface.backgroundColor = .black
         player.drawable = surface
@@ -161,6 +164,53 @@ final class VLCEngine {
         if subtitles != subtitleTracks { subtitleTracks = subtitles }
         audioTrack = player.currentAudioTrackIndex
         subtitleTrack = player.currentVideoSubTitleIndex
+    }
+
+    /// Undertekstene i Apple sin stil: skriften, størrelsen, fargene, bakgrunnen og kanten fra «Undertekster og
+    /// teksting» i innstillingene på enheten (som standard hvit tekst på halvgjennomsiktig svart, uten kant), i
+    /// stedet for VLC sin hvite tekst med tykk svart kant.
+    static func subtitleStyle() -> [String] {
+        let domain = MACaptionAppearanceDomain.user
+        let font = MACaptionAppearanceCopyFontDescriptorForStyle(domain, nil, .default).takeRetainedValue()
+        var family = CTFontDescriptorCopyAttribute(font, kCTFontFamilyNameAttribute) as? String ?? ""
+        // systemskriften har et skjult navn VLC ikke finner
+        if family.isEmpty || family.hasPrefix(".") { family = "Helvetica Neue" }
+        // VLC: skjermhøyden delt på tallet (18 er litt mindre enn VLC sin standard, som Apple)
+        let size = MACaptionAppearanceGetRelativeCharacterSize(domain, nil)
+        let relative = Int((18 / max(0.5, min(size > 0 ? size : 1, 2))).rounded())
+        let foreground = MACaptionAppearanceCopyForegroundColor(domain, nil).takeRetainedValue()
+        let background = MACaptionAppearanceCopyBackgroundColor(domain, nil).takeRetainedValue()
+        var options = [
+            "--freetype-font=\(family)",
+            "--freetype-rel-fontsize=\(relative)",
+            "--freetype-color=\(rgb(foreground, or: 0xFFFFFF))",
+            "--freetype-opacity=\(byte(MACaptionAppearanceGetForegroundOpacity(domain, nil), or: 1))",
+            "--freetype-background-color=\(rgb(background, or: 0))",
+            "--freetype-background-opacity=\(byte(MACaptionAppearanceGetBackgroundOpacity(domain, nil), or: 0.5))",
+        ]
+        switch MACaptionAppearanceGetTextEdgeStyle(domain, nil) {
+        case .uniform:
+            options += ["--freetype-outline-thickness=2", "--freetype-shadow-opacity=0"]
+        case .dropShadow, .raised, .depressed:
+            options += ["--freetype-outline-thickness=0", "--freetype-shadow-opacity=160"]
+        default:
+            options += ["--freetype-outline-thickness=0", "--freetype-shadow-opacity=0"]
+        }
+        return options
+    }
+
+    /// 0xRRGGBB som tall (det VLC vil ha).
+    private static func rgb(_ color: CGColor, or fallback: Int) -> Int {
+        guard let srgb = CGColorSpace(name: CGColorSpace.sRGB),
+              let c = color.converted(to: srgb, intent: .defaultIntent, options: nil)?.components, c.count >= 3
+        else { return fallback }
+        let v = c.prefix(3).map { Int((max(0, min(1, $0)) * 255).rounded()) }
+        return v[0] << 16 | v[1] << 8 | v[2]
+    }
+
+    /// 0–1 som 0–255; negativ (ikke satt) gir [fallback].
+    private static func byte(_ value: CGFloat, or fallback: CGFloat) -> Int {
+        Int((max(0, min(1, value < 0 ? fallback : value)) * 255).rounded())
     }
 
     private static func tracks(_ names: [Any], _ ids: [Any]) -> [Track] {

@@ -1,5 +1,12 @@
 # Endringer
 
+## v0.1.17
+
+- Undertekstene i filmer og serier som spilles med VLC (mkv og Plex) ser ut som Apple sine: hvit tekst på en
+  halvgjennomsiktig mørk bakgrunn, i stedet for VLC sin tykke svarte kant. De følger «Undertekster og teksting» i
+  innstillingene på Apple TV-en, iPhonen eller iPaden (skrift, størrelse, farger og bakgrunn), som Apples egen
+  avspiller.
+
 ## v0.1.16
 
 - Plex: koble til under Innstillinger (Konto på iPhone). Apple TV-en viser en kode du skriver inn på plex.tv/link, og

@@ -201,7 +201,11 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   m3u8 med AVPlayer, så .ts med VLC). `App/VLCPlayer.swift`: `VLCEngine` (@Observable; `VLCMediaPlayer` med
   `drawable` = `surface` (`VLCSurfaceView`: VLC sin visning inni får alltid samme ramme), hendelsene via
   `VLCEvents` til hovedtråden; valg per media: `:http-user-agent`,
-  `:network-caching=3000`, `:start-time`, `:sub-language=nor,…` når appen er på norsk; feil = `.error`, eller
+  `:network-caching=3000`, `:start-time`, `:sub-language=nor,…` når appen er på norsk; fra 0.1.17
+  `VLCMediaPlayer(options: subtitleStyle())`: undertekstene i Apple sin stil fra MediaAccessibility
+  (`MACaptionAppearance…`: skrift (systemskriften → «Helvetica Neue»), relativ størrelse → `--freetype-rel-fontsize`
+  18/størrelse, farge/bakgrunn/opasitet → `--freetype-color`/`-background-color`/`-background-opacity`, kant →
+  `--freetype-outline-thickness`/`-shadow-opacity`; eieren: «vil ha teksten i orginal Apple stil»); feil = `.error`, eller
   `.ended`/`.stopped` før tiden har gått, eller ingen tid etter 45 s; skrur av skjermsparer/lås mens den spiller) og
   `VLCPlayerScreen` (egne kontroller: Apple TV en usynlig knapp over hele skjermen med fokus, venstre/høyre spoler 10
   s (30/60 ved flere trykk på rad, hoppet etter 0,7 s), ned = menyene `vod-lyd`/`vod-tekst`, Menu skjuler og så
@@ -353,4 +357,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   simulatorene. (NB: testfilmen `testsrc` har en svart stripe til venstre, som lett ser ut som at bildet er
   forskjøvet; det var det ikke. Sammenlign med en ramme fra ffmpeg før du «retter» noe.) 0.1.16 (bygg 32, Plex) er i
   TestFlight, VALID for TV_OS og IOS; alle UI-testene grønne. Ikke prøvd mot hans Plex-server ennå (tilkoblingen
-  utenfra/hjemmenettet, store bibliotek, hvor langt du har sett tilbake til Plex/Tautulli).
+  utenfra/hjemmenettet, store bibliotek, hvor langt du har sett tilbake til Plex/Tautulli). Eieren prøvde 0.1.16
+  samme dag: «Funker fint» (Tautulli viste Fyrlys på Apple TV med Direct Play av HEVC Main 10, EAC3 og norsk SRT),
+  «men vil ha teksten i orginal Apple stil» → 0.1.17.
