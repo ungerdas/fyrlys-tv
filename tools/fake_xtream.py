@@ -13,6 +13,8 @@ Med --kanaler lages en stor liste som hos en ekte leverandør: mange kategorier 
 import argparse
 import base64
 import json
+import os
+import re
 import struct
 import time
 import zlib
@@ -56,7 +58,8 @@ CHANNELS = [
 
 LOGOS = {1: (0xF2, 0xB5, 0x44), 11: (0x4F, 0xA3, 0xFF), 41: (0x5C, 0xC9, 0x8B)}
 
-# filmer og serier (oppdiktede): 501 spilles (HLS), 502 er mkv og lar seg ikke spille
+# filmer og serier (oppdiktede): 501 og 503 spilles som HLS (Apples avspiller), 502 er mkv (VLC: en oppdiktet film på
+# 30 sekunder med to lydspor og norske undertekster, tools/testdata/stormnatt.mkv); alt annet svarer 404
 VOD_CATEGORIES = [("31", "Norske filmer"), ("32", "Dokumentarer")]
 MOVIES = [
     (501, "Fyret i nord (2021)", "31", "m3u8", "7.4"),
@@ -204,6 +207,21 @@ class Handler(BaseHTTPRequestHandler):
     def json(self, data):
         self.send(200, json.dumps(data).encode())
 
+    def file(self, data, kind):
+        """En fil med Range (VLC spoler med det)."""
+        m = re.fullmatch(r"bytes=(\d*)-(\d*)", self.headers.get("Range", "").strip())
+        if not m or not (m.group(1) or m.group(2)):
+            return self.send(200, data, kind, {"Accept-Ranges": "bytes"})
+        if m.group(1):
+            start = int(m.group(1))
+            end = min(int(m.group(2)) if m.group(2) else len(data) - 1, len(data) - 1)
+        else:
+            start, end = max(0, len(data) - int(m.group(2))), len(data) - 1
+        if start >= len(data) or start > end:
+            return self.send(416, b"", kind, {"Content-Range": f"bytes */{len(data)}"})
+        return self.send(206, data[start:end + 1], kind,
+                         {"Accept-Ranges": "bytes", "Content-Range": f"bytes {start}-{end}/{len(data)}"})
+
     def do_HEAD(self):
         self.do_GET()
 
@@ -307,6 +325,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(401, b"", "text/plain")
             if parts[3].endswith(".m3u8") and parts[3].split(".")[0] != "502":
                 return self.send(302, b"", "text/plain", {"Location": SAMPLE})
+            if parts[0] == "movie" and parts[3] == "502.mkv":
+                return self.file(MKV, "video/x-matroska")
             return self.send(404, b"", "text/plain")
 
         if len(parts) == 4 and parts[0] == "live":
@@ -321,6 +341,9 @@ class Handler(BaseHTTPRequestHandler):
 
 
 CATEGORY_OF = {}
+
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata", "stormnatt.mkv"), "rb") as f:
+    MKV = f.read()
 
 
 def main():

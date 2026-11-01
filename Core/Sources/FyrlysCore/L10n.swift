@@ -120,8 +120,6 @@ public let english: [String: String] = [
     // se fra start, fortsett, VLC
     "Se fra start": "Watch from the start",
     "Fortsett å se": "Continue watching",
-    "Åpne i VLC": "Open in VLC",
-    "VLC er ikke installert. Hent VLC i App Store.": "VLC isn't installed. Get VLC from the App Store.",
     // flere innlogginger
     "Innlogginger": "Logins",
     "Bytt til {name}": "Switch to {name}",
@@ -150,7 +148,18 @@ public let english: [String: String] = [
     "Sesong {n}": "Season {n}",
     "Sesong {s}, episode {e}": "Season {s}, episode {e}",
     "Sett til {time}": "Watched to {time}",
-    "Kan ikke spilles på denne enheten (filtypen er {ext}).": "Can't be played on this device (the file type is {ext}).",
+    "Kunne ikke spilles: leverandøren svarte ikke med filen, eller alle tilkoblingene dine er i bruk.":
+        "Couldn't be played: your provider didn't send the file, or all your connections are in use.",
+    // VLC-spilleren
+    "Av": "Off",
+    "Spor {n}": "Track {n}",
+    "Lyd": "Audio",
+    "Undertekster": "Subtitles",
+    "◀ ▶ spol  ·  ned: lyd og undertekster": "◀ ▶ skip  ·  down: audio and subtitles",
+    "◀ ▶ spol": "◀ ▶ skip",
+    "10 sekunder tilbake": "Back 10 seconds",
+    "10 sekunder fram": "Forward 10 seconds",
+    "Pause": "Pause",
     // guiden
     "Velg hva guiden viser oppe til høyre: favorittene, alle kanaler eller en kategori.":
         "Choose what the guide shows at the top right: your favorites, all channels or a category.",

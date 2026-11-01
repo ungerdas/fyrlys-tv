@@ -13,7 +13,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.14"
+    MARKETING_VERSION: "0.1.15"
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: ""
 
@@ -34,6 +34,9 @@ targets:
     dependencies:
       - package: FyrlysCore
       - target: FyrlysTopShelf
+      # VLC for filmer og serier Apples avspiller ikke kan (mkv …); hentes av tools/vlckit.sh
+      - framework: Vendor/TVVLCKit.xcframework
+        embed: true
     info:
       path: build/Fyrlys-Info.plist
       properties:
@@ -112,6 +115,8 @@ targets:
           - "Assets.xcassets"
     dependencies:
       - package: FyrlysCore
+      - framework: Vendor/MobileVLCKit.xcframework
+        embed: true
     info:
       path: build/FyrlysMobil-Info.plist
       properties:

@@ -58,6 +58,15 @@ jobs:
           sudo xcode-select -s "$XCODE/Contents/Developer"
           xcodebuild -version 2>&1 | tee build/xcode.log
 
+      - name: VLCKit (tvOS) fra hurtiglageret
+        uses: actions/cache@v5
+        with:
+          path: Vendor/TVVLCKit.xcframework
+          key: vlckit-tvOS-${{ hashFiles('tools/vlckit.sh') }}
+
+      - name: Hent VLCKit
+        run: tools/vlckit.sh tvOS 2>&1 | tee build/vlckit.log
+
       - name: Lag prosjektet (XcodeGen)
         run: |
           HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen 2>&1 | tail -n 3
@@ -124,7 +133,7 @@ jobs:
       - name: Merknad ved feil
         if: failure()
         run: |
-          for f in build/xcode.log build/xcodegen.log build/simulator.log; do
+          for f in build/xcode.log build/vlckit.log build/xcodegen.log build/simulator.log; do
             [ -f "$f" ] || continue
             if grep -qiE "error|fatal|not found|unable" "$f"; then
               echo "::error title=$f::$(tail -n 40 "$f" | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')"
@@ -162,6 +171,15 @@ jobs:
           echo "Xcode: $XCODE"
           sudo xcode-select -s "$XCODE/Contents/Developer"
           xcodebuild -version 2>&1 | tee build/xcode.log
+
+      - name: VLCKit (iOS) fra hurtiglageret
+        uses: actions/cache@v5
+        with:
+          path: Vendor/MobileVLCKit.xcframework
+          key: vlckit-iOS-${{ hashFiles('tools/vlckit.sh') }}
+
+      - name: Hent VLCKit
+        run: tools/vlckit.sh iOS 2>&1 | tee build/vlckit.log
 
       - name: Lag prosjektet (XcodeGen)
         run: |
@@ -212,7 +230,7 @@ jobs:
           iphone=$?
           xcrun simctl shutdown "$IPHONE_ID" 2>/dev/null
           only=""
-          for t in test01Login test02TV test04DineKategorier test05Guide test07Player test09Settings test11Rulling test12Lys test13Filmer; do
+          for t in test01Login test02TV test04DineKategorier test05Guide test07Player test09Settings test11Rulling test12Lys test13Filmer test17Mkv; do
             only="$only -only-testing:FyrlysMobilUITests/FyrlysMobilUITests/$t"
           done
           limited 20 build/test-ipad.log \
@@ -271,7 +289,7 @@ jobs:
       - name: Merknad ved feil
         if: failure()
         run: |
-          for f in build/xcode.log build/xcodegen.log build/simulator.log; do
+          for f in build/xcode.log build/vlckit.log build/xcodegen.log build/simulator.log; do
             [ -f "$f" ] || continue
             if grep -qiE "error|fatal|not found|unable" "$f"; then
               echo "::error title=$f::$(tail -n 40 "$f" | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')"
@@ -335,6 +353,21 @@ jobs:
           print(sorted(apps, key=lambda a: [int(x) for x in re.findall(r'\d+', a.split('Xcode_')[1])])[-1])")
           sudo xcode-select -s "$XCODE/Contents/Developer"
           xcodebuild -version
+
+      - name: VLCKit (tvOS) fra hurtiglageret
+        uses: actions/cache@v5
+        with:
+          path: Vendor/TVVLCKit.xcframework
+          key: vlckit-tvOS-${{ hashFiles('tools/vlckit.sh') }}
+
+      - name: VLCKit (iOS) fra hurtiglageret
+        uses: actions/cache@v5
+        with:
+          path: Vendor/MobileVLCKit.xcframework
+          key: vlckit-iOS-${{ hashFiles('tools/vlckit.sh') }}
+
+      - name: Hent VLCKit
+        run: tools/vlckit.sh tvOS iOS 2>&1 | tee build/vlckit.log
 
       - name: Lag prosjektet (XcodeGen)
         run: |
@@ -434,7 +467,7 @@ jobs:
       - name: Merknad ved feil
         if: failure()
         run: |
-          for f in build/asc.log build/arkiv.log build/arkiv-ios.log build/eksport.log build/eksport-ios.log; do
+          for f in build/vlckit.log build/asc.log build/arkiv.log build/arkiv-ios.log build/eksport.log build/eksport-ios.log; do
             [ -f "$f" ] || continue
             msg=$( { grep -E "error|rror:|ERROR|failed" "$f" | awk 'length($0) < 500 && !seen[$0]++' | tail -n 30; echo; tail -n 15 "$f"; } \
               | sed "s#$GITHUB_WORKSPACE/##g" | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')

@@ -12,6 +12,9 @@ En enkel IPTV-spiller for Apple TV, iPhone og iPad: logg inn med Xtream Codes fr
 - **Spilleren** er Apples egen (AVPlayer). På Apple TV kan du pause og spole tilbake, bytte til neste eller forrige
   kanal i kontrollene, og sveipe ned for kanallista. På iPhone og iPad står kanallista under bildet, med bilde-i-bilde
   og AirPlay.
+- **Filmer og serier** med plakater, en side for hver film og serie, episodene sesong for sesong og «Fortsett å se».
+  Filtyper Apples avspiller ikke kan (mkv, avi …), spilles med VLC, med valg av lydspor og undertekster.
+- **TV-arkiv** for kanaler som har det hos leverandøren, og «se fra start» på det som går nå.
 - **iPhone**: som Fyrlys på nettet på en telefon, med favorittene og det du har sett sist øverst, kategoriene som
   fliser, store kanalkort med logoens egen farge, og lys eller mørk modus.
 - Norsk og engelsk, etter språket på enheten.
@@ -34,6 +37,7 @@ Prosjektet lages med [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 
 ```sh
 brew install xcodegen
+tools/vlckit.sh   # VLCKit fra VideoLAN til Vendor/
 xcodegen generate
 open Fyrlys.xcodeproj
 ```
@@ -42,3 +46,9 @@ open Fyrlys.xcodeproj
   `swift test --package-path Core`.
 - Appen selv (`App/`) er SwiftUI, med to mål: `Fyrlys` (Apple TV) og `FyrlysMobil` (iPhone og iPad).
 - Testene i simulatorene (`UITests/` og `UITestsMobil/`) bruker `tools/fake_xtream.py`.
+
+## Lisenser
+
+Filmer og serier i andre filtyper enn Apples spilles med [VLCKit](https://code.videolan.org/videolan/VLCKit) fra
+VideoLAN (LGPL 2.1), som et eget rammeverk inni appen. `tools/vlckit.sh` henter de ferdige rammeverkene VideoLAN legger
+ut.

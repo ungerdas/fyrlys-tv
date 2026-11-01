@@ -613,8 +613,8 @@ func playTime(_ seconds: Double) -> String {
 
 // ── spilleren ──
 
-/// Det som spilles: adressene som prøves etter tur (filtypen hos leverandøren, eller HLS først når AVPlayer ikke kan
-/// filtypen), og hvor det skal begynne.
+/// Det som spilles: adressene som prøves etter tur (filtypen hos leverandøren; se `playAttempts`), og hvor det skal
+/// begynne.
 struct VODPlay: Identifiable {
     let id: String
     let urls: [URL]
@@ -635,48 +635,72 @@ struct VODPlay: Identifiable {
     }
 }
 
-/// AVPlayer for en film eller episode: prøver adressene etter tur, begynner der du slapp, og husker hvor langt du har
-/// sett (hvert tiende sekund og når spilleren lukkes; nær slutten glemmes det, så neste gang begynner fra start).
+/// Spilleren for en film, episode eller et program i TV-arkivet: prøver adressene etter tur (Apples avspiller for
+/// filtypene den kan, ellers VLC, og VLC til slutt om Apples ikke fikk det til), begynner der du slapp, og husker hvor
+/// langt du har sett (hvert tiende sekund og når spilleren lukkes; nær slutten glemmes det, så neste gang begynner fra
+/// start).
 @MainActor
 @Observable
 final class VODPlayerModel {
     let player = AVPlayer()
     let play: VODPlay
     private(set) var error: String?
+    /// VLC spiller (mkv, avi, MPEG-TS …); ellers Apples avspiller
+    private(set) var vlc: VLCEngine?
+    /// filmen er ferdig (VLC): spilleren lukkes
+    private(set) var finished = false
 
     private let app: AppModel
+    private let attempts: [PlayAttempt]
     @ObservationIgnored private var index = 0
     @ObservationIgnored private var started = false
     @ObservationIgnored private var observation: NSKeyValueObservation?
-    @ObservationIgnored private var timeObserver: Any?
+    @ObservationIgnored private var saver: Task<Void, Never>?
 
     init(app: AppModel, play: VODPlay) {
         self.app = app
         self.play = play
+        attempts = playAttempts(play.urls)
     }
 
     func start() {
         open(0)
-        timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 10, preferredTimescale: 1),
-                                                      queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.save() }
+        saver = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(10))
+                guard let self, !Task.isCancelled else { return }
+                self.save()
+            }
         }
     }
 
     private func open(_ i: Int) {
-        guard i < play.urls.count else { return }
+        guard i < attempts.count else { return }
         index = i
-        let asset = AVURLAsset(url: play.urls[i], options: [AVURLAssetHTTPUserAgentKey: xtreamUserAgent])
-        let item = AVPlayerItem(asset: asset)
-        item.externalMetadata = [Self.meta(.commonIdentifierTitle, play.title),
-                                 Self.meta(.iTunesMetadataTrackSubTitle, play.subtitle)]
-        observation?.invalidate()
-        observation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
-            let status = item.status
-            Task { @MainActor in self?.changed(status, i) }
+        let attempt = attempts[i]
+        switch attempt.engine {
+        case .native:
+            let asset = AVURLAsset(url: attempt.url, options: [AVURLAssetHTTPUserAgentKey: xtreamUserAgent])
+            let item = AVPlayerItem(asset: asset)
+            item.externalMetadata = [Self.meta(.commonIdentifierTitle, play.title),
+                                     Self.meta(.iTunesMetadataTrackSubTitle, play.subtitle)]
+            observation?.invalidate()
+            observation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
+                let status = item.status
+                Task { @MainActor in self?.changed(status, i) }
+            }
+            player.replaceCurrentItem(with: item)
+            player.play()
+        case .vlc:
+            observation?.invalidate()
+            observation = nil
+            player.replaceCurrentItem(with: nil)
+            let engine = VLCEngine()
+            engine.onFail = { [weak self] in self?.failed(i) }
+            engine.onEnd = { [weak self] in self?.ended() }
+            vlc = engine
+            engine.open(attempt.url, start: play.start)
         }
-        player.replaceCurrentItem(with: item)
-        player.play()
     }
 
     private func changed(_ status: AVPlayerItem.Status, _ i: Int) {
@@ -687,21 +711,41 @@ final class VODPlayerModel {
                 player.seek(to: CMTime(seconds: play.start, preferredTimescale: 600))
             }
         } else if status == .failed {
-            if i + 1 < play.urls.count {
-                open(i + 1)
-            } else {
-                player.pause()
-                error = L("Kan ikke spilles på denne enheten (filtypen er {ext}).",
-                          ["ext": play.urls.last?.pathExtension ?? "?"])
-            }
+            failed(i)
         }
     }
 
+    /// Adressen kunne ikke spilles: den neste, eller forklaringen.
+    private func failed(_ i: Int) {
+        guard i == index, error == nil else { return }
+        vlc?.stop()
+        if i + 1 < attempts.count {
+            vlc = nil
+            open(i + 1)
+        } else {
+            player.pause()
+            error = L(
+                "Kunne ikke spilles: leverandøren svarte ikke med filen, eller alle tilkoblingene dine er i bruk.")
+        }
+    }
+
+    private func ended() {
+        save()
+        finished = true
+    }
+
     func save() {
-        guard started else { return }
-        let t = player.currentTime().seconds
+        let t: Double, duration: Double
+        if let vlc {
+            guard vlc.started else { return }
+            t = vlc.time
+            duration = vlc.length
+        } else {
+            guard started else { return }
+            t = player.currentTime().seconds
+            duration = player.currentItem?.duration.seconds ?? 0
+        }
         guard t.isFinite, t > 30 else { return }
-        let duration = player.currentItem?.duration.seconds ?? 0
         if duration.isFinite, duration > 0, duration - t < 120 {
             app.setProgress(play.progressKey, nil)
             // en ferdig film tas ut av «Fortsett å se» (en serie står til neste episode)
@@ -714,12 +758,13 @@ final class VODPlayerModel {
 
     func stop() {
         save()
-        if let timeObserver { player.removeTimeObserver(timeObserver) }
-        timeObserver = nil
+        saver?.cancel()
+        saver = nil
         observation?.invalidate()
         observation = nil
         player.pause()
         player.replaceCurrentItem(with: nil)
+        vlc?.stop()
     }
 
     private static func meta(_ id: AVMetadataIdentifier, _ value: String) -> AVMetadataItem {
@@ -731,15 +776,13 @@ final class VODPlayerModel {
     }
 }
 
-/// Filmen eller episoden i fullskjerm (Apple TV: Menu lukker) eller i et ark (iPhone og iPad: dra ned for å lukke).
-/// Kan den ikke spilles på iPhone og iPad, kan den åpnes i VLC (som spiller mkv).
+/// Filmen eller episoden i fullskjerm (Apple TV: Menu lukker) eller i et ark (iPhone og iPad: dra ned for å lukke),
+/// med Apples avspiller eller VLC.
 struct VODPlayerView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
     let play: VODPlay
     @State private var model: VODPlayerModel?
-    @State private var noVLC = false
 
     var body: some View {
         ZStack {
@@ -754,25 +797,11 @@ struct VODPlayerView: View {
                             .font(.system(size: Metrics.detailText))
                             .foregroundStyle(Theme.muted)
                             .multilineTextAlignment(.center)
-                        #if os(iOS)
-                        if let vlc = vlcURL {
-                            Button {
-                                openURL(vlc) { opened in noVLC = !opened }
-                            } label: {
-                                Label(L("Åpne i VLC"), systemImage: "arrow.up.forward.app")
-                            }
-                            .vodPrimary()
-                            .accessibilityIdentifier("apne-i-vlc")
-                            if noVLC {
-                                Text(L("VLC er ikke installert. Hent VLC i App Store."))
-                                    .font(.system(size: Metrics.detailText - 2))
-                                    .foregroundStyle(Theme.muted)
-                            }
-                        }
-                        #endif
                         Button(L("Lukk")) { dismiss() }
                     }
                     .padding(40)
+                } else if let vlc = model.vlc {
+                    VLCPlayerScreen(engine: vlc, title: play.title, subtitle: play.subtitle) { dismiss() }
                 } else {
                     VODPlayerController(player: model.player)
                         .ignoresSafeArea()
@@ -787,16 +816,10 @@ struct VODPlayerView: View {
             model = player
             player.start()
         }
+        .onChange(of: model?.finished ?? false) { _, done in
+            if done { dismiss() }
+        }
         .onDisappear { model?.stop() }
-    }
-}
-
-extension VODPlayerView {
-    /// VLC for iPhone og iPad med den opprinnelige filen (mkv og andre filtyper AVPlayer ikke kan).
-    var vlcURL: URL? {
-        guard let file = play.urls.last?.absoluteString,
-              let encoded = file.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { return nil }
-        return URL(string: "vlc-x-callback://x-callback-url/stream?url=\(encoded)")
     }
 }
 

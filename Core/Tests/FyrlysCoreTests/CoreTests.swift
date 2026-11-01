@@ -425,8 +425,22 @@ final class VODTests: XCTestCase {
         XCTAssertEqual(client.episodeURL(Episode(id: "7", season: 1, number: 1, title: "", ext: "mkv")).absoluteString,
                        "http://iptv.example.com/series/u/p/7.mkv")
         XCTAssertEqual(playableExtensions("MP4"), ["mp4"])
-        XCTAssertEqual(playableExtensions("mkv"), ["m3u8", "mkv"])
+        XCTAssertEqual(playableExtensions(".mkv"), ["mkv"])
         XCTAssertEqual(playableExtensions(nil), ["mp4", "m3u8"])
+    }
+
+    /// Apples avspiller for det den kan, VLC for resten, og VLC til slutt når Apples avspiller ikke fikk det til.
+    func testPlayAttempts() {
+        let base = "http://iptv.example.com/movie/u/p/501"
+        let mp4 = URL(string: "\(base).mp4")!, m3u8 = URL(string: "\(base).m3u8")!
+        let mkv = URL(string: "\(base).MKV")!, ts = URL(string: "\(base).ts")!
+        XCTAssertEqual(playAttempts([mkv]), [PlayAttempt(mkv, .vlc)])
+        XCTAssertEqual(playAttempts([mp4]), [PlayAttempt(mp4, .native), PlayAttempt(mp4, .vlc)])
+        XCTAssertEqual(playAttempts([mp4, m3u8]),
+                       [PlayAttempt(mp4, .native), PlayAttempt(m3u8, .native), PlayAttempt(mp4, .vlc)])
+        // TV-arkivet: HLS med Apples avspiller, MPEG-TS med VLC
+        XCTAssertEqual(playAttempts([m3u8, ts]), [PlayAttempt(m3u8, .native), PlayAttempt(ts, .vlc)])
+        XCTAssertEqual(playAttempts([]), [])
     }
 }
 

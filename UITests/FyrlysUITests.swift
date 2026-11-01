@@ -252,6 +252,44 @@ final class FyrlysUITests: XCTestCase {
         shot("24-arkiv")
     }
 
+    /// En film i mkv spilles med VLC: tiden går, lydsporet og undertekstene kan velges, høyre spoler, og Menu lukker.
+    func test15Mkv() {
+        let app = launch("mkv")
+        XCTAssertTrue(find(app, "vod-spiller").waitForExistence(timeout: 30), "spilleren kom ikke")
+        let time = find(app, "vod-tid")
+        XCTAssertTrue(time.waitForExistence(timeout: 20), "kontrollene til VLC kom ikke")
+        var played = false
+        for _ in 0..<40 {
+            if time.exists, time.label != "0:00" {
+                played = true
+                break
+            }
+            wait(1)
+        }
+        XCTAssertTrue(played, "tiden gikk ikke (VLC spilte ikke filmen)")
+        XCTAssertTrue(find(app, "vod-lyd").exists, "valget av lydspor mangler")
+        XCTAssertTrue(find(app, "vod-tekst").exists, "valget av undertekster mangler")
+        wait(2)
+        shot("25-mkv")
+        remote.press(.right)
+        wait(3)
+        shot("26-mkv-spolt")
+        let player = find(app, "vod-spiller")
+        for _ in 0..<3 where player.exists {
+            remote.press(.menu)
+            wait(2)
+        }
+        XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
+    }
+
+    /// En film leverandøren ikke har: VLC gir opp, og forklaringen vises.
+    func test16MkvFeil() {
+        let app = launch("mkv-feil")
+        XCTAssertTrue(find(app, "vod-feil").waitForExistence(timeout: 60), "forklaringen kom ikke")
+        wait(1)
+        shot("27-mkv-feil")
+    }
+
     func test04Guide() {
         let app = launch("guide")
         XCTAssertTrue(find(app, "guide").waitForExistence(timeout: 30))

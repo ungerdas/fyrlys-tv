@@ -178,6 +178,14 @@ struct HomeView: View {
             model.archiveChannel = channel
             return
         }
+        // filmen i mkv (VLC), med to lydspor og norske undertekster; mkv-feil: en film leverandøren ikke har
+        if screen == "mkv" || screen == "mkv-feil", let client = model.client {
+            testPlayed = true
+            let id = screen == "mkv" ? "502" : "504"
+            model.replay = VODPlay(id: "test-\(id)", urls: [client.movieURL(id, ext: screen == "mkv" ? "mkv" : "avi")],
+                                   title: "Stormnatt (2019)", subtitle: "", progressKey: "movies:\(id)", start: 0)
+            return
+        }
         guard screen.hasPrefix("player") else { return }
         let channel = screen == "player-error" ? model.byId["90"] : model.channels.first
         guard let channel else { return }

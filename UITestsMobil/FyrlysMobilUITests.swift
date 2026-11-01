@@ -273,6 +273,31 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("22-arkiv")
     }
 
+    /// En film i mkv spilles med VLC: tiden går, lydsporet og undertekstene kan velges, og krysset lukker.
+    func test17Mkv() {
+        let app = launch("mkv")
+        XCTAssertTrue(find(app, "vod-spiller").waitForExistence(timeout: 30), "spilleren kom ikke")
+        let time = find(app, "vod-tid")
+        XCTAssertTrue(time.waitForExistence(timeout: 20), "kontrollene til VLC kom ikke")
+        var played = false
+        for _ in 0..<40 {
+            if time.exists, time.label != "0:00" {
+                played = true
+                break
+            }
+            wait(1)
+        }
+        XCTAssertTrue(played, "tiden gikk ikke (VLC spilte ikke filmen)")
+        XCTAssertTrue(find(app, "vod-lyd").exists, "valget av lydspor mangler")
+        XCTAssertTrue(find(app, "vod-tekst").exists, "valget av undertekster mangler")
+        wait(2)
+        shot("24-mkv")
+        find(app, "lukk-vod").tap()
+        let player = find(app, "vod-spiller")
+        for _ in 0..<10 where player.exists { wait(1) }
+        XCTAssertFalse(player.exists, "krysset lukket ikke spilleren")
+    }
+
     /// «Fra start» i spilleren (kanal 1 har TV-arkiv): direktesendingen lukkes, og programmet spilles fra arkivet.
     func test16FraStart() {
         let app = launch("player")

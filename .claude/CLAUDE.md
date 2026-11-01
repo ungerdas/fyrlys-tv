@@ -153,15 +153,16 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `com.apple.developer.ubiquity-kvstore-identifier` = `<team>.no.fyrlys.tv` (samme for tvOS og iOS, så de deler).
 - **Filmer og serier fra 0.1.12**: `Core/.../VOD.swift` (`VODKind`, `VODItem`, `Episode`, `Season`, `VODDetails`,
   `vodCategories`/`vodItems` (per kategori)/`vodDetails`, `movieURL`/`episodeURL` (`/movie|series/<bruker>/<passord>/
-  <id>.<ext>`), `playableExtensions`: mp4/m4v/mov/m3u8 som de er, ellers først `.m3u8` (mange Xtream-servere gir HLS)
-  og så filtypen; AVPlayer kan ikke mkv). `App/VODModel.swift` (`AppModel.movies`/`.series`, kategoriene første gang
+  <id>.<ext>`), `playableExtensions`: filtypen leverandøren oppgir, eller mp4 og m3u8 når den mangler; fra 0.1.15
+  `playAttempts` (se VLC under)). `App/VODModel.swift` (`AppModel.movies`/`.series`, kategoriene første gang
   fanen vises, lista per kategori når den velges). `App/VODViews.swift`: `VODTab` (fanene Filmer og Serier; sidemeny
   med `vodkat-<id>` på Apple TV og iPad, meny `vod-kategori` på iPhone; `NavigationStack` med `VODDetailView`),
   plakater `vod-<id>` (`.card` på Apple TV), siden `vod-side` med `spill-av`/`fra-start` eller `sesong-<n>` og
   `episode-<id>`, `VODPlayerView` (`vod-spiller`/`vod-feil`; fullskjerm på Apple TV, ark på iPhone/iPad) med
   `VODPlayerModel`: prøver adressene etter tur, begynner der du slapp, lagrer hvor langt (`AppModel.progress`, nøkkel
   `sett@<innlogging>@<film|episode>`, hvert 10. s og ved lukking; glemmes nær slutten). Falsk leverandør: filmene
-  501–503 (502 er mkv og feiler) og serien 9001; testskjermene `movies` og `series`.
+  501–503 (502 er mkv: `tools/testdata/stormnatt.mkv`, oppdiktet, 30 s, to lydspor og norske undertekster, med Range)
+  og serien 9001; testskjermene `movies`, `series`, `mkv` (502 i VLC) og `mkv-feil` (504.avi, som svarer 404).
 - **TV-arkiv fra 0.1.12** (som Fyrlys for Windows, `lib/core/xtream_source.dart`): `Core/.../Archive.swift`
   (`parseArchive` fra `get_simple_data_table` med `has_archive`, de siste `archiveDays` dagene; `serverClockOffset`
   fra `server_info` (`time_now` mot `timestamp_now`, rundet til kvarter); `archiveOffset` (enhetens sone med
@@ -188,8 +189,24 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   den via `pendingReplay`: direktesendingen stoppes og lukkes (`closeRequested`), og `showPendingReplay()` i
   `onDismiss` viser den (én tilkobling om gangen). Apple TV-guiden: hurtigmeny på programmer (se fra start) og på
   kanalen (TV-arkiv). «Fortsett å se»: `AppModel.continueItems/rememberContinue/forgetContinue` (JSON i
-  `fortsett@<innlogging>`, satt av `VODPlayerModel.save`), raden øverst i `PosterGrid` (`fortsett-<id>`). iOS: «Åpne i
-  VLC» (`vlc-x-callback://x-callback-url/stream?url=`) når en film ikke kan spilles.
+  `fortsett@<innlogging>`, satt av `VODPlayerModel.save`), raden øverst i `PosterGrid` (`fortsett-<id>`). («Åpne i
+  VLC» på iOS fra 0.1.14 er tatt bort i 0.1.15.)
+- **VLC fra 0.1.15** (eieren: «andre klienter klarer jo å spille av filmer og serier»): VLCKit 3.7.2 (LGPL 2.1, de
+  ferdige rammeverkene fra VideoLAN, dynamiske) hentes av `tools/vlckit.sh` til `Vendor/` (ikke i repoet; sjekksum,
+  armv7/i386 tatt bort med lipo, nytt xcframework uten dSYM) og ligger som `framework`-avhengighet med embed i
+  `project.yml` (`TVVLCKit` for `Fyrlys`, `MobileVLCKit` for `FyrlysMobil`); i bygget med `actions/cache` (nøkkel =
+  hashen av skriptet) og `build/vlckit.log` i feilmerknadene. MPVKit ble valgt bort (forfatteren skriver at den ikke
+  er for produksjon; Metal bare som lapp), KSPlayer er GPL. `playAttempts` (Core): Apples avspiller for
+  mp4/m4v/mov/m3u8, ellers VLC; er ingen av adressene for VLC, prøves den første med VLC til slutt (TV-arkivet:
+  m3u8 med AVPlayer, så .ts med VLC). `App/VLCPlayer.swift`: `VLCEngine` (@Observable; `VLCMediaPlayer` med
+  `drawable` = `surface`, hendelsene via `VLCEvents` til hovedtråden; valg per media: `:http-user-agent`,
+  `:network-caching=3000`, `:start-time`, `:sub-language=nor,…` når appen er på norsk; feil = `.error`, eller
+  `.ended`/`.stopped` før tiden har gått, eller ingen tid etter 45 s; skrur av skjermsparer/lås mens den spiller) og
+  `VLCPlayerScreen` (egne kontroller: Apple TV en usynlig knapp over hele skjermen med fokus, venstre/høyre spoler 10
+  s (30/60 ved flere trykk på rad, hoppet etter 0,7 s), ned = menyene `vod-lyd`/`vod-tekst`, Menu skjuler og så
+  lukker; iOS trykk for kontrollene, `lukk-vod`, ±10 s, `vod-pause`, Slider; tiden `vod-tid`; kontrollene skjules
+  ikke i testene). `VODPlayerModel.vlc` velger visningen i `VODPlayerView`; `finished` lukker når VLC er ferdig.
+  Testene `test15Mkv`/`test16MkvFeil` (Apple TV) og `test17Mkv` (iPhone og iPad). Ikke prøvd på ekte enheter ennå.
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -301,3 +318,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   for `no.fyrlys.tv.topshelf` virket). Med det er 0.1.13 (bygg 29) i TestFlight, VALID for TV_OS og IOS: hele lista
   fra «Kjør alt.» er ute. Ikke prøvd på hans enheter ennå: filmer/serier mot leverandøren hans (mkv?), TV-arkivet,
   iCloud-delingen mellom iPhone og Apple TV, Top Shelf (vises logoene over http?), kanalbytte med opp/ned.
+- 1.11.2026: eieren spurte «kan du forbedre det du kan?» → 0.1.14 (bygg 30, VALID for TV_OS og IOS): se fra start,
+  «Fortsett å se», «Åpne i VLC». Så: «hvorfor kan den ikke spille av MKV? andre klienter klarer jo å spille av filmer
+  og serier uten problem» → forklart (AVPlayer kan ikke mkv), foreslått en innebygd avspiller, han svarte «Ja». 0.1.15
+  = VLC (se Arkitektur).

@@ -8,3 +8,5 @@ Core/.swiftpm/
 *.xcresult
 .DS_Store
 __pycache__/
+# VLCKit, hentet av tools/vlckit.sh
+Vendor/

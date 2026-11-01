@@ -1,5 +1,14 @@
 # Endringer
 
+## v0.1.15
+
+- Filmer og serier i mkv, avi og andre filtyper Apple-enhetene ikke spiller selv, spilles nå i Fyrlys, med VLC bygget
+  inn. Du kan velge lydspor og undertekster (norske undertekster velges av seg selv når filmen har dem), pause og spole
+  (på Apple TV med venstre og høyre, raskere når du trykker flere ganger), og den begynner der du slapp.
+- Filmer i mp4 og HLS spilles som før med Apples avspiller; får den ikke til en fil, prøves VLC.
+- TV-arkivet: virker ikke HLS-adressen, spilles programmet som MPEG-TS med VLC.
+- «Åpne i VLC» på iPhone og iPad er borte (det trengs ikke lenger).
+
 ## v0.1.14
 
 - Se fra start: i spilleren («Se fra start» i kontrollene på Apple TV, «Fra start» på iPhone og iPad) og i TV-guiden

@@ -115,13 +115,41 @@ extension XtreamClient {
     }
 }
 
-/// Filtypene AVPlayer spiller selv. Andre (mkv, avi …) prøves først som HLS (.m3u8), som mange Xtream-servere også
-/// kan gi, og så som de er.
+/// Filtypene Apples avspiller (AVPlayer) spiller selv.
+public let nativeExtensions: Set<String> = ["mp4", "m4v", "mov", "m3u8"]
+
+/// Filtypene en film eller episode hentes som: den leverandøren oppgir (mkv, avi … spilles med VLC), eller mp4 og så
+/// HLS når den ikke er oppgitt.
 public func playableExtensions(_ ext: String?) -> [String] {
     let e = (ext ?? "").lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ". "))
-    if ["mp4", "m4v", "mov", "m3u8"].contains(e) { return [e] }
-    if e.isEmpty { return ["mp4", "m3u8"] }
-    return ["m3u8", e]
+    return e.isEmpty ? ["mp4", "m3u8"] : [e]
+}
+
+/// Hvem som spiller en adresse: Apples avspiller for filtypene den kan (med kontrollene til Apple), ellers VLC.
+public enum PlayEngine: Sendable {
+    case native, vlc
+}
+
+public struct PlayAttempt: Hashable, Sendable {
+    public let url: URL
+    public let engine: PlayEngine
+
+    public init(_ url: URL, _ engine: PlayEngine) {
+        self.url = url
+        self.engine = engine
+    }
+}
+
+/// Rekkefølgen adressene prøves i: hver med Apples avspiller når den kan filtypen, ellers med VLC. Er ingen av dem for
+/// VLC, prøves den første med VLC til slutt (en mp4 med lyd Apple-enhetene ikke kan, for eksempel).
+public func playAttempts(_ urls: [URL]) -> [PlayAttempt] {
+    var attempts = urls.map { url in
+        PlayAttempt(url, nativeExtensions.contains(url.pathExtension.lowercased()) ? .native : .vlc)
+    }
+    if !attempts.contains(where: { $0.engine == .vlc }), let first = urls.first {
+        attempts.append(PlayAttempt(first, .vlc))
+    }
+    return attempts
 }
 
 // ── tolking ──
