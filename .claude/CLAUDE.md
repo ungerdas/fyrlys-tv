@@ -351,4 +351,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   = VLC (se Arkitektur). Samme dag ønsket han Plex i stedet for Filmer/Serier («Gjør noe med det når du har
   mulighet») → 0.1.16. 0.1.15 (bygg 31) er i TestFlight, VALID for TV_OS og IOS; VLC spilte testfilmen riktig i
   simulatorene. (NB: testfilmen `testsrc` har en svart stripe til venstre, som lett ser ut som at bildet er
-  forskjøvet; det var det ikke. Sammenlign med en ramme fra ffmpeg før du «retter» noe.)
+  forskjøvet; det var det ikke. Sammenlign med en ramme fra ffmpeg før du «retter» noe.) 0.1.16 (bygg 32, Plex) er i
+  TestFlight, VALID for TV_OS og IOS; alle UI-testene grønne. Ikke prøvd mot hans Plex-server ennå (tilkoblingen
+  utenfra/hjemmenettet, store bibliotek, hvor langt du har sett tilbake til Plex/Tautulli).
