@@ -403,3 +403,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `merged`; søket på alle navnene). Favoritt/ikke favoritt gjelder alle id-ene (`AppModel.isFavorite`/
   `toggleFavorite`), og `channels(_:in:)` tar hver kanal én gang. Falsk leverandør: 91 «Fjordkanalen HD» (i Test),
   slås sammen med 1 i `test20EgneStrommer`/`test21EgneStrommer` («Alle kanaler» 19).
+  Bygg 37 feilte bare på iPad i `test01Login` (to ganger; samme kode gikk i bygg 38, så simulatoren). Steget «Merknad
+  ved feil» stoppet før merknadene for testene (grep uten treff med pipefail), nå med `set +e`, og
+  `test-*-utdrag.txt` begynner med alle «error:»-linjene. 0.1.20 (bygg 38) er i TestFlight, VALID for TV_OS og IOS.
+  Fartstesten i bygg 38: 37,2 s uten lista fra sist (bygg 37 med samme kode: 5,6 s), 5,0 s med; trolig en treg
+  runner, men se etter om det skjer igjen.
