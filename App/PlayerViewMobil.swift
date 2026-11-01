@@ -53,6 +53,9 @@ struct PlayerView: View {
         }
         .onDisappear { model?.stop() }
         .onChange(of: programs) { model?.refreshMetadata() }
+        .onChange(of: model?.closeRequested ?? false) { _, close in
+            if close { dismiss() }
+        }
     }
 
     private var programs: [Program] {
@@ -224,6 +227,9 @@ private struct PlayerPanel: View {
                 panelButton(L("Neste"), "forward.fill", id: "neste-kanal") { model.step(1) }
                 panelButton(L("Favoritt"), model.isFavorite ? "star.fill" : "star", id: "spiller-favoritt",
                             highlighted: model.isFavorite) { model.toggleFavorite() }
+                if model.canStartOver {
+                    panelButton(L("Fra start"), "backward.end.fill", id: "fra-start-live") { model.startOver() }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 12)

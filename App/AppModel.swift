@@ -36,6 +36,13 @@ final class AppModel {
     var archiveChannel: Channel?
     /// kanalen Top Shelf ba om (fyrlys://kanal/<id>), spilles når lista er klar
     var pendingPlay: String?
+    /// et program fra start (TV-arkivet), vist av HomeView over alt annet
+    var replay: VODPlay?
+    /// venter på at et ark eller spilleren for direktesendingen er lukket (leverandøren gir ofte bare én
+    /// tilkobling, så direktesendingen stoppes først)
+    @ObservationIgnored var pendingReplay: VODPlay?
+    /// telles opp når «Fortsett å se» endres
+    private(set) var continueVersion = 0
     /// hvor langt serverens klokke er foran UTC (for adressene i arkivet), spurt én gang per innlogging
     @ObservationIgnored private var clock: TimeInterval??
     /// filmer og serier (VOD)
@@ -232,6 +239,47 @@ final class AppModel {
         let found = await client.serverClock()
         clock = .some(found)
         return found
+    }
+
+    /// [program] på [channel] fra start, fra TV-arkivet (nil når kanalen ikke har arkiv).
+    func archivePlay(_ channel: Channel, _ program: Program) async -> VODPlay? {
+        guard let client, channel.archiveDays > 0 else { return nil }
+        let clock = await serverClock()
+        return VODPlay.archive(channel, program, client: client, clock: clock)
+    }
+
+    /// Et ark eller spilleren er lukket: spill det som ventet.
+    func showPendingReplay() {
+        guard let next = pendingReplay else { return }
+        pendingReplay = nil
+        replay = next
+    }
+
+    // ── «Fortsett å se»: filmene og seriene du har begynt på, sist sett først ──
+
+    private var continueKey: String? { login.map { "fortsett@\($0.id)" } }
+
+    func continueItems(_ kind: VODKind) -> [VODItem] {
+        _ = continueVersion
+        guard let key = continueKey, let data = defaults.data(forKey: key),
+              let items = try? JSONDecoder().decode([VODItem].self, from: data) else { return [] }
+        return items.filter { $0.kind == kind }
+    }
+
+    func rememberContinue(_ item: VODItem) {
+        guard let key = continueKey, continueItems(item.kind).first?.progressKey != item.progressKey else { return }
+        let all = (continueItems(.movies) + continueItems(.series)).filter { $0.progressKey != item.progressKey }
+        save([item] + all.prefix(29), key)
+    }
+
+    func forgetContinue(_ item: VODItem) {
+        guard let key = continueKey else { return }
+        save((continueItems(.movies) + continueItems(.series)).filter { $0.progressKey != item.progressKey }, key)
+    }
+
+    private func save(_ items: [VODItem], _ key: String) {
+        if let data = try? JSONEncoder().encode(items) { defaults.set(data, forKey: key) }
+        continueVersion += 1
     }
 
     // ── hvor langt man har sett filmer og episoder (sekunder, per innlogging, på enheten) ──

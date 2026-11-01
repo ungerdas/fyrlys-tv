@@ -123,16 +123,43 @@ struct VODTab: View {
     #endif
 }
 
-/// Plakatene i en kategori (hentes når kategorien velges).
+/// Plakatene i en kategori (hentes når kategorien velges), med «Fortsett å se» øverst.
 private struct PosterGrid: View {
+    @Environment(AppModel.self) private var app
     let model: VODModel
     let category: String?
     var showsTitle = true
 
     var body: some View {
         let items = category.flatMap { model.items[$0] }
+        let resume = app.continueItems(model.kind)
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                if !resume.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L("Fortsett å se"))
+                            .font(.system(size: Metrics.rowTitle, weight: .bold))
+                            .foregroundStyle(Theme.ink)
+                        ScrollView(.horizontal) {
+                            LazyHStack(alignment: .top, spacing: Metrics.posterGap) {
+                                ForEach(resume) { item in
+                                    NavigationLink(value: item) {
+                                        PosterCard(item: item)
+                                    }
+                                    .posterButtonStyle()
+                                    .frame(width: Metrics.posterMin)
+                                    .accessibilityIdentifier("fortsett-\(item.id)")
+                                }
+                            }
+                            .padding(.vertical, 12)
+                        }
+                        .scrollIndicators(.never)
+                        #if os(tvOS)
+                        .scrollClipDisabled()
+                        .focusSection()
+                        #endif
+                    }
+                }
                 if showsTitle {
                     HStack(alignment: .firstTextBaseline, spacing: 20) {
                         Text(model.name(category))
@@ -467,7 +494,7 @@ struct VODDetailView: View {
         guard let client = app.client else { return }
         let urls = playableExtensions(details?.ext ?? item.ext).map { client.movieURL(item.id, ext: $0) }
         playing = VODPlay(id: item.progressKey, urls: urls, title: item.name, subtitle: meta,
-                          progressKey: item.progressKey, start: seconds)
+                          progressKey: item.progressKey, start: seconds, item: item)
     }
 
     private func play(_ episode: Episode) {
@@ -475,7 +502,7 @@ struct VODDetailView: View {
         let urls = playableExtensions(episode.ext).map { client.episodeURL(episode, ext: $0) }
         let subtitle = L("Sesong {s}, episode {e}", ["s": episode.season, "e": episode.number]) + ": " + episode.title
         playing = VODPlay(id: episode.progressKey, urls: urls, title: item.name, subtitle: subtitle,
-                          progressKey: episode.progressKey, start: app.progress(episode.progressKey))
+                          progressKey: episode.progressKey, start: app.progress(episode.progressKey), item: item)
     }
 }
 
@@ -595,6 +622,17 @@ struct VODPlay: Identifiable {
     let subtitle: String
     let progressKey: String
     let start: Double
+    /// filmen eller serien (for «Fortsett å se»); nil for TV-arkivet
+    var item: VODItem?
+
+    /// Et program fra TV-arkivet, fra start.
+    static func archive(_ channel: Channel, _ program: Program, client: XtreamClient, clock: TimeInterval?) -> VODPlay {
+        let key = "arkiv:\(channel.id):\(Int(program.start.timeIntervalSince1970))"
+        return VODPlay(id: key, urls: client.archiveURLs(channel, program, serverClock: clock),
+                       title: nameParts(channel.name).main,
+                       subtitle: "\(hhmm(program.start))–\(hhmm(program.stop))  \(program.title)",
+                       progressKey: key, start: 0)
+    }
 }
 
 /// AVPlayer for en film eller episode: prøver adressene etter tur, begynner der du slapp, og husker hvor langt du har
@@ -666,8 +704,11 @@ final class VODPlayerModel {
         let duration = player.currentItem?.duration.seconds ?? 0
         if duration.isFinite, duration > 0, duration - t < 120 {
             app.setProgress(play.progressKey, nil)
+            // en ferdig film tas ut av «Fortsett å se» (en serie står til neste episode)
+            if let item = play.item, item.kind == .movies { app.forgetContinue(item) }
         } else {
             app.setProgress(play.progressKey, t)
+            if let item = play.item { app.rememberContinue(item) }
         }
     }
 
@@ -691,11 +732,14 @@ final class VODPlayerModel {
 }
 
 /// Filmen eller episoden i fullskjerm (Apple TV: Menu lukker) eller i et ark (iPhone og iPad: dra ned for å lukke).
+/// Kan den ikke spilles på iPhone og iPad, kan den åpnes i VLC (som spiller mkv).
 struct VODPlayerView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     let play: VODPlay
     @State private var model: VODPlayerModel?
+    @State private var noVLC = false
 
     var body: some View {
         ZStack {
@@ -710,6 +754,22 @@ struct VODPlayerView: View {
                             .font(.system(size: Metrics.detailText))
                             .foregroundStyle(Theme.muted)
                             .multilineTextAlignment(.center)
+                        #if os(iOS)
+                        if let vlc = vlcURL {
+                            Button {
+                                openURL(vlc) { opened in noVLC = !opened }
+                            } label: {
+                                Label(L("Åpne i VLC"), systemImage: "arrow.up.forward.app")
+                            }
+                            .vodPrimary()
+                            .accessibilityIdentifier("apne-i-vlc")
+                            if noVLC {
+                                Text(L("VLC er ikke installert. Hent VLC i App Store."))
+                                    .font(.system(size: Metrics.detailText - 2))
+                                    .foregroundStyle(Theme.muted)
+                            }
+                        }
+                        #endif
                         Button(L("Lukk")) { dismiss() }
                     }
                     .padding(40)
@@ -728,6 +788,15 @@ struct VODPlayerView: View {
             player.start()
         }
         .onDisappear { model?.stop() }
+    }
+}
+
+extension VODPlayerView {
+    /// VLC for iPhone og iPad med den opprinnelige filen (mkv og andre filtyper AVPlayer ikke kan).
+    var vlcURL: URL? {
+        guard let file = play.urls.last?.absoluteString,
+              let encoded = file.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { return nil }
+        return URL(string: "vlc-x-callback://x-callback-url/stream?url=\(encoded)")
     }
 }
 

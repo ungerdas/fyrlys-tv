@@ -117,6 +117,11 @@ public let english: [String: String] = [
     "Lukk": "Close",
     "Kanaler": "Channels",
     "Episode {n}": "Episode {n}",
+    // se fra start, fortsett, VLC
+    "Se fra start": "Watch from the start",
+    "Fortsett å se": "Continue watching",
+    "Åpne i VLC": "Open in VLC",
+    "VLC er ikke installert. Hent VLC i App Store.": "VLC isn't installed. Get VLC from the App Store.",
     // flere innlogginger
     "Innlogginger": "Logins",
     "Bytt til {name}": "Switch to {name}",

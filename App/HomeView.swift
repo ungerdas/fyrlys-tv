@@ -61,7 +61,7 @@ struct HomeView: View {
                     .environment(model)
             }
             #endif
-            .fullScreenCover(item: $playing) { request in
+            .fullScreenCover(item: $playing, onDismiss: { model.showPendingReplay() }) { request in
                 PlayerView(request: request)
                     .environment(model)
                     #if os(iOS)
@@ -71,6 +71,20 @@ struct HomeView: View {
                     .presentationBackground(.clear)
                     #endif
             }
+            // et program fra start (TV-arkivet), fra spilleren eller guiden
+            #if os(tvOS)
+            .fullScreenCover(item: replay) { play in
+                VODPlayerView(play: play)
+                    .environment(model)
+            }
+            #else
+            .sheet(item: replay) { play in
+                VODPlayerView(play: play)
+                    .environment(model)
+                    .preferredColorScheme(.dark)
+                    .presentationDragIndicator(.visible)
+            }
+            #endif
             .onAppear(perform: playForTest)
             .onChange(of: model.channels.count) { playForTest() }
             .onChange(of: model.pendingPlay) { playForTest() }
@@ -119,6 +133,10 @@ struct HomeView: View {
         #if os(iOS)
         .tint(Theme.signal)
         #endif
+    }
+
+    private var replay: Binding<VODPlay?> {
+        Binding(get: { model.replay }, set: { model.replay = $0 })
     }
 
     /// TV-arkivet for kanalen som er valgt i hurtigmenyen på et kort.

@@ -1,5 +1,14 @@
 # Endringer
 
+## v0.1.14
+
+- Se fra start: i spilleren («Se fra start» i kontrollene på Apple TV, «Fra start» på iPhone og iPad) og i TV-guiden
+  (hold inne på et program på Apple TV, eller trykk på det på iPhone), for kanaler med TV-arkiv. Direktesendingen
+  stoppes først, så det går også med bare én tilkobling.
+- I TV-guiden på Apple TV: hold inne på en kanal for TV-arkivet.
+- Filmer og Serier: «Fortsett å se» øverst, med det du har begynt på.
+- iPhone og iPad: kan en film ikke spilles (som mkv), kan du åpne den i VLC.
+
 ## v0.1.13
 
 - Apple TV: favorittene dine står på hjemskjermen (Top Shelf) når Fyrlys har fokus. Trykk på en kanal for å se den

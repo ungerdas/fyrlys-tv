@@ -93,6 +93,24 @@ final class PlayerModel {
 
     func toggleFavorite() { app.toggleFavorite(channel) }
 
+    /// spilleren skal lukkes (når programmet skal ses fra start)
+    private(set) var closeRequested = false
+
+    /// Kanalen har TV-arkiv, og det er kjent hva som går nå.
+    var canStartOver: Bool { channel.archiveDays > 0 && nowPlaying(channel) != nil }
+
+    /// Programmet som går nå, fra start: direktesendingen stoppes og spilleren lukkes, så spilles det fra arkivet.
+    func startOver() {
+        guard let program = nowPlaying(channel) else { return }
+        let channel = channel
+        Task {
+            guard let play = await app.archivePlay(channel, program) else { return }
+            app.pendingReplay = play
+            stop()
+            closeRequested = true
+        }
+    }
+
     func stop() {
         generation += 1
         stopObserving()

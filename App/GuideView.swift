@@ -209,6 +209,15 @@ private struct GuideRow: View {
                 }
             }
             .buttonStyle(GuideCellStyle())
+            .contextMenu {
+                if channel.archiveDays > 0 {
+                    Button {
+                        model.archiveChannel = channel
+                    } label: {
+                        Label(L("TV-arkiv"), systemImage: "clock.arrow.circlepath")
+                    }
+                }
+            }
             .frame(width: GuideView.nameWidth, height: GuideView.rowHeight)
 
             ZStack(alignment: .leading) {
@@ -218,6 +227,15 @@ private struct GuideRow: View {
                         GuideProgramCell(program: program, channelId: channel.id,
                                          live: program.start <= now && now < program.stop,
                                          selection: selection, play: play)
+                            .contextMenu {
+                                if channel.archiveDays > 0 && program.start <= now {
+                                    Button {
+                                        Task { model.replay = await model.archivePlay(channel, program) }
+                                    } label: {
+                                        Label(L("Se fra start"), systemImage: "backward.end")
+                                    }
+                                }
+                            }
                             .frame(width: max(4, CGFloat(span.length) * GuideView.perMinute - 6),
                                    height: GuideView.rowHeight)
                             .padding(.leading, CGFloat(span.from) * GuideView.perMinute)

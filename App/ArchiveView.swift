@@ -112,12 +112,7 @@ struct ArchiveView: View {
         guard let client = app.client else { return }
         Task {
             let clock = await app.serverClock()
-            let p = item.program
-            let urls = client.archiveURLs(channel, p, serverClock: clock)
-            playing = VODPlay(id: "arkiv:\(channel.id):\(Int(p.start.timeIntervalSince1970))", urls: urls,
-                              title: nameParts(channel.name).main,
-                              subtitle: "\(hhmm(p.start))–\(hhmm(p.stop))  \(p.title)",
-                              progressKey: "arkiv:\(channel.id):\(Int(p.start.timeIntervalSince1970))", start: 0)
+            playing = VODPlay.archive(channel, item.program, client: client, clock: clock)
         }
     }
 

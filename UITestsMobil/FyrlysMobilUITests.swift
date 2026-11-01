@@ -273,6 +273,17 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("22-arkiv")
     }
 
+    /// «Fra start» i spilleren (kanal 1 har TV-arkiv): direktesendingen lukkes, og programmet spilles fra arkivet.
+    func test16FraStart() {
+        let app = launch("player")
+        let button = find(app, "fra-start-live")
+        XCTAssertTrue(button.waitForExistence(timeout: 30), "«Fra start» mangler i spilleren")
+        button.tap()
+        XCTAssertTrue(find(app, "vod-spiller").waitForExistence(timeout: 20), "programmet fra start kom ikke")
+        wait(5)
+        shot("23-fra-start")
+    }
+
     func test12Lys() {
         if isPad {
             let app = launch("tv", theme: "light")

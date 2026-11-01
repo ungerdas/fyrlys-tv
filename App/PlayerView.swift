@@ -18,7 +18,8 @@ struct PlayerView: View {
                 if let error = model.error {
                     PlayerError(model: model, message: error) { dismiss() }
                 } else {
-                    PlayerController(model: model, channelId: model.channel.id, favorite: model.isFavorite)
+                    PlayerController(model: model, channelId: model.channel.id, favorite: model.isFavorite,
+                                     startOver: model.canStartOver)
                         .ignoresSafeArea()
                 }
             }
@@ -35,6 +36,9 @@ struct PlayerView: View {
         }
         .onDisappear { model?.stop() }
         .onChange(of: programs) { model?.refreshMetadata() }
+        .onChange(of: model?.closeRequested ?? false) { _, close in
+            if close { dismiss() }
+        }
     }
 
     private var programs: [Program] {
@@ -79,6 +83,8 @@ struct PlayerController: UIViewControllerRepresentable {
     /// (bare så SwiftUI oppdaterer knappene når kanalen eller favoritten endres)
     let channelId: String
     let favorite: Bool
+    /// «Se fra start» i kontrollene (kanalen har arkiv, og det er kjent hva som går nå)
+    let startOver: Bool
 
     func makeCoordinator() -> Coordinator { Coordinator(model: model) }
 
@@ -98,7 +104,13 @@ struct PlayerController: UIViewControllerRepresentable {
     private func updateButtons(_ controller: AVPlayerViewController) {
         let model = model
         let favorite = favorite
-        controller.transportBarCustomMenuItems = [
+        var items: [UIMenuElement] = []
+        if model.canStartOver {
+            items.append(UIAction(title: L("Se fra start"), image: UIImage(systemName: "backward.end")) { _ in
+                MainActor.assumeIsolated { model.startOver() }
+            })
+        }
+        controller.transportBarCustomMenuItems = items + [
             UIAction(title: L("Forrige kanal"), image: UIImage(systemName: "chevron.down")) { _ in
                 MainActor.assumeIsolated { model.step(-1) }
             },

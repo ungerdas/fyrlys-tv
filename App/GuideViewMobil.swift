@@ -66,10 +66,15 @@ struct GuideView: View {
                                current: selection)
                     .environment(model)
             }
-            .sheet(item: $picked) { pick in
+            .sheet(item: $picked, onDismiss: { model.showPendingReplay() }) { pick in
                 ProgramInfo(pick: pick) {
                     picked = nil
                     play(pick.channel, rows)
+                } fromStart: {
+                    Task {
+                        model.pendingReplay = await model.archivePlay(pick.channel, pick.program)
+                        picked = nil
+                    }
                 }
                 .presentationDetents([.medium, .large])
             }
@@ -424,6 +429,7 @@ private struct GuideTrack: View {
 private struct ProgramInfo: View {
     let pick: GuidePick
     let watch: () -> Void
+    let fromStart: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -450,6 +456,19 @@ private struct ProgramInfo: View {
                     .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.signal))
             }
             .buttonStyle(.plain)
+            // har begynt, og kanalen har TV-arkiv
+            if pick.channel.archiveDays > 0 && pick.program.start <= Date() {
+                Button(action: fromStart) {
+                    Label(L("Se fra start"), systemImage: "backward.end.fill")
+                        .font(.headline)
+                        .foregroundStyle(Theme.signal)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.signal))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("se-fra-start")
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

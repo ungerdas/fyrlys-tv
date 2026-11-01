@@ -182,6 +182,14 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `adhoc_sign.sh` signerer utvidelsen først (egen app-id og gruppen) og gir appen `keychain-access-groups` (egen
   gruppe først, så innloggingene blir der de var); `asc.py prepare` registrerer app-id-en og lager en profil til for
   utvidelsen (`EXTENSIONS`), og `ExportOptions-tvOS.plist` har begge.
+- **0.1.14**: «Se fra start»: `AppModel.archivePlay(channel, program)` → `VODPlay.archive`; `AppModel.replay` vises av
+  `HomeView` (fullskjerm/ark). Fra spilleren for direktesendingen (`PlayerModel.startOver`, `canStartOver`; Apple TV i
+  `transportBarCustomMenuItems`, iPhone/iPad `fra-start-live`) og fra infoarket i iPhone-guiden (`se-fra-start`) går
+  den via `pendingReplay`: direktesendingen stoppes og lukkes (`closeRequested`), og `showPendingReplay()` i
+  `onDismiss` viser den (én tilkobling om gangen). Apple TV-guiden: hurtigmeny på programmer (se fra start) og på
+  kanalen (TV-arkiv). «Fortsett å se»: `AppModel.continueItems/rememberContinue/forgetContinue` (JSON i
+  `fortsett@<innlogging>`, satt av `VODPlayerModel.save`), raden øverst i `PosterGrid` (`fortsett-<id>`). iOS: «Åpne i
+  VLC» (`vlc-x-callback://x-callback-url/stream?url=`) når en film ikke kan spilles.
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
