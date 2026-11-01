@@ -125,7 +125,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (`big…`, `tile…`, `row…`). `ChannelsView` (sidemenyen) og de smale kortene brukes nå bare på iPad. UI-testene for
   Apple TV flytter fokus mot målet med rammene (`focus`), og `test11StorListe` måler flisene, «Alle kanaler» og
   stegene.
-- `.github/workflows/build.yml`: kjernen på Linux; appen på `macos-15` med høyeste Xcode, XcodeGen, simulator fra
+- `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
+  Swift 1.11.2026, og jobben feilet med 127); appen på `macos-15` med høyeste Xcode, XcodeGen, simulator fra
   `tools/simulator.py` (`[plattform] [slag] [variabel]`, f.eks. `iOS iPad IPAD_ID`; laster ned plattformen om den
   mangler), falsk leverandør, `xcodebuild test`, skjermbildene ut med `tools/screenshots.py` (`xcresulttool export
   attachments`) og inn i grenen `skjermbilder`. Jobben `ios` bygger én gang (`build-for-testing`) og tester på iPhone
