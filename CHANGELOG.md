@@ -1,5 +1,10 @@
 # Endringer
 
+## v0.1.13
+
+- Apple TV: favorittene dine står på hjemskjermen (Top Shelf) når Fyrlys har fokus. Trykk på en kanal for å se den
+  med en gang.
+
 ## v0.1.12
 
 - Filmer og serier: egne faner på Apple TV, iPhone og iPad, med kategoriene, plakatene, en side for hver film og

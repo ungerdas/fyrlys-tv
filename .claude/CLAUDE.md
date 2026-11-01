@@ -174,6 +174,14 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   først; den gamle `login` flyttes over), `AppModel.logins`, `switchTo`, `remove`, `addingLogin` (RootView viser
   `LoginView` med `avbryt-innlogging`), `signOut` går til den neste. Innstillinger (Apple TV, iPad) og Konto (iPhone):
   «Bytt til …», «Legg til innlogging» (`legg-til-innlogging`), fjern med hurtigmeny/sveip.
+- **Top Shelf fra 0.1.13**: målet `FyrlysTopShelf` (tvOS-utvidelse `com.apple.tv-top-shelf`, app-id
+  `no.fyrlys.tv.topshelf`, `TopShelf/ContentProvider.swift`) viser favorittene (`TVTopShelfSectionedContent`, logo,
+  navn; trykk = `fyrlys://kanal/<id>` → `AppModel.pendingPlay` → `HomeView` spiller). Favorittene deles i en felles
+  nøkkelring-gruppe `<team>.no.fyrlys.tv.shared` (`TopShelf/SharedFavorites.swift`, også i app-målet; prefikset
+  finnes fra et element lagret i standardgruppen), skrevet av `AppModel.shareFavorites()` ved endringer.
+  `adhoc_sign.sh` signerer utvidelsen først (egen app-id og gruppen) og gir appen `keychain-access-groups` (egen
+  gruppe først, så innloggingene blir der de var); `asc.py prepare` registrerer app-id-en og lager en profil til for
+  utvidelsen (`EXTENSIONS`), og `ExportOptions-tvOS.plist` har begge.
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og

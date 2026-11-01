@@ -60,6 +60,12 @@ struct RootView: View {
             }
         }
         .task { model.start() }
+        // Top Shelf: fyrlys://kanal/<id>
+        .onOpenURL { url in
+            if url.scheme == "fyrlys", url.host == "kanal" {
+                model.pendingPlay = url.lastPathComponent
+            }
+        }
     }
 }
 

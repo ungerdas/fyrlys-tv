@@ -73,6 +73,7 @@ struct HomeView: View {
             }
             .onAppear(perform: playForTest)
             .onChange(of: model.channels.count) { playForTest() }
+            .onChange(of: model.pendingPlay) { playForTest() }
     }
 
     @ViewBuilder
@@ -146,6 +147,13 @@ struct HomeView: View {
 
     /// Testene: rett til spilleren (player: den første kanalen, player-error: en kanal som ikke virker).
     private func playForTest() {
+        // kanalen Top Shelf ba om
+        if let id = model.pendingPlay, let channel = model.byId[id] {
+            model.pendingPlay = nil
+            let favorites = model.favorites
+            play(channel, favorites.contains(channel) ? favorites : model.channels)
+            return
+        }
         guard !testPlayed, let screen = TestSupport.screen, !model.channels.isEmpty else { return }
         if screen == "archive", let channel = model.byId["1"] {
             testPlayed = true

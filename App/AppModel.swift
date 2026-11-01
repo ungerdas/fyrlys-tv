@@ -1,6 +1,9 @@
 import FyrlysCore
 import Foundation
 import Observation
+#if os(tvOS)
+import TVServices
+#endif
 
 /// Tilstanden i appen: innloggingen, kategoriene og kanalene, favoritter, favorittkategorier og «sist sett», og
 /// abonnementet.
@@ -31,6 +34,8 @@ final class AppModel {
     let programs = ProgramStore()
     /// kanalen TV-arkivet er åpnet for (fra hurtigmenyen på et kort)
     var archiveChannel: Channel?
+    /// kanalen Top Shelf ba om (fyrlys://kanal/<id>), spilles når lista er klar
+    var pendingPlay: String?
     /// hvor langt serverens klokke er foran UTC (for adressene i arkivet), spurt én gang per innlogging
     @ObservationIgnored private var clock: TimeInterval??
     /// filmer og serier (VOD)
@@ -212,6 +217,7 @@ final class AppModel {
     private func show(_ next: ChannelIndex) {
         index = next
         reorder()
+        shareFavorites()
     }
 
     /// «Alle kanaler» med kanalene i favorittkategoriene først.
@@ -250,6 +256,16 @@ final class AppModel {
         library.reload()
         libraryVersion += 1
         reorder()
+        shareFavorites()
+    }
+
+    /// Favorittene til Top Shelf (hjemskjermen til Apple TV).
+    func shareFavorites() {
+        #if os(tvOS)
+        guard !TestSupport.isActive, !index.channels.isEmpty else { return }
+        SharedFavorites.save(favorites.map { SharedFavorite(id: $0.id, name: nameParts($0.name).main, logo: $0.logo) })
+        TVTopShelfContentProvider.topShelfContentDidChange()
+        #endif
     }
 
     var favorites: [Channel] {
@@ -270,6 +286,7 @@ final class AppModel {
     func toggleFavorite(_ channel: Channel) {
         library?.toggleFavorite(channel.id)
         libraryVersion += 1
+        shareFavorites()
     }
 
     func played(_ channel: Channel) {

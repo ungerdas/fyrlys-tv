@@ -34,6 +34,8 @@ APP_NAME = "Fyrlys"
 OPENSSL = "/usr/bin/openssl" if Path("/usr/bin/openssl").exists() else "openssl"
 # plattformene: navnet i filene, profiltypen og plattformen i App Store Connect
 PLATFORMS = [("tvOS", "TVOS_APP_STORE", "TV_OS"), ("iOS", "IOS_APP_STORE", "IOS")]
+# utvidelsene i appen per plattform (app-id og navn): Top Shelf på Apple TV
+EXTENSIONS = {"tvOS": [("no.fyrlys.tv.topshelf", "Fyrlys Top Shelf")]}
 
 
 def env(name):
@@ -115,12 +117,21 @@ def data(kind, attributes, relationships=None):
     return {"data": d}
 
 
-def bundle_id(asc):
-    found = asc.call("GET", f"/v1/bundleIds?filter[identifier]={BUNDLE_ID}&limit=50")
+def bundle_id(asc, identifier=BUNDLE_ID):
+    found = asc.call("GET", f"/v1/bundleIds?filter[identifier]={identifier}&limit=50")
     for row in found.get("data", []):
-        if row["attributes"]["identifier"] == BUNDLE_ID:
+        if row["attributes"]["identifier"] == identifier:
             return row
     return None
+
+
+def ensure_bundle_id(asc, identifier, name):
+    row = bundle_id(asc, identifier)
+    if not row:
+        row = asc.call("POST", "/v1/bundleIds", data("bundleIds", {
+            "identifier": identifier, "name": name, "platform": "IOS"}))["data"]
+        print(f"::notice title=app-id::Registrerte {identifier}")
+    return row
 
 
 def check():
@@ -183,12 +194,14 @@ def ensure_platform(asc, app, platform):
     print(f"La til {platform} i appen i App Store Connect")
 
 
-def export_options(folder, manual_profile=None, file="ExportOptions.plist"):
+def export_options(folder, manual_profile=None, file="ExportOptions.plist", extra=None):
     team = env("APPLE_TEAM_ID")
     if manual_profile:
+        profiles = {BUNDLE_ID: manual_profile, **(extra or {})}
+        entries = "".join(f"<key>{k}</key><string>{v}</string>" for k, v in profiles.items())
         signing = ("<key>signingStyle</key><string>manual</string>"
                    "<key>signingCertificate</key><string>Apple Distribution</string>"
-                   f"<key>provisioningProfiles</key><dict><key>{BUNDLE_ID}</key><string>{manual_profile}</string></dict>")
+                   f"<key>provisioningProfiles</key><dict>{entries}</dict>")
     else:
         signing = "<key>signingStyle</key><string>automatic</string>"
     Path(folder).mkdir(parents=True, exist_ok=True)
@@ -245,18 +258,27 @@ def prepare(folder):
     (folder / "distribution.cer").write_bytes(base64.b64decode(cert["attributes"]["certificateContent"]))
 
     run = f"{os.environ.get('GITHUB_RUN_ID', int(time.time()))}-{os.environ.get('GITHUB_RUN_ATTEMPT', 1)}"
-    for platform, kind, _ in PLATFORMS:
-        name = f"{APP_NAME} CI {run} {platform}"
+
+    def make_profile(bundle_row, name, kind):
         profile = asc.call("POST", "/v1/profiles", data("profiles", {"name": name, "profileType": kind}, {
-            "bundleId": {"data": {"type": "bundleIds", "id": row["id"]}},
+            "bundleId": {"data": {"type": "bundleIds", "id": bundle_row["id"]}},
             "certificates": {"data": [{"type": "certificates", "id": cert["id"]}]},
         }))["data"]
         state["profiles"].append({"id": profile["id"], "name": name})
         save()
         (folder / f"{profile['attributes']['uuid']}.mobileprovision").write_bytes(
             base64.b64decode(profile["attributes"]["profileContent"]))
-        export_options(folder, manual_profile=name, file=f"ExportOptions-{platform}.plist")
         print(f"Laget App Store-profilen «{name}»")
+
+    for platform, kind, _ in PLATFORMS:
+        name = f"{APP_NAME} CI {run} {platform}"
+        make_profile(row, name, kind)
+        extra = {}
+        for identifier, title in EXTENSIONS.get(platform, []):
+            ext_name = f"{name} {identifier.rsplit('.', 1)[-1]}"
+            make_profile(ensure_bundle_id(asc, identifier, title), ext_name, kind)
+            extra[identifier] = ext_name
+        export_options(folder, manual_profile=name, file=f"ExportOptions-{platform}.plist", extra=extra)
 
 
 def rsa_key(source, out):
