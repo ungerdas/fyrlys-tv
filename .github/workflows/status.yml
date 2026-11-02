@@ -11,7 +11,7 @@ permissions:
 jobs:
   status:
     name: Bygg i App Store Connect
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}

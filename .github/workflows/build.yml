@@ -326,7 +326,8 @@ jobs:
   # venter til App Store Connect har begge byggene.
   oppsett:
     name: TestFlight satt opp?
-    runs-on: ubuntu-latest
+    # fast versjon: ubuntu-latest byttes til Ubuntu 26 (og kjernen feilet der 1.11.2026)
+    runs-on: ubuntu-24.04
     outputs:
       klar: ${{ steps.sjekk.outputs.klar }}
     steps:
