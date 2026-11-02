@@ -6,6 +6,8 @@
   iPad-oppsettet når telefonen la seg ned, så filmen ble lukket med en gang den snudde seg, og telefonen reiste seg
   igjen. Nå beholder iPhonen sitt eget oppsett også på tvers, både når filmen legger seg ned av seg selv og når du
   snur telefonen.
+- Filmer og Serier: hentingen av kategoriene (og «Fortsett å se» og radene fra Plex) fortsetter selv om fanen tegnes
+  på nytt imens, i stedet for å bli stående tom eller med «Får ikke kontakt».
 
 ## v0.1.21
 

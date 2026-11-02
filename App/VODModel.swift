@@ -44,6 +44,8 @@ final class VODModel {
 
     @ObservationIgnored private var backend: VODBackend?
     @ObservationIgnored private var generation = 0
+    /// hentingen av kategoriene som pågår (eies av modellen, se `loadCategories`)
+    @ObservationIgnored private var categoriesTask: Task<Void, Never>?
 
     init(kind: VODKind) {
         self.kind = kind
@@ -52,6 +54,8 @@ final class VODModel {
     func reset(_ backend: VODBackend?) {
         generation += 1
         version += 1
+        categoriesTask?.cancel()
+        categoriesTask = nil
         self.backend = backend
         if case .plex = backend { isPlex = true } else { isPlex = false }
         categories = []
@@ -66,9 +70,29 @@ final class VODModel {
         chosen = nil
     }
 
+    /// Henter kategoriene (med Plex også «Fortsett å se» og radene). Hentingen eies av modellen, ikke av fanen som ba om
+    /// den: avbrytes fanens oppgave (fanen tegnes på nytt eller lukkes), fortsetter hentingen, og en ny venter på den.
+    /// Før kunne et avbrudd midt i gi tomme rader (feilene der svelges) eller «Får ikke kontakt», og en ny henting ble
+    /// stoppet av den som pågikk.
     func loadCategories(force: Bool = false) async {
-        guard let backend, !loadingCategories, force || !loaded else { return }
+        guard let backend, force || !loaded else { return }
+        if case .unavailable = backend, force { reconnect?() }
+        if let running = categoriesTask {
+            if !force {
+                await running.value
+                return
+            }
+            running.cancel()
+        }
         let gen = generation
+        let task = Task { await fetchCategories(gen) }
+        categoriesTask = task
+        await task.value
+        if gen == generation, categoriesTask == task { categoriesTask = nil }
+    }
+
+    private func fetchCategories(_ gen: Int) async {
+        guard let backend else { return }
         let found: [ChannelCategory]
         loadingCategories = true
         defer { if gen == generation { loadingCategories = false } }
@@ -80,7 +104,8 @@ final class VODModel {
                 let libraries = try await client.libraries(kind)
                 let resume = (try? await client.continueWatching(kind)) ?? []
                 let home = (try? await client.rows(kind, libraries: libraries.map(\.id))) ?? []
-                guard gen == generation else { return }
+                // avbrutt (en ny henting har tatt over): ikke tomme rader i stedet for dem som kommer
+                guard gen == generation, !Task.isCancelled else { return }
                 continueRow = resume
                 rows = home
                 found = (resume.isEmpty && home.isEmpty ? [] : [ChannelCategory(id: Self.home, name: L("Hjem"))])
@@ -89,16 +114,15 @@ final class VODModel {
                 return
             case .unavailable(let message):
                 error = message
-                if force { reconnect?() }
                 return
             }
-            guard gen == generation else { return }
+            guard gen == generation, !Task.isCancelled else { return }
             categories = found
             loaded = true
             error = nil
             if chosen == nil || !found.contains(where: { $0.id == chosen }) { chosen = found.first?.id }
         } catch {
-            guard gen == generation else { return }
+            guard gen == generation, !Task.isCancelled else { return }
             self.error = error.localizedDescription
         }
     }
@@ -121,7 +145,8 @@ final class VODModel {
             error = nil
         } catch {
             guard gen == generation else { return }
-            self.error = error.localizedDescription
+            // avbrutt fordi siden ble lukket eller tegnet på nytt: ingen feil, den hentes neste gang
+            if !Task.isCancelled { self.error = error.localizedDescription }
         }
         loadingItems.remove(category)
     }

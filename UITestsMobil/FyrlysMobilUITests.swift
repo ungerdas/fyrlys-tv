@@ -63,6 +63,20 @@ final class FyrlysMobilUITests: XCTestCase {
         return find(app, target).waitForExistence(timeout: timeout)
     }
 
+    /// Skriver det som er på skjermen (typen, id-en og teksten til elementene) i loggen («SKJERM:», kommer med i
+    /// utdraget og merknaden når bygget feiler), sammen med et skjermbilde [shotName].
+    func dumpScreen(_ app: XCUIApplication, _ why: String, shotName: String) {
+        shot(shotName)
+        print("SKJERM: \(why)")
+        for line in app.debugDescription.split(separator: "\n") where line.contains("identifier:") || line.contains("label:") {
+            let text = line.trimmingCharacters(in: .whitespaces)
+            let kind = text.split(separator: ",").first.map(String.init) ?? ""
+            let detail = text.range(of: "identifier:").map { String(text[$0.lowerBound...]) }
+                ?? text.range(of: "label:").map { String(text[$0.lowerBound...]) } ?? ""
+            print("SKJERM: \(kind) \(detail)".prefix(300))
+        }
+    }
+
     /// Venter til [element] er borte.
     func gone(_ element: XCUIElement, timeout: TimeInterval) -> Bool {
         let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
@@ -337,7 +351,10 @@ final class FyrlysMobilUITests: XCTestCase {
     /// Plex (koblet til fra før): «Hjem» med radene og «Fortsett å se» fra Plex, og siden for en film med «Fortsett».
     func test18Plex() {
         let app = launch("plex")
-        XCTAssertTrue(find(app, "rad-1001").waitForExistence(timeout: 40), "radene fra Plex kom ikke")
+        if !find(app, "rad-1001").waitForExistence(timeout: 40) {
+            dumpScreen(app, "radene fra Plex kom ikke", shotName: "25-plex-mangler")
+        }
+        XCTAssertTrue(find(app, "rad-1001").exists, "radene fra Plex kom ikke")
         XCTAssertTrue(find(app, "fortsett-1001").exists, "«Fortsett å se» fra Plex mangler")
         wait(2)
         shot("25-plex-hjem")
@@ -350,7 +367,10 @@ final class FyrlysMobilUITests: XCTestCase {
     /// Serier med Plex: radene med nye episoder, og en episode spilles med en gang.
     func test20PlexSerier() {
         let app = launch("plex-series")
-        XCTAssertTrue(find(app, "fortsett-2001").waitForExistence(timeout: 40), "«Fortsett å se» fra Plex kom ikke")
+        if !find(app, "fortsett-2001").waitForExistence(timeout: 40) {
+            dumpScreen(app, "«Fortsett å se» fra Plex kom ikke", shotName: "29-plex-fortsett-mangler")
+        }
+        XCTAssertTrue(find(app, "fortsett-2001").exists, "«Fortsett å se» fra Plex kom ikke")
         let episode = find(app, "rad-e2102")
         if !episode.waitForExistence(timeout: 10) { shot("29-plex-serier-mangler") }
         XCTAssertTrue(episode.waitForExistence(timeout: 20), "radene med episoder fra Plex kom ikke")

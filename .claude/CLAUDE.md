@@ -424,3 +424,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   0.1.22: `usesPhoneLayout(sizeClass)` (HomeView.swift) = iPhone alltid, iPad når den er smal. Simulatoren for iPhone i
   bygget er nå en Pro Max (`tools/simulator.py iOS "iPhone Max"`); før var det en vanlig Pro, der feilen ikke synes.
   `test17Mkv` snur også telefonen for hånd (`XCUIDevice.shared.orientation`, `setUpWithError` setter stående igjen).
+  Bygg 40: `test17Mkv` grønn på Pro Max (filmen blir liggende, også når telefonen snus), men `test18Plex` (to ganger på
+  Pro Max) og `test20PlexSerier` (to ganger på iPhone og iPad; flakset alt i bygg 38–39) fikk ikke «Hjem» fra Plex.
+  Årsaken ikke funnet ennå; `VODModel.loadCategories` er gjort robust mot at fanens `.task` avbrytes (hentingen er en
+  egen `Task` i modellen, `fetchCategories` skriver ikke noe når den er avbrutt), og Plex-testene skriver skjermen i
+  loggen når radene ikke kommer (`dumpScreen`: «SKJERM:»-linjer i utdraget og merknaden, og «NN-plex-mangler»-bilder).

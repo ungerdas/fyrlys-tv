@@ -149,8 +149,8 @@ jobs:
           [ -f "$f" ] || exit 0
           {
             echo "Feil:"
-            grep -E "error:|failed \(|\*\* (BUILD|TEST) FAILED|Testing failed|XCTAssert|Fatal" "$f" \
-              | sed "s#$GITHUB_WORKSPACE/##g" | awk 'length($0) < 600 && !seen[$0]++' | head -n 60
+            grep -E "error:|failed \(|\*\* (BUILD|TEST) FAILED|Testing failed|XCTAssert|Fatal|SKJERM:" "$f" \
+              | sed "s#$GITHUB_WORKSPACE/##g" | awk 'length($0) < 600 && !seen[$0]++' | head -n 90
             echo
             echo "Slutten av loggen:"
             tail -n 25 "$f" | cut -c1-300
@@ -268,7 +268,7 @@ jobs:
           [ -f build/tider.txt ] && cp build/tider.txt build/bilder/
           for f in build/bygg.log build/test-iphone.log build/test-ipad.log; do
             [ -f "$f" ] || continue
-            { echo "== feilene"; grep -E "error:" "$f" | head -n 40; echo
+            { echo "== feilene"; grep -E "error:|SKJERM:" "$f" | head -n 120; echo
               grep -E "error:|warning: .*FyrlysMobil|Test (Case|Suite)|XCTAssert|Failed|failed|STOPPET|t = " "$f" | tail -n 400
               echo; echo "== slutten"; tail -n 120 "$f"; } | sed "s#$GITHUB_WORKSPACE/##g" | cut -c1-400 > "build/bilder/$(basename "$f" .log)-utdrag.txt"
           done
@@ -311,8 +311,8 @@ jobs:
           [ -f "$f" ] || continue
           {
             echo "Feil i $f:"
-            grep -E "error:|failed \(|\*\* (BUILD|TEST) FAILED|Testing failed|XCTAssert|Fatal" "$f" \
-              | sed "s#$GITHUB_WORKSPACE/##g" | awk 'length($0) < 600 && !seen[$0]++' | head -n 60
+            grep -E "error:|failed \(|\*\* (BUILD|TEST) FAILED|Testing failed|XCTAssert|Fatal|SKJERM:" "$f" \
+              | sed "s#$GITHUB_WORKSPACE/##g" | awk 'length($0) < 600 && !seen[$0]++' | head -n 90
             echo
             echo "Slutten av loggen:"
             tail -n 25 "$f" | cut -c1-300
