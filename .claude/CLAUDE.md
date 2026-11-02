@@ -429,3 +429,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Årsaken ikke funnet ennå; `VODModel.loadCategories` er gjort robust mot at fanens `.task` avbrytes (hentingen er en
   egen `Task` i modellen, `fetchCategories` skriver ikke noe når den er avbrutt), og Plex-testene skriver skjermen i
   loggen når radene ikke kommer (`dumpScreen`: «SKJERM:»-linjer i utdraget og merknaden, og «NN-plex-mangler»-bilder).
+  Bygg 41 fikk ingen Mac («not acquired by Runner», startet på nytt med `workflow_dispatch`). Bygg 42: alt grønt, og
+  Plex-testene gikk på første forsøk på iPhone og iPad (ikke bevis for at endringen i `VODModel` var årsaken).
+  `test17Mkv` feilet én gang på «reist opp»: testfilmen er 30 s, og den var ferdig (spilleren lukkes) før sjekken;
+  testen pauser nå før telefonen snus. 0.1.22 (bygg 42) er i TestFlight, VALID for TV_OS og IOS. Ikke prøvd på hans
+  Pro Max ennå.

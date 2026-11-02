@@ -332,7 +332,10 @@ final class FyrlysMobilUITests: XCTestCase {
             wait(3)
             shot("24-mkv-staende")
             XCTAssertTrue(find(app, "vod-spiller").exists, "spilleren ble borte da den ble snudd til stående")
-            // telefonen snus for hånd: filmen blir der
+            // telefonen snus for hånd: filmen blir der. Pause først: testfilmen er bare 30 sekunder, og når den er
+            // ferdig, lukkes spilleren (i bygg 42 skjedde det før den siste sjekken)
+            let pause = find(app, "vod-pause")
+            if pause.exists { pause.tap() }
             XCUIDevice.shared.orientation = .landscapeLeft
             wait(3)
             XCTAssertTrue(find(app, "vod-spiller").exists, "spilleren ble borte da telefonen ble lagt ned")
