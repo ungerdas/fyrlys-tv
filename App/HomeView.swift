@@ -93,7 +93,7 @@ struct HomeView: View {
     @ViewBuilder
     private var content: some View {
         #if os(iOS)
-        if sizeClass == .compact {
+        if usesPhoneLayout(sizeClass) {
             PhoneHome(tab: $tab, path: $path, query: $query, play: play)
         } else {
             tabs
@@ -193,3 +193,12 @@ struct HomeView: View {
         play(channel, model.channels)
     }
 }
+
+#if os(iOS)
+/// Oppsettet for telefon: alltid på iPhone, og på iPad når appen er smal (delt skjerm). Ikke bare etter bredden: de
+/// store iPhonene (Pro Max, Plus, Air) har vanlig bredde på tvers, og da byttet hele oppsettet når telefonen ble lagt
+/// ned, så arket med filmen (og siden den var åpnet fra) ble borte (0.1.19–0.1.21: «tuller med å legge seg ned»).
+func usesPhoneLayout(_ sizeClass: UserInterfaceSizeClass?) -> Bool {
+    UIDevice.current.userInterfaceIdiom == .phone || sizeClass == .compact
+}
+#endif

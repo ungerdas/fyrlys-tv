@@ -75,7 +75,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   øverst med bilde-i-bilde, panel og kanalliste under; liggende iPhone bare bildet; iPad på tvers lista ved siden av;
   alltid mørk; dra bildet ned for å lukke: en `UIPanGestureRecognizer` (`DragDown`) på AVPlayerViewController-visningen
   som bare begynner nedover og virker sammen med AVKit, `offset` på hele spilleren og `presentationBackground(.clear)`
-  på `fullScreenCover`, så TV-siden synes under). iPhone (smal bredde, `HomeView` velger på `horizontalSizeClass`): `PhoneHome.swift` (topplinja med
+  på `fullScreenCover`, så TV-siden synes under). iPhone (alltid på iPhone, også på tvers, og på en smal iPad: `usesPhoneLayout` i `HomeView` og `VODTab`): `PhoneHome.swift` (topplinja med
   fyret, sol/måne og Konto som popover, `TabView` med TV og TV-guide og ikonene tegnet etter nettsiden, `SwipeBackEnabler`
   så sveip tilbake virker med skjult navigasjonslinje), `PhoneTV.swift` (`NavigationStack` med stien i HomeView:
   forsiden med søk, «Nå på favorittene», «Sist sett», flisene; `PhoneShelfPage` med tilbake, pille som åpner
@@ -416,3 +416,11 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `<id>~<nøkkel>`, `source` = leverandørens id, uten logo; `Channel.streamId` brukes for adressen, EPG og arkivet).
   Delte kanaler taper mot ekte når de slås sammen (poeng 4). Testen `testMergingWithCountryLast`. 0.1.21 (bygg 39) er
   i TestFlight, VALID for TV_OS og IOS (fartstesten 15,1 s uten lista fra sist, 4,9 s med). Ikke prøvd på hans enheter.
+- 2.11.2026: «Når jeg forsøker å spille av film/serie, så bare tuller den med å legge seg ned» (iPhone). Årsaken:
+  `HomeView` (og `VODTab`) valgte iPhone- eller iPad-oppsett etter `horizontalSizeClass`, og de store iPhonene (Pro
+  Max, Plus, Air; skjermbildene hans fra iPhone har sidene til en Pro Max eller en Air) har vanlig bredde på tvers. Når spilleren la seg ned
+  (`Landscape.set(true)` fra 0.1.19), byttet hele oppsettet, `PhoneHome` med arket ble revet ned, `onDisappear` snudde
+  telefonen tilbake. Trolig var det også det han mente med «fra stående til liggende funker ikke» i 0.1.17.
+  0.1.22: `usesPhoneLayout(sizeClass)` (HomeView.swift) = iPhone alltid, iPad når den er smal. Simulatoren for iPhone i
+  bygget er nå en Pro Max (`tools/simulator.py iOS "iPhone Max"`); før var det en vanlig Pro, der feilen ikke synes.
+  `test17Mkv` snur også telefonen for hånd (`XCUIDevice.shared.orientation`, `setUpWithError` setter stående igjen).

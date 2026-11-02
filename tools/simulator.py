@@ -3,6 +3,7 @@
 
     python3 tools/simulator.py                       Apple TV 4K   → SIM_ID=…
     python3 tools/simulator.py iOS iPhone IPHONE_ID  en iPhone     → IPHONE_ID=…
+    python3 tools/simulator.py iOS "iPhone Max" IPHONE_ID  en stor iPhone (Pro Max: vanlig bredde på tvers)
     python3 tools/simulator.py iOS iPad IPAD_ID      en iPad (11") → IPAD_ID=…
 """
 import json
@@ -44,7 +45,11 @@ def runtimes(platform, sdk):
 
 
 def preferred(names, kind):
-    """Den vi helst vil ha: Apple TV 4K; en vanlig iPhone (ikke Max, Plus, SE eller mini); en iPad på 11 tommer."""
+    """Den vi helst vil ha: Apple TV 4K; en vanlig iPhone (ikke Max, Plus, SE eller mini), eller en stor («iPhone
+    Max»: Pro Max, ellers Max eller Plus); en iPad på 11 tommer."""
+    if kind == "iPhone Max":
+        return ([n for n in names if "Pro Max" in n] or [n for n in names if re.search(r"Max|Plus", n)]
+                or preferred(names, "iPhone"))
     if kind == "Apple TV":
         return [n for n in names if "4K" in n] or names
     if kind == "iPhone":
@@ -71,7 +76,8 @@ def main():
     runtime = found[-1]
     log(f"Simulator: {platform} {runtime['version']} ({runtime['identifier']})")
     devices = json.loads(run("xcrun", "simctl", "list", "devices", "available", "-j"))["devices"]
-    devices = [d for d in devices.get(runtime["identifier"], []) if kind in d["name"]]
+    family = "iPhone" if kind == "iPhone Max" else kind
+    devices = [d for d in devices.get(runtime["identifier"], []) if family in d["name"]]
     names = preferred([d["name"] for d in devices], kind)
     pick = [d for d in devices if d["name"] in names]
     if pick:
@@ -79,10 +85,10 @@ def main():
         log(f"Bruker {device['name']} ({device['udid']})")
         udid = device["udid"]
     else:
-        types = [t for t in runtime.get("supportedDeviceTypes", []) if kind in t.get("name", "")]
+        types = [t for t in runtime.get("supportedDeviceTypes", []) if family in t.get("name", "")]
         if not types:
             types = [t for t in json.loads(run("xcrun", "simctl", "list", "devicetypes", "-j"))["devicetypes"]
-                     if kind in t.get("name", "")]
+                     if family in t.get("name", "")]
         if not types:
             sys.exit(f"Fant ingen enhetstype for {kind}")
         names = preferred([t["name"] for t in types], kind)

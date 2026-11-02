@@ -12,6 +12,8 @@ final class FyrlysMobilUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        // iPhone: stående (en test som snur telefonen og feiler, skal ikke ta de neste med seg)
+        if !isPad { XCUIDevice.shared.orientation = .portrait }
     }
 
     /// [theme]: mørk som standard, så skjermbildene ikke avhenger av modusen i simulatoren.
@@ -307,13 +309,24 @@ final class FyrlysMobilUITests: XCTestCase {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.28)).tap()
         }
         XCTAssertTrue(find(app, "lukk-vod").waitForExistence(timeout: 5), "kontrollene kom ikke tilbake")
-        // iPhone: spilleren står liggende; knappen snur den til stående
+        // iPhone: spilleren står liggende; knappen snur den til stående. På de store iPhonene (simulatoren er en Pro
+        // Max) byttet hele oppsettet på tvers i 0.1.19–0.1.21, så arket med filmen ble borte med en gang det la seg ned
         if !isPad {
             let rotate = find(app, "snu-skjermen")
             XCTAssertTrue(rotate.exists, "knappen som snur skjermen, mangler")
             rotate.tap()
             wait(3)
             shot("24-mkv-staende")
+            XCTAssertTrue(find(app, "vod-spiller").exists, "spilleren ble borte da den ble snudd til stående")
+            // telefonen snus for hånd: filmen blir der
+            XCUIDevice.shared.orientation = .landscapeLeft
+            wait(3)
+            XCTAssertTrue(find(app, "vod-spiller").exists, "spilleren ble borte da telefonen ble lagt ned")
+            XCTAssertTrue(find(app, "lukk-vod").exists || find(app, "vod-tid").exists, "kontrollene ble borte")
+            shot("24-mkv-snudd")
+            XCUIDevice.shared.orientation = .portrait
+            wait(2)
+            XCTAssertTrue(find(app, "vod-spiller").exists, "spilleren ble borte da telefonen ble reist opp")
         }
         find(app, "lukk-vod").tap()
         let player = find(app, "vod-spiller")

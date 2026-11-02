@@ -194,7 +194,8 @@ jobs:
 
       - name: Finn simulatorene
         run: |
-          python3 tools/simulator.py iOS iPhone IPHONE_ID 2> >(tee build/simulator.log >&2) >> "$GITHUB_ENV"
+          # en stor iPhone: på tvers har den vanlig bredde, og der skjedde feilene i 0.1.19–0.1.21 (eierens telefon)
+          python3 tools/simulator.py iOS "iPhone Max" IPHONE_ID 2> >(tee build/simulator.log >&2) >> "$GITHUB_ENV"
           python3 tools/simulator.py iOS iPad IPAD_ID 2> >(tee -a build/simulator.log >&2) >> "$GITHUB_ENV"
 
       - name: Bygg og test

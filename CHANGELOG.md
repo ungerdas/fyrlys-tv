@@ -1,5 +1,12 @@
 # Endringer
 
+## v0.1.22
+
+- iPhone: filmer og serier spilles igjen. På de store iPhonene (Pro Max, Plus og Air) byttet hele appen til
+  iPad-oppsettet når telefonen la seg ned, så filmen ble lukket med en gang den snudde seg, og telefonen reiste seg
+  igjen. Nå beholder iPhonen sitt eget oppsett også på tvers, både når filmen legger seg ned av seg selv og når du
+  snur telefonen.
+
 ## v0.1.21
 
 - NRK-kanalene slås sammen også når leverandøren har landskoden bak navnet («NRK 1 HD NO», «NRK 1 FHD NO»), og

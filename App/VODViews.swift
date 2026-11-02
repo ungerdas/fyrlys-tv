@@ -49,7 +49,7 @@ struct VODTab: View {
             }
         } else {
             #if os(iOS)
-            if sizeClass == .compact { phone } else { split }
+            if usesPhoneLayout(sizeClass) { phone } else { split }
             #else
             split
             #endif
