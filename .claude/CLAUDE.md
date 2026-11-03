@@ -14,9 +14,10 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Linux: `swift test --package-path Core` (Swift 6.2 ligger i scratchpad-mappen til økta, `swift/usr/bin`, og må
   lastes ned på nytt i en ny økt: swift.org-tarball for Ubuntu 24.04; kjør `swift` fra en mappe som finnes: er
   arbeidsmappen slettet, krasjer swift-driveren med «Illegal instruction»). Appen bygges og testes av GitHub Actions på
-  macOS: `gh run list --repo ungerdas/fyrlys-tv`, `gh run watch <id> --repo ungerdas/fyrlys-tv`. Loggene og
-  artefaktene kan ikke lastes ned herfra; ved feil legger workflowen feilene og slutten av loggen som merknad:
-  `gh api repos/ungerdas/fyrlys-tv/check-runs/<jobb-id>/annotations` (jobb-id fra `gh run view <id> --json jobs`).
+  macOS: `gh run list --repo ungerdas/fyrlys-tv`, `gh run watch <id> --repo ungerdas/fyrlys-tv`. Ved feil legger
+  workflowen feilene og slutten av loggen som merknad: `gh api repos/ungerdas/fyrlys-tv/check-runs/<jobb-id>/annotations`
+  (jobb-id fra `gh run view <id> --json jobs`). Hele loggen for en jobb kan hentes med `gh api
+  repos/ungerdas/fyrlys-tv/actions/jobs/<jobb-id>/logs` (virket 3.11.2026; artefaktene ikke prøvd).
 - **Skjermbilder**: UI-testene (`UITests/FyrlysUITests.swift`) tar bilder i simulatoren, og workflowen legger dem i
   grenen `skjermbilder` (overskrives hver gang); iPhone og iPad (`UITestsMobil/FyrlysMobilUITests.swift`, «NN-iphone-…»
   og «NN-ipad-…») i grenen `skjermbilder-mobil`. Den grunne klonen trenger en refspec:
@@ -485,4 +486,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   hans enheter. Lagt inn etter bygg 43, kommer med neste versjon: feilteksten i spilleren uten «Kanalen kunne ikke
   spilles» to ganger (overskriften sier det), og rødt ikon på «Koble fra Plex» på iPhone/iPad.
 - 3.11.2026 kl. 12: bildet av en annen IPTV-app (serier på iPhone) → 0.1.24, Hjem i Filmer og Serier (se Arkitektur),
-  for både Filmer og Serier og alle enhetene (samme fane i koden); Apple TV og iPad beholder sidemenyen.
+  for både Filmer og Serier og alle enhetene (samme fane i koden); Apple TV og iPad beholder sidemenyen. Bygg 44:
+  alle testene grønne, men TestFlight-jobben stoppet på et tidsavbrudd hos Apple (`POST /v1/profiles`, 60 s). Nå
+  prøver `asc.py` igjen ved tidsavbrudd, brutt forbindelse og 5xx (tre ganger, 90 s), og `make_profile` bruker en
+  profil med samme navn som et forsøk kan ha laget likevel.

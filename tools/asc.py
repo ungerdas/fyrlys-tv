@@ -25,6 +25,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -81,23 +82,36 @@ class Asc:
         self._token = None
         self._made = 0
 
-    def request(self, method, path, body=None):
-        if not self._token or time.time() - self._made > 600:
-            self._token = token(self.key_path, self.key_id, self.issuer)
-            self._made = time.time()
-        data = json.dumps(body).encode() if body is not None else None
-        req = urllib.request.Request(API + path, data=data, method=method, headers={
-            "Authorization": f"Bearer {self._token}", "Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=60) as res:
-                raw = res.read()
-                return res.status, (json.loads(raw) if raw else {})
-        except urllib.error.HTTPError as e:
-            raw = e.read()
+    def request(self, method, path, body=None, tries=3):
+        """Svaret fra App Store Connect. Svarer ikke Apple (tidsavbrudd, brutt forbindelse) eller svarer med 5xx,
+        prøves det igjen (bygg 44 stoppet på et tidsavbrudd da profilen skulle lages)."""
+        for attempt in range(tries):
+            if not self._token or time.time() - self._made > 600:
+                self._token = token(self.key_path, self.key_id, self.issuer)
+                self._made = time.time()
+            data = json.dumps(body).encode() if body is not None else None
+            req = urllib.request.Request(API + path, data=data, method=method, headers={
+                "Authorization": f"Bearer {self._token}", "Content-Type": "application/json"})
+            last = attempt + 1 >= tries
             try:
-                return e.code, json.loads(raw)
-            except ValueError:
-                return e.code, {}
+                with urllib.request.urlopen(req, timeout=90) as res:
+                    raw = res.read()
+                    return res.status, (json.loads(raw) if raw else {})
+            except urllib.error.HTTPError as e:
+                raw = e.read()
+                if e.code in (500, 502, 503, 504) and not last:
+                    print(f"{method} {path.split('?')[0]}: HTTP {e.code}, prøver igjen", file=sys.stderr)
+                    time.sleep(10 * (attempt + 1))
+                    continue
+                try:
+                    return e.code, json.loads(raw)
+                except ValueError:
+                    return e.code, {}
+            except (TimeoutError, ConnectionError, urllib.error.URLError) as e:
+                if last:
+                    sys.exit(f"{method} {path.split('?')[0]}: Apple svarte ikke ({e})")
+                print(f"{method} {path.split('?')[0]}: {e}, prøver igjen", file=sys.stderr)
+                time.sleep(10 * (attempt + 1))
 
     def call(self, method, path, body=None, ok=(200, 201, 204)):
         code, res = self.request(method, path, body)
@@ -260,10 +274,18 @@ def prepare(folder):
     run = f"{os.environ.get('GITHUB_RUN_ID', int(time.time()))}-{os.environ.get('GITHUB_RUN_ATTEMPT', 1)}"
 
     def make_profile(bundle_row, name, kind):
-        profile = asc.call("POST", "/v1/profiles", data("profiles", {"name": name, "profileType": kind}, {
+        code, res = asc.request("POST", "/v1/profiles", data("profiles", {"name": name, "profileType": kind}, {
             "bundleId": {"data": {"type": "bundleIds", "id": bundle_row["id"]}},
             "certificates": {"data": [{"type": "certificates", "id": cert["id"]}]},
-        }))["data"]
+        }))
+        if code in (200, 201):
+            profile = res["data"]
+        else:
+            # et forsøk som gikk ut på tid, kan ha laget profilen likevel (navnet er det samme): bruk den
+            found = asc.call("GET", "/v1/profiles?filter[name]=" + urllib.parse.quote(name)).get("data", [])
+            if not found:
+                sys.exit(f"POST /v1/profiles: HTTP {code} {errors(res)}")
+            profile = found[0]
         state["profiles"].append({"id": profile["id"], "name": name})
         save()
         (folder / f"{profile['attributes']['uuid']}.mobileprovision").write_bytes(
