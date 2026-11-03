@@ -489,4 +489,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   for både Filmer og Serier og alle enhetene (samme fane i koden); Apple TV og iPad beholder sidemenyen. Bygg 44:
   alle testene grønne, men TestFlight-jobben stoppet på et tidsavbrudd hos Apple (`POST /v1/profiles`, 60 s). Nå
   prøver `asc.py` igjen ved tidsavbrudd, brutt forbindelse og 5xx (tre ganger, 90 s), og `make_profile` bruker en
-  profil med samme navn som et forsøk kan ha laget likevel.
+  profil med samme navn som et forsøk kan ha laget likevel. 0.1.24 (bygg 45) er i TestFlight, VALID for TV_OS og IOS;
+  alle UI-testene grønne. Ikke prøvd på hans enheter: bakgrunnsbildene fra Plex i «Fortsett å se», «Se alle» på
+  radene hans, søket mot hans Plex og leverandøren (alle seriene i ett svar), favorittene via iCloud.
