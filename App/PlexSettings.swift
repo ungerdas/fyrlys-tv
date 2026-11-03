@@ -121,6 +121,8 @@ struct PlexSettings: View {
         return Button(role: role, action: action) {
             Label(title, systemImage: icon)
         }
+        // ikonet i samme røde som teksten (ellers fikk det aksentfargen)
+        .tint(role == .destructive ? Color.red : nil)
         .accessibilityIdentifier(id)
         #endif
     }
