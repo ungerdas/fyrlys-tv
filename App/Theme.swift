@@ -112,6 +112,16 @@ enum Metrics {
     static let detailPoster: CGFloat = 340
     static let detailTitle: CGFloat = 52
     static let detailText: CGFloat = 26
+    // Hjem i Filmer og Serier: radene, plakatene i dem og «Fortsett å se» (bredbilder)
+    static let homeGap: CGFloat = 40
+    static let rowPoster: CGFloat = 230
+    static let resumeWidth: CGFloat = 470
+    static let resumeBar: CGFloat = 6
+    static let resumeBarInset: CGFloat = 16
+    static let posterRadius: CGFloat = 16
+    static let shelfTitle: CGFloat = 30
+    static let shelfTitleGap: CGFloat = 4
+    static let shelfPad: CGFloat = 14
     // Fyrlys-merket øverst til venstre: bunnen står [brandGap] over sidemenyen, så det er på linje med fanelinja
     static let brandMark: CGFloat = 54
     static let brandFont: CGFloat = 34
@@ -158,6 +168,16 @@ enum Metrics {
     static let detailPoster: CGFloat = 120
     static let detailTitle: CGFloat = 22
     static let detailText: CGFloat = 15
+    // Hjem i Filmer og Serier: radene, plakatene i dem og «Fortsett å se» (bredbilder, som i IPTV-appene)
+    static let homeGap: CGFloat = 26
+    static let rowPoster: CGFloat = 134
+    static let resumeWidth: CGFloat = 272
+    static let resumeBar: CGFloat = 4
+    static let resumeBarInset: CGFloat = 12
+    static let posterRadius: CGFloat = 12
+    static let shelfTitle: CGFloat = 22
+    static let shelfTitleGap: CGFloat = 8
+    static let shelfPad: CGFloat = 2
     #endif
 }
 

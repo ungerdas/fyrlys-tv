@@ -63,6 +63,16 @@ final class FyrlysMobilUITests: XCTestCase {
         return find(app, target).waitForExistence(timeout: timeout)
     }
 
+    /// Tilbake fra en side i navigasjonen (knappen oppe til venstre, ellers et sveip fra kanten), til [target].
+    func goBack(_ app: XCUIApplication, to target: String) -> Bool {
+        let back = app.navigationBars.buttons.element(boundBy: 0)
+        if back.exists { back.tap() }
+        if find(app, target).waitForExistence(timeout: 5) { return true }
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)))
+        return find(app, target).waitForExistence(timeout: 5)
+    }
+
     /// Skriver det som er på skjermen (typen, id-en og teksten til elementene) i loggen («SKJERM:», kommer med i
     /// utdraget og merknaden når bygget feiler), sammen med et skjermbilde [shotName].
     func dumpScreen(_ app: XCUIApplication, _ why: String, shotName: String) {
@@ -273,10 +283,12 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("20-film-spiller")
     }
 
-    /// Serier: siden for en serie med sesongene og episodene.
+    /// Serier: Hjem med kategorien som rad, siden for en serie med sesongene og episodene, stjernen (serien står så
+    /// under «Favoritter» på Hjem) og søket.
     func test14Serier() {
         let app = launch("series")
         XCTAssertTrue(find(app, "vod-9001").waitForExistence(timeout: 30), "seriene kom ikke")
+        XCTAssertTrue(find(app, "vod-hjem").exists, "Hjem står ikke først")
         XCTAssertTrue(openPage(app, "vod-9001", then: "episode-900111", timeout: 15), "episodene kom ikke")
         XCTAssertTrue(find(app, "sesong-2").exists, "sesong 2 mangler")
         let next = find(app, "fortsett-serie")
@@ -284,6 +296,27 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(next.label.contains("S1 E1"), "første episode skulle stå på knappen: \(next.label)")
         wait(2)
         shot("21-serie")
+        // stjernen oppe til høyre (finnes den ikke på id-en i verktøylinja, så på teksten)
+        var star = find(app, "vod-favoritt")
+        if !star.waitForExistence(timeout: 5) { star = app.buttons["Legg til i favoritter"] }
+        XCTAssertTrue(star.exists, "stjernen mangler")
+        star.tap()
+        wait(1)
+        XCTAssertTrue(goBack(app, to: "vod-hjem"), "kom ikke tilbake til Hjem")
+        let favorite = find(app, "vodfav-9001")
+        if !favorite.waitForExistence(timeout: 10) {
+            dumpScreen(app, "serien står ikke under «Favoritter»", shotName: "32-favoritt-mangler")
+        }
+        XCTAssertTrue(favorite.exists, "serien står ikke under «Favoritter» på Hjem")
+        wait(1)
+        shot("32-serier-hjem")
+        let search = find(app, "vod-sok")
+        XCTAssertTrue(search.exists, "søket mangler")
+        search.tap()
+        search.typeText("lose")
+        XCTAssertTrue(find(app, "sok-9001").waitForExistence(timeout: 15), "søket fant ikke serien")
+        wait(1)
+        shot("33-sok-serier")
     }
 
     /// TV-arkivet for en kanal: dagene og programmene.
@@ -366,6 +399,12 @@ final class FyrlysMobilUITests: XCTestCase {
         wait(2)
         XCTAssertTrue(find(app, "spill-av").label.contains("0:12"), "«Fortsett» der Plex sier du slapp mangler")
         shot("26-plex-film")
+        // «Se alle» for «Nylig lagt til»: hele raden fra Plex (med filmen som ikke står i raden)
+        XCTAssertTrue(goBack(app, to: "vod-hjem"), "kom ikke tilbake til Hjem")
+        XCTAssertTrue(openPage(app, "se-alle-home.recentlyAdded", then: "alle-1003", timeout: 15),
+                      "«Se alle» viste ikke hele raden")
+        wait(1)
+        shot("34-plex-se-alle")
     }
 
     /// Serier med Plex: radene med nye episoder, og en episode spilles med en gang.

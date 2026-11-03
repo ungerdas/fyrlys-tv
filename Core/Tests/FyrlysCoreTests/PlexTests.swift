@@ -112,13 +112,42 @@ final class PlexTests: XCTestCase {
         let deck = container("""
         {"MediaContainer": {"Metadata": [
           {"ratingKey": "301", "type": "episode", "title": "Utløpet", "grandparentRatingKey": "201",
-           "grandparentTitle": "Losene", "grandparentThumb": "/library/metadata/201/thumb/1"},
+           "grandparentTitle": "Losene", "grandparentThumb": "/library/metadata/201/thumb/1",
+           "grandparentArt": "/library/metadata/201/art/1", "parentIndex": 1, "index": 3,
+           "viewOffset": 600000, "duration": 2400000},
           {"ratingKey": "305", "type": "episode", "title": "Hjem", "grandparentRatingKey": "201",
            "grandparentTitle": "Losene"},
-          {"ratingKey": "101", "type": "movie", "title": "Fyret"}]}}
+          {"ratingKey": "101", "type": "movie", "title": "Fyret", "thumb": "/library/metadata/101/thumb/1"}]}}
         """)
-        XCTAssertEqual(parseContinue(deck, kind: .series, client: client).map(\.id), ["201"])
-        XCTAssertEqual(parseContinue(deck, kind: .movies, client: client).map(\.name), ["Fyret"])
+        let series = parseContinue(deck, kind: .series, client: client)
+        XCTAssertEqual(series.map(\.id), ["201"])
+        XCTAssertEqual(series[0].item.name, "Losene")
+        XCTAssertEqual(series[0].episode?.id, "301")
+        XCTAssertEqual(series[0].episode?.season, 1)
+        XCTAssertEqual(series[0].episode?.number, 3)
+        XCTAssertEqual(series[0].progress, 0.25, accuracy: 0.001)
+        // bakgrunnen til serien i bredformat
+        XCTAssertTrue(series[0].image?.contains("art") == true, series[0].image ?? "")
+        XCTAssertTrue(series[0].image?.contains("width=640") == true, series[0].image ?? "")
+        let movies = parseContinue(deck, kind: .movies, client: client)
+        XCTAssertEqual(movies.map(\.item.name), ["Fyret"])
+        XCTAssertNil(movies[0].episode)
+        XCTAssertEqual(movies[0].progress, 0)
+        XCTAssertTrue(movies[0].image?.contains("thumb") == true, "uten bakgrunn: plakaten")
+    }
+
+    /// Søket: filmene eller seriene i treffene, ikke episodene og skuespillerne.
+    func testSearch() {
+        let result = container("""
+        {"MediaContainer": {"Hub": [
+          {"type": "movie", "Metadata": [{"ratingKey": "101", "type": "movie", "title": "Fyret", "year": 2021}]},
+          {"type": "show", "Metadata": [{"ratingKey": "201", "type": "show", "title": "Losene", "leafCount": 2}]},
+          {"type": "episode", "Metadata": [{"ratingKey": "301", "type": "episode", "title": "Fyret i tåka"}]},
+          {"type": "actor", "Directory": [{"tag": "Kari Fyr"}]}]}}
+        """)
+        XCTAssertEqual(parseSearch(result, kind: .movies, client: client).map(\.id), ["101"])
+        XCTAssertEqual(parseSearch(result, kind: .series, client: client).map(\.name), ["Losene"])
+        XCTAssertTrue(parseSearch(container(#"{"MediaContainer": {}}"#), kind: .movies, client: client).isEmpty)
     }
 
     /// Radene på Hjem: filmer og serier for hver sin fane, episodene med serien sin, uten «Fortsett å se».
@@ -132,7 +161,8 @@ final class PlexTests: XCTestCase {
              "grandparentRatingKey": "201", "grandparentTitle": "Losene", "grandparentThumb": "/t/201",
              "Media": [{"Part": [{"key": "/library/parts/32/1/file.mkv", "container": "mkv"}]}]},
             {"ratingKey": "303", "type": "episode", "title": "Uten serie"}]},
-          {"title": "Nylig lagt til", "hubIdentifier": "home.recentlyAdded", "type": "mixed", "Metadata": [
+          {"title": "Nylig lagt til", "hubIdentifier": "home.recentlyAdded", "type": "mixed",
+           "key": "/hubs/home/recentlyAdded?type=1", "more": true, "Metadata": [
             {"ratingKey": "102", "type": "movie", "title": "Fjorden", "year": 2020},
             {"ratingKey": "401", "type": "season", "title": "Sesong 2", "parentRatingKey": "202",
              "parentTitle": "Havet", "parentThumb": "/t/202"}]},
@@ -146,8 +176,13 @@ final class PlexTests: XCTestCase {
         XCTAssertEqual(series[0].items[0].episode?.fileKey, "/library/parts/32/1/file.mkv")
         XCTAssertEqual(series[0].items[0].episode?.progressKey, "plex:302")
         XCTAssertEqual(series[1].items.map(\.item.name), ["Havet"])
+        XCTAssertNil(series[0].key)
+        XCTAssertFalse(series[0].more)
         let movies = parseHubs(hubs, kind: .movies, client: client)
         XCTAssertEqual(movies.map(\.title), ["Nylig lagt til"])
+        // «Se alle»: adressen til hele raden
+        XCTAssertEqual(movies[0].key, "/hubs/home/recentlyAdded?type=1")
+        XCTAssertTrue(movies[0].more)
         XCTAssertEqual(movies[0].items.map(\.id), ["102"])
         XCTAssertNil(movies[0].items[0].episode)
     }

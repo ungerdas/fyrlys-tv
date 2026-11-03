@@ -380,19 +380,24 @@ private struct HeadClock: View {
     }
 }
 
-/// Søkefeltet øverst på TV-siden.
-private struct SearchField: View {
+/// Søkefeltet øverst på TV-siden (og i Filmer og Serier).
+struct SearchField: View {
     @Binding var text: String
+    var prompt = L("Søk etter kanal")
+    var id = "sok"
 
     var body: some View {
         HStack(spacing: 8) {
-            TextField("", text: $text, prompt: Text(L("Søk etter kanal")).foregroundStyle(Theme.muted))
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Theme.muted)
+            TextField("", text: $text, prompt: Text(prompt).foregroundStyle(Theme.muted))
                 .font(.system(size: 16))
                 .foregroundStyle(Theme.ink)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
-                .accessibilityIdentifier("sok")
+                .accessibilityIdentifier(id)
             if !text.isEmpty {
                 Button {
                     text = ""

@@ -250,6 +250,27 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   «Hjemmekino» med en lokal tilkobling som ikke svarer og en som gjør det, filmene 1001–1003, serien 2001), og
   testskjermene `plex`/`plex-series` (koblet til fra før) og `plex-link`; testene `test17Plex`/`test18PlexKobling`
   (Apple TV) og `test18Plex`/`test19PlexKobling` (iPhone og iPad). Ikke prøvd mot en ekte Plex-server ennå.
+- **Hjem i Filmer og Serier fra 0.1.24** (eieren 3.11 med et bilde av en IPTV-app på iPhone: «Ønsker litt denne
+  stilen på serier fanen»: «Continue watching» med bredbilder og framdrift, «Favorites», «Recently added» med «view
+  all», søkefelt øverst): `App/VODHome.swift` (erstatter `PlexHome.swift`): `VODHomeView` for begge kildene, alltid
+  først (`VODModel.home` står først i kategoriene når det finnes noen, også hos IPTV-leverandøren, og er valgt fra
+  start): «Fortsett å se» (`ResumeCard`, 16:9 med `ResumeBar`, «S1 E3 · tittel»; `fortsett-<id>`; en episode spilles
+  med en gang, en film åpner siden), «Favoritter» (`vodfav-<id>`), så radene fra Plex (`rad-…`, «Se alle»
+  `se-alle-<hub>` → `VODRowPage` `vod-rad` med `alle-<id>`, når huben har `key` og `more`) eller kategoriene hos
+  leverandøren som rader (`CategoryShelf`, hentes når raden vises, 20 plakater `vod-<id>`, «Se alle» `se-alle-<id>`
+  velger kategorien). `VODShelf` (tittel, «Se alle», rad), `VODPosterLink` (plakat med hurtigmeny: favoritt),
+  `FavoriteToggle`. Kjernen: `VODResume` (Codable: filmen/serien, `Episode` (nå Codable), `progress` 0–1, `image`),
+  Plex `parseContinue` → `[VODResume]` (`grandparentArt`/`art`/`thumb` i 640×360, `viewOffset/duration`),
+  `items(ids:)` (`/library/metadata/1,2`), `search` (`/hubs/search`, `parseSearch`), `rowItems` (huben sin `key`),
+  `VODRow.key`/`more`; Xtream `allVODItems` (uten kategori) og `searchVOD`. «Fortsett å se» fra leverandøren lagres
+  som `[VODResume]` (`fortsett@…`; den gamle `[VODItem]` leses fortsatt) av `VODPlayerModel.save` med episoden og
+  bildet fra `VODPlay.episode`/`image` (ferdig episode: serien uten episode). Favorittene: `AppModel.vodFavorites/
+  isVODFavorite/toggleVODFavorite`, JSON per linje i `vodFavorites@<innlogging>@<movies|series>` eller
+  `vodFavorites@plex:<server>@…` (Plex uten plakaten; `VODModel.refreshFavorites` henter dem fra serveren), delt i
+  iCloud (`CloudStore.shared`). Stjernen på siden: `vod-favoritt` (verktøylinja på iPhone/iPad, ved knappene på Apple
+  TV). Søket (iPhone og iPad): `SearchField` (fra `PhoneTV.swift`, nå med `prompt`/`id`) `vod-sok` under menyen
+  (iPad over siden), `VODSearchResults` (`sok-<id>`). Plakatene på iPhone/iPad: teksten under bildet (`PosterCard`;
+  på Apple TV som før). Mål: `Metrics.rowPoster`, `resumeWidth`, `shelfTitle` …
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -463,3 +484,5 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (`test19PlexKobling` på iPad på andre forsøk), fartstesten 5,6 s uten lista fra sist og 4,9 s med. Ikke prøvd på
   hans enheter. Lagt inn etter bygg 43, kommer med neste versjon: feilteksten i spilleren uten «Kanalen kunne ikke
   spilles» to ganger (overskriften sier det), og rødt ikon på «Koble fra Plex» på iPhone/iPad.
+- 3.11.2026 kl. 12: bildet av en annen IPTV-app (serier på iPhone) → 0.1.24, Hjem i Filmer og Serier (se Arkitektur),
+  for både Filmer og Serier og alle enhetene (samme fane i koden); Apple TV og iPad beholder sidemenyen.

@@ -239,4 +239,12 @@ public let english: [String: String] = [
     "Avspillingen stoppet ved {time}. Prøv igjen for å fortsette der.":
         "Playback stopped at {time}. Try again to continue from there.",
     "Velg Plex-serveren under Innstillinger.": "Choose the Plex server in Settings.",
+    // Hjem i Filmer og Serier, favoritter og søk (0.1.24)
+    "Se alle": "See all",
+    "Søk i filmer": "Search movies",
+    "Søk i serier": "Search series",
+    "Fjern fra «Fortsett å se»": "Remove from “Continue watching”",
+    "Her kommer det du har begynt på, og favorittene dine (hold inne på en plakat).":
+        "What you have started, and your favorites (press and hold a poster), will show up here.",
+    "Søket virket ikke akkurat nå. Prøv igjen.": "Search didn't work right now. Try again.",
 ]

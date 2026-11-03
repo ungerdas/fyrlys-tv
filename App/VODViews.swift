@@ -4,15 +4,18 @@ import SwiftUI
 
 // ── fanen ──
 
-/// Fanen Filmer eller Serier: kategoriene (sidemeny på Apple TV og iPad, en meny øverst på iPhone) og plakatene. En
-/// film eller serie åpnes som egen side (Menu eller tilbake går tilbake).
+/// Fanen Filmer eller Serier: «Hjem» og kategoriene (sidemeny på Apple TV og iPad, en meny øverst på iPhone, med
+/// søket under på iPhone og iPad) og plakatene. En film eller serie åpnes som egen side (Menu eller tilbake går
+/// tilbake).
 struct VODTab: View {
     @Environment(AppModel.self) private var app
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
+    /// søket i filmene eller seriene
+    @State private var query = ""
     #endif
     let kind: VODKind
-    @State private var path: [VODItem] = []
+    @State private var path = NavigationPath()
 
     private var model: VODModel { kind == .movies ? app.movies : app.series }
 
@@ -27,6 +30,10 @@ struct VODTab: View {
                 #endif
                 .navigationDestination(for: VODItem.self) { item in
                     VODDetailView(item: item)
+                }
+                // «Se alle» for en rad fra Plex
+                .navigationDestination(for: VODRow.self) { row in
+                    VODRowPage(model: model, row: row)
                 }
         }
         // på nytt når kilden byttes (en annen innlogging, eller Plex)
@@ -89,8 +96,18 @@ struct VODTab: View {
                 .fill(Theme.line)
                 .frame(width: 1)
                 .padding(.vertical, 12)
+            #if os(iOS)
+            VStack(spacing: 0) {
+                searchField
+                    .padding(.horizontal, Metrics.pagePadding)
+                    .padding(.top, 10)
+                    .padding(.bottom, 6)
+                pageOrResults(showsTitle: true)
+            }
+            #else
             page(showsTitle: true)
                 .tvFocusSection()
+            #endif
         }
         #if os(tvOS)
         .padding(.horizontal, Theme.edge)
@@ -126,60 +143,53 @@ struct VODTab: View {
             }
             .accessibilityIdentifier("vod-kategori")
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            page(showsTitle: false)
+            .padding(.top, 8)
+            searchField
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+            pageOrResults(showsTitle: false)
+        }
+    }
+
+    private var searching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    /// Søket i filmene eller seriene (en annen kategori tømmer det).
+    private var searchField: some View {
+        SearchField(text: $query, prompt: kind == .movies ? L("Søk i filmer") : L("Søk i serier"), id: "vod-sok")
+            .onChange(of: model.chosen) { query = "" }
+    }
+
+    @ViewBuilder
+    private func pageOrResults(showsTitle: Bool) -> some View {
+        if searching {
+            VODSearchResults(model: model, query: query.trimmingCharacters(in: .whitespaces))
+        } else {
+            page(showsTitle: showsTitle)
         }
     }
     #endif
 
-    /// Plakatene i kategorien, eller «Hjem» med radene fra Plex.
+    /// Plakatene i kategorien, eller «Hjem» med «Fortsett å se», favorittene og radene.
     @ViewBuilder
     private func page(showsTitle: Bool) -> some View {
         if model.chosen == VODModel.home {
-            PlexHomeView(model: model) { path.append($0) }
+            VODHomeView(model: model) { path.append($0) }
         } else {
             PosterGrid(model: model, category: model.chosen, showsTitle: showsTitle)
         }
     }
 }
 
-/// Plakatene i en kategori (hentes når kategorien velges), med «Fortsett å se» øverst.
+/// Plakatene i en kategori (hentes når kategorien velges); «Fortsett å se» og favorittene står på Hjem.
 private struct PosterGrid: View {
-    @Environment(AppModel.self) private var app
     let model: VODModel
     let category: String?
     var showsTitle = true
 
     var body: some View {
         let items = category.flatMap { model.items[$0] }
-        let resume = model.isPlex ? model.continueRow : app.continueItems(model.kind)
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                if !resume.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(L("Fortsett å se"))
-                            .font(.system(size: Metrics.rowTitle, weight: .bold))
-                            .foregroundStyle(Theme.ink)
-                        ScrollView(.horizontal) {
-                            LazyHStack(alignment: .top, spacing: Metrics.posterGap) {
-                                ForEach(resume) { item in
-                                    NavigationLink(value: item) {
-                                        PosterCard(item: item)
-                                    }
-                                    .posterButtonStyle()
-                                    .frame(width: Metrics.posterMin)
-                                    .accessibilityIdentifier("fortsett-\(item.id)")
-                                }
-                            }
-                            .padding(.vertical, 12)
-                        }
-                        .scrollIndicators(.never)
-                        #if os(tvOS)
-                        .scrollClipDisabled()
-                        .focusSection()
-                        #endif
-                    }
-                }
                 if showsTitle {
                     HStack(alignment: .firstTextBaseline, spacing: 20) {
                         Text(model.name(category))
@@ -204,11 +214,7 @@ private struct PosterGrid: View {
                                                      alignment: .top)],
                                   alignment: .leading, spacing: Metrics.posterGap + 8) {
                             ForEach(items) { item in
-                                NavigationLink(value: item) {
-                                    PosterCard(item: item)
-                                }
-                                .posterButtonStyle()
-                                .accessibilityIdentifier("vod-\(item.id)")
+                                VODPosterLink(item: item, id: "vod-\(item.id)")
                             }
                         }
                     }
@@ -240,60 +246,79 @@ private struct PosterGrid: View {
 }
 
 /// Plakaten med tittel, år og terningkast; for en episode (radene fra Plex) seriens plakat med serien, episoden og
-/// sesong og nummer.
+/// sesong og nummer. På iPhone og iPad står teksten under bildet (som i Plex og IPTV-appene), på Apple TV i kortet.
 struct PosterCard: View {
     let item: VODItem
     var episode: Episode?
 
     var body: some View {
+        #if os(tvOS)
         VStack(alignment: .leading, spacing: 0) {
-            Color.clear
-                .aspectRatio(2 / 3, contentMode: .fit)
-                .overlay {
-                    RemoteImage(url: item.poster.flatMap { URL(string: $0) }, fill: true) {
-                        ZStack {
-                            LinearGradient(colors: [Theme.surface2, Theme.logoBg], startPoint: .top, endPoint: .bottom)
-                            Text(item.name)
-                                .font(.system(size: Metrics.posterTitle + 2, weight: .bold))
-                                .foregroundStyle(Theme.ink2)
-                                .multilineTextAlignment(.center)
-                                .padding(10)
-                        }
-                    }
-                }
-                .clipped()
-                .overlay(alignment: .topTrailing) {
-                    if episode?.watched ?? (item.watched == true) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .symbolRenderingMode(.palette)
-                            .font(.system(size: Metrics.posterTitle + 6, weight: .semibold))
-                            .foregroundStyle(Theme.signalInk, Theme.signal)
-                            .padding(8)
-                            .accessibilityLabel(L("Sett"))
-                    }
-                }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.name)
-                    .font(.system(size: Metrics.posterTitle, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(episode == nil ? 2 : 1, reservesSpace: true)
-                    .multilineTextAlignment(.leading)
-                if let episode {
-                    Text(episode.title)
-                        .font(.system(size: Metrics.posterTitle - 2))
-                        .foregroundStyle(Theme.ink2)
-                        .lineLimit(1)
-                }
-                Text(verbatim: meta)
-                    .font(.system(size: Metrics.posterTitle - 3))
-                    .foregroundStyle(Theme.muted)
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            image
+            text
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
         }
         .background(Theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        #else
+        VStack(alignment: .leading, spacing: 7) {
+            image
+                .clipShape(RoundedRectangle(cornerRadius: Metrics.posterRadius, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Metrics.posterRadius, style: .continuous)
+                    .strokeBorder(Theme.line, lineWidth: 0.5))
+            text
+        }
+        .contentShape(Rectangle())
+        #endif
+    }
+
+    private var image: some View {
+        Color.clear
+            .aspectRatio(2 / 3, contentMode: .fit)
+            .overlay {
+                RemoteImage(url: item.poster.flatMap { URL(string: $0) }, fill: true) {
+                    ZStack {
+                        LinearGradient(colors: [Theme.surface2, Theme.logoBg], startPoint: .top, endPoint: .bottom)
+                        Text(item.name)
+                            .font(.system(size: Metrics.posterTitle + 2, weight: .bold))
+                            .foregroundStyle(Theme.ink2)
+                            .multilineTextAlignment(.center)
+                            .padding(10)
+                    }
+                }
+            }
+            .clipped()
+            .overlay(alignment: .topTrailing) {
+                if episode?.watched ?? (item.watched == true) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .symbolRenderingMode(.palette)
+                        .font(.system(size: Metrics.posterTitle + 6, weight: .semibold))
+                        .foregroundStyle(Theme.signalInk, Theme.signal)
+                        .padding(8)
+                        .accessibilityLabel(L("Sett"))
+                }
+            }
+    }
+
+    private var text: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(item.name)
+                .font(.system(size: Metrics.posterTitle, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+                .lineLimit(episode == nil ? 2 : 1, reservesSpace: true)
+                .multilineTextAlignment(.leading)
+            if let episode {
+                Text(episode.title)
+                    .font(.system(size: Metrics.posterTitle - 2))
+                    .foregroundStyle(Theme.ink2)
+                    .lineLimit(1)
+            }
+            Text(verbatim: meta)
+                .font(.system(size: Metrics.posterTitle - 3))
+                .foregroundStyle(Theme.muted)
+                .lineLimit(1)
+        }
     }
 
     private var meta: String {
@@ -383,9 +408,33 @@ struct VODDetailView: View {
         }
         .navigationTitle(item.name)
         .navigationBarTitleDisplayMode(.inline)
+        // stjernen oppe til høyre (ved siden av «Spill av» var det ikke plass på iPhone)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                favoriteButton
+            }
+        }
         #endif
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("vod-side")
+    }
+
+    /// Favoritt eller ikke (filmen eller serien står da under «Favoritter» på Hjem).
+    private var favoriteButton: some View {
+        let favorite = app.isVODFavorite(item)
+        return Button {
+            app.toggleVODFavorite(item)
+        } label: {
+            #if os(tvOS)
+            Label(favorite ? L("Favoritt") : L("Legg til i favoritter"), systemImage: favorite ? "star.fill" : "star")
+            #else
+            Image(systemName: favorite ? "star.fill" : "star")
+                .foregroundStyle(favorite ? Theme.signal : Theme.ink)
+            #endif
+        }
+        .accessibilityLabel(favorite ? L("Fjern fra favoritter") : L("Legg til i favoritter"))
+        .accessibilityValue(favorite ? L("Favoritt") : "")
+        .accessibilityIdentifier("vod-favoritt")
     }
 
     private var header: some View {
@@ -427,6 +476,17 @@ struct VODDetailView: View {
                 } else {
                     ProgressView()
                 }
+                #if os(tvOS)
+                HStack(spacing: 24) {
+                    if item.kind == .movies {
+                        movieButtons
+                    } else if let details, let next = nextEpisode(details) {
+                        seriesButton(next)
+                    }
+                    favoriteButton
+                }
+                .padding(.top, 10)
+                #else
                 if item.kind == .movies {
                     movieButtons
                         .padding(.top, 10)
@@ -434,6 +494,7 @@ struct VODDetailView: View {
                     seriesButton(next)
                         .padding(.top, 10)
                 }
+                #endif
             }
         }
     }
@@ -609,7 +670,7 @@ struct VODDetailView: View {
         guard !urls.isEmpty else { return }
         playing = VODPlay(id: item.progressKey, urls: urls, title: item.name, subtitle: meta,
                           progressKey: item.progressKey, start: seconds, item: item,
-                          plex: item.isPlex ? item.id : nil)
+                          plex: item.isPlex ? item.id : nil, image: details?.backdrop)
     }
 
     private func play(_ episode: Episode) {
@@ -618,7 +679,8 @@ struct VODDetailView: View {
         let subtitle = L("Sesong {s}, episode {e}", ["s": episode.season, "e": episode.number]) + ": " + episode.title
         playing = VODPlay(id: episode.progressKey, urls: urls, title: item.name, subtitle: subtitle,
                           progressKey: episode.progressKey, start: app.progress(episode.progressKey), item: item,
-                          plex: episode.source == "plex" ? episode.id : nil)
+                          plex: episode.source == "plex" ? episode.id : nil, episode: episode,
+                          image: details?.backdrop ?? episode.image)
     }
 }
 
@@ -747,6 +809,10 @@ struct VODPlay: Identifiable {
     var item: VODItem?
     /// Plex: ratingKey for filmen eller episoden (hvor langt du har sett, sendes til Plex)
     var plex: String?
+    /// episoden (til «Fortsett å se»)
+    var episode: Episode?
+    /// et bredt bilde til «Fortsett å se» (bakgrunnen til filmen eller serien)
+    var image: String?
 
     /// Et program fra TV-arkivet, fra start.
     static func archive(_ channel: Channel, _ program: Program, client: XtreamClient, clock: TimeInterval?) -> VODPlay {
@@ -946,11 +1012,21 @@ final class VODPlayerModel {
             app.setProgress(play.progressKey, nil)
             // Plex husker selv hva som er sett (og der kan det merkes som usett igjen)
             if play.plex == nil { app.setFinished(play.progressKey) }
-            // en ferdig film tas ut av «Fortsett å se» (en serie står til neste episode)
-            if let item = play.item, item.kind == .movies, !item.isPlex { app.forgetContinue(item) }
+            // en ferdig film tas ut av «Fortsett å se»; en serie står (uten episoden: siden viser den neste)
+            if let item = play.item, !item.isPlex {
+                if item.kind == .movies {
+                    app.forgetContinue(item)
+                } else {
+                    app.rememberContinue(VODResume(item: item, image: play.image))
+                }
+            }
         } else {
             app.setProgress(play.progressKey, t)
-            if let item = play.item, !item.isPlex { app.rememberContinue(item) }
+            if let item = play.item, !item.isPlex {
+                let progress = duration.isFinite && duration > 0 ? min(1, t / duration) : 0
+                app.rememberContinue(VODResume(item: item, episode: play.episode, progress: progress,
+                                               image: play.image))
+            }
         }
         if let key = play.plex, !(scrobbled && final) {
             let state: PlexClient.PlayState = final ? .stopped : (paused ? .paused : .playing)

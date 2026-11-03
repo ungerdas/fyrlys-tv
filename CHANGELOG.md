@@ -1,5 +1,19 @@
 # Endringer
 
+## v0.1.24
+
+- Filmer og Serier har fått en ny «Hjem» øverst, i stilen fra IPTV-appene:
+  - «Fortsett å se» med store bredbilder, hvor langt du har kommet (streken nederst) og hvilken episode du er på
+    («S1 E3»). Trykk på en episode, så spilles den der du slapp; hold inne for serien.
+  - «Favoritter»: stjernen på siden for en film eller serie (oppe til høyre på iPhone og iPad), eller hold inne på en
+    plakat. Favorittene deles mellom iPhone, iPad og Apple TV med iCloud.
+  - Under det radene fra Plex (med «Se alle» når det er flere), eller kategoriene hos IPTV-leverandøren som rader med
+    «Se alle».
+- Søk i filmer og serier på iPhone og iPad (feltet under menyen øverst).
+- På iPhone og iPad står tittelen under plakatene, og plakatene i radene er større.
+- Feilmeldingen i spilleren sier ikke lenger «Kanalen kunne ikke spilles» to ganger.
+- iPhone og iPad: krysset på «Koble fra Plex» er rødt som teksten.
+
 ## v0.1.23
 
 En gjennomgang av hele appen: feil som er rettet, og ting som tåler mer.

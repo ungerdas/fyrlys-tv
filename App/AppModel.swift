@@ -47,6 +47,10 @@ final class AppModel {
     @ObservationIgnored var pendingReplay: VODPlay?
     /// telles opp når «Fortsett å se» endres
     private(set) var continueVersion = 0
+    /// telles opp når favorittene i Filmer eller Serier endres (her eller på en annen enhet)
+    private(set) var vodFavoritesVersion = 0
+    /// favorittene i Filmer og Serier per nøkkel, lest én gang (tømmes når de endres)
+    @ObservationIgnored private var vodFavoritesCache: [String: [VODItem]] = [:]
     /// hvor langt serverens klokke er foran UTC (for adressene i arkivet), spurt én gang per innlogging
     @ObservationIgnored private var clock: TimeInterval??
     /// filmer og serier (VOD)
@@ -384,37 +388,93 @@ final class AppModel {
     /// Kanalene hver egen strøm gjelder for (navnene hos leverandøren), fra indeksen.
     var streamMatches: [String: [String]] { index.streamNames }
 
-    // ── «Fortsett å se»: filmene og seriene du har begynt på, sist sett først ──
+    // ── «Fortsett å se» fra IPTV-leverandøren (Plex har sin egen): sist sett først, med episoden og hvor langt ──
 
     private var continueKey: String? { login.map { "fortsett@\($0.id)" } }
 
-    func continueItems(_ kind: VODKind) -> [VODItem] {
+    func continueEntries(_ kind: VODKind) -> [VODResume] {
         _ = continueVersion
-        return storedContinue().filter { $0.kind == kind }
+        return storedContinue().filter { $0.item.kind == kind }
     }
 
     /// Alle, sist sett først (filmer og serier om hverandre).
-    private func storedContinue() -> [VODItem] {
-        guard let key = continueKey, let data = defaults.data(forKey: key),
-              let items = try? JSONDecoder().decode([VODItem].self, from: data) else { return [] }
-        return items
+    private func storedContinue() -> [VODResume] {
+        guard let key = continueKey, let data = defaults.data(forKey: key) else { return [] }
+        if let entries = try? JSONDecoder().decode([VODResume].self, from: data) { return entries }
+        // lagret før 0.1.24: bare filmen eller serien
+        return ((try? JSONDecoder().decode([VODItem].self, from: data)) ?? []).map { VODResume(item: $0) }
     }
 
-    func rememberContinue(_ item: VODItem) {
+    func rememberContinue(_ new: VODResume) {
+        guard let key = continueKey else { return }
         let stored = storedContinue()
-        guard let key = continueKey, stored.first?.progressKey != item.progressKey else { return }
+        var entry = new
+        // bildet fra før, når det ikke kom noe nytt
+        if entry.image == nil {
+            entry.image = stored.first { $0.item.progressKey == entry.item.progressKey }?.image
+        }
+        // lagres hvert tiende sekund: bare når noe synlig er endret (episoden, eller et par prosent lenger)
+        if let first = stored.first, first.item.progressKey == entry.item.progressKey,
+           first.episode?.id == entry.episode?.id, abs(first.progress - entry.progress) < 0.02,
+           first.image == entry.image {
+            return
+        }
         // i rekkefølgen de er sett (før: filmene først, så seriene, og da ble seriene kuttet når lista var full)
-        save([item] + stored.filter { $0.progressKey != item.progressKey }.prefix(29), key)
+        saveContinue([entry] + stored.filter { $0.item.progressKey != entry.item.progressKey }.prefix(29), key)
     }
 
     func forgetContinue(_ item: VODItem) {
         guard let key = continueKey else { return }
-        save(storedContinue().filter { $0.progressKey != item.progressKey }, key)
+        saveContinue(storedContinue().filter { $0.item.progressKey != item.progressKey }, key)
     }
 
-    private func save(_ items: [VODItem], _ key: String) {
-        if let data = try? JSONEncoder().encode(items) { defaults.set(data, forKey: key) }
+    private func saveContinue(_ entries: [VODResume], _ key: String) {
+        if let data = try? JSONEncoder().encode(entries) { defaults.set(data, forKey: key) }
         continueVersion += 1
+    }
+
+    // ── favorittene i Filmer og Serier (delt med iCloud) ──
+
+    /// Plex-favorittene hører til serveren (de er de samme med en annen IPTV-innlogging), de fra leverandøren til
+    /// innloggingen.
+    private func vodFavoritesKey(_ kind: VODKind, fromPlex: Bool) -> String? {
+        if fromPlex { return plex.server.map { "vodFavorites@plex:\($0.id)@\(kind.rawValue)" } }
+        return login.map { "vodFavorites@\($0.id)@\(kind.rawValue)" }
+    }
+
+    /// Favorittene, sist lagt til først. Fra Plex bare id-en og navnet: plakatene hentes fra serveren (adressen der
+    /// har nøkkelen og kan endre seg).
+    func vodFavorites(_ kind: VODKind, fromPlex: Bool) -> [VODItem] {
+        _ = vodFavoritesVersion
+        guard let key = vodFavoritesKey(kind, fromPlex: fromPlex) else { return [] }
+        if let cached = vodFavoritesCache[key] { return cached }
+        var seen = Set<String>()
+        let items = store.strings(key).compactMap { line -> VODItem? in
+            guard let item = try? JSONDecoder().decode(VODItem.self, from: Data(line.utf8)),
+                  seen.insert(item.id).inserted else { return nil }
+            return item
+        }
+        vodFavoritesCache[key] = items
+        return items
+    }
+
+    func isVODFavorite(_ item: VODItem) -> Bool {
+        vodFavorites(item.kind, fromPlex: item.isPlex).contains { $0.id == item.id }
+    }
+
+    func toggleVODFavorite(_ item: VODItem) {
+        guard let key = vodFavoritesKey(item.kind, fromPlex: item.isPlex) else { return }
+        var list = vodFavorites(item.kind, fromPlex: item.isPlex)
+        if list.contains(where: { $0.id == item.id }) {
+            list.removeAll { $0.id == item.id }
+        } else {
+            list.insert(item.isPlex ? VODItem(id: item.id, kind: item.kind, name: item.name, year: item.year,
+                                              source: "plex") : item, at: 0)
+        }
+        let lines = list.compactMap { (try? JSONEncoder().encode($0)).flatMap { String(data: $0, encoding: .utf8) } }
+        store.set(lines, for: key)
+        vodFavoritesCache[key] = nil
+        vodFavoritesVersion += 1
     }
 
     // ── hvor langt man har sett filmer og episoder (sekunder, per innlogging, på enheten) ──
@@ -447,6 +507,8 @@ final class AppModel {
     /// Favorittene eller «Dine kategorier» er endret på en annen enhet (iCloud).
     private func libraryChangedElsewhere() {
         loadStreams()
+        vodFavoritesCache = [:]
+        vodFavoritesVersion += 1
         guard let library else { return }
         library.reload()
         libraryVersion += 1

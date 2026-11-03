@@ -8,8 +8,9 @@ oppdiktede filmer og serier, på samme port. Nøkkelen er «test-token».
   som er denne serveren (Fyrlys skal finne den som svarer), og en spiller som ikke er en server.
 - Serveren: bibliotekene Filmer (movie), Serier (show) og Musikk (artist), filmene 1001–1003 (1003 svarer 404),
   serien 2001 med to sesonger, «Fortsett å se», radene på Hjem (/hubs/promoted: «Nytt fra Kystkanalen» med episoder,
-  «Nylig lagt til» med filmer og en sesong), plakatene (ensfargede PNG) og filene (tools/testdata/stormnatt.mkv, med
-  Range), og /:/timeline og /:/scrobble (skrives i loggen).
+  «Nylig lagt til» med filmer og en sesong, og hele raden under /hubs/home/recentlyAdded, «Se alle»), søket
+  (/hubs/search), flere på en gang (/library/metadata/1001,2001: favorittene), plakatene (ensfargede PNG) og filene
+  (tools/testdata/stormnatt.mkv, med Range), og /:/timeline og /:/scrobble (skrives i loggen).
 
 Bruk: python3 tools/fake_plex.py [--port 8897]
 """
@@ -76,7 +77,7 @@ EPISODES = [
 for e in EPISODES:
     e.update({"summary": f"Oppdiktet episode: {e['title']}.", "duration": 30000, "grandparentRatingKey": "2001",
               "grandparentTitle": "Fyrvokterne", "grandparentThumb": "/library/metadata/2001/thumb/1",
-              "Media": media(e["ratingKey"])})
+              "grandparentArt": "/library/metadata/2001/art/1", "Media": media(e["ratingKey"])})
 for i, m in enumerate(MOVIES + [SHOW]):
     m["thumb"] = f"/library/metadata/{m['ratingKey']}/thumb/1"
     m["art"] = f"/library/metadata/{m['ratingKey']}/art/1"
@@ -182,17 +183,27 @@ class Handler(BaseHTTPRequestHandler):
                 {"title": "Nytt fra Kystkanalen", "hubIdentifier": "custom.collection.2.77", "type": "episode",
                  "Metadata": [METADATA["2102"], METADATA["2103"]]},
                 {"title": "Nylig lagt til", "hubIdentifier": "home.recentlyAdded", "type": "mixed",
+                 "key": "/hubs/home/recentlyAdded?type=1", "more": True,
                  "Metadata": [METADATA["1001"], METADATA["1002"], season]},
                 {"title": "Spillelister", "hubIdentifier": "home.playlists", "type": "playlist",
                  "Directory": [{"title": "Favoritter", "key": "/playlists/1"}]},
             ])
         if path == "/hubs/continueWatching/items":
             return self.container(Metadata=[METADATA["2102"], METADATA["1001"]])
-        m = re.fullmatch(r"/library/metadata/(\d+)(/allLeaves)?", path)
-        if m and m.group(1) in METADATA:
+        if path == "/hubs/home/recentlyAdded":
+            # hele raden («Se alle»): også filmen som ikke står i raden på Hjem
+            return self.container(Metadata=MOVIES + [SHOW])
+        if path == "/hubs/search":
+            words = q.get("query", "").lower().split()
+            hits = [m for m in MOVIES + [SHOW] + EPISODES if words and all(w in m["title"].lower() for w in words)]
+            return self.container(Hub=[{"type": kind, "hubIdentifier": kind,
+                                        "Metadata": [m for m in hits if m["type"] == kind]}
+                                       for kind in ("movie", "show", "episode")])
+        m = re.fullmatch(r"/library/metadata/([\d,]+)(/allLeaves)?", path)
+        if m and all(k in METADATA for k in m.group(1).split(",")):
             if m.group(2):
                 return self.container(Metadata=[e for e in EPISODES if e["grandparentRatingKey"] == m.group(1)])
-            return self.container(Metadata=[METADATA[m.group(1)]])
+            return self.container(Metadata=[METADATA[k] for k in m.group(1).split(",")])
         if path == "/photo/:/transcode":
             n = int(re.sub(r"\D", "", q.get("url", "0"))[:4] or 0)
             return self.send(200, poster(COLORS[n % len(COLORS)]), "image/png")

@@ -125,4 +125,27 @@ final class RobustnessTests: XCTestCase {
         XCTAssertEqual(index.streamNames["tv2"], ["TV 2 HD NO", "TV 2 FHD"])
         XCTAssertEqual(index.streamNames["svt1"], ["SVT1 SE"])
     }
+
+    /// Søket i filmer og serier: alle ordene, store og små bokstaver likt, de som begynner med søket først.
+    func testSearchVOD() {
+        let items = ["Kysten", "Fyret i nord", "Nordlys over fyret", "Havet"].enumerated().map {
+            VODItem(id: "\($0.offset)", kind: .movies, name: $0.element)
+        }
+        XCTAssertEqual(searchVOD("fyret", in: items).map(\.name), ["Fyret i nord", "Nordlys over fyret"])
+        XCTAssertEqual(searchVOD("NORD fyret", in: items).map(\.name), ["Fyret i nord", "Nordlys over fyret"])
+        XCTAssertEqual(searchVOD("nordlys", in: items).map(\.name), ["Nordlys over fyret"])
+        XCTAssertTrue(searchVOD("  ", in: items).isEmpty)
+        XCTAssertEqual(searchVOD("e", in: items, limit: 2).count, 2)
+    }
+
+    /// «Fortsett å se» lagret før 0.1.24 (bare filmen eller serien) leses fortsatt, og en episode kan lagres.
+    func testResumeCoding() throws {
+        let item = VODItem(id: "9", kind: .series, name: "Losene", poster: "p.jpg")
+        let old = try JSONEncoder().encode([item])
+        XCTAssertNil(try? JSONDecoder().decode([VODResume].self, from: old))
+        let resume = VODResume(item: item, episode: Episode(id: "91", season: 1, number: 2, title: "Tåka"),
+                               progress: 0.4, image: "b.jpg")
+        let back = try JSONDecoder().decode([VODResume].self, from: JSONEncoder().encode([resume]))
+        XCTAssertEqual(back, [resume])
+    }
 }

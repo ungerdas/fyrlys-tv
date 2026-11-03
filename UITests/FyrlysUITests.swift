@@ -246,6 +246,16 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(next.label.contains("S1 E1"), "første episode skulle stå på knappen: \(next.label)")
         wait(2)
         shot("23-serie")
+        // favoritt: serien står så under «Favoritter» på Hjem
+        let star = find(app, "vod-favoritt")
+        XCTAssertTrue(star.exists, "stjernen mangler")
+        XCTAssertTrue(focus(app, star), "fikk ikke fokus på stjernen")
+        remote.press(.select)
+        wait(1)
+        remote.press(.menu)
+        XCTAssertTrue(find(app, "vodfav-9001").waitForExistence(timeout: 10), "serien står ikke under «Favoritter»")
+        wait(2)
+        shot("38-serier-hjem")
     }
 
     /// TV-arkivet for en kanal: dagene og programmene, og et program spilles fra start.

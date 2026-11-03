@@ -12,9 +12,10 @@ enum VODBackend {
     case unavailable(String)
 }
 
-/// Filmene eller seriene: kategoriene (hentes første gang fanen vises), kategorien som er valgt, og lista for hver
-/// kategori (hentes når den velges, og huskes til innloggingen eller kilden byttes). Fra IPTV-leverandøren, eller
-/// fra Plex (bibliotekene som kategorier, og «Fortsett å se» fra Plex).
+/// Filmene eller seriene: kategoriene (hentes første gang fanen vises) med «Hjem» først, kategorien som er valgt, og
+/// lista for hver kategori (hentes når den velges eller vises som rad på Hjem, og huskes til innloggingen eller kilden
+/// byttes). Fra IPTV-leverandøren, eller fra Plex (bibliotekene som kategorier, og «Fortsett å se», radene på Hjem og
+/// søket fra Plex).
 @MainActor
 @Observable
 final class VODModel {
@@ -31,11 +32,13 @@ final class VODModel {
     /// filmene og seriene kommer fra Plex
     private(set) var isPlex = false
     /// Plex: «Fortsett å se» fra Plex
-    private(set) var continueRow: [VODItem] = []
+    private(set) var continueRow: [VODResume] = []
     /// Plex: radene fra Hjem i Plex («Nytt fra …», «Nylig lagt til …»), vist under «Hjem» øverst i sidemenyen
     private(set) var rows: [VODRow] = []
+    /// Plex: favorittene slik serveren har dem nå (plakatene, «sett»)
+    private(set) var favoriteRow: [VODItem] = []
 
-    /// «Hjem» i sidemenyen (Plex)
+    /// «Hjem» først i sidemenyen og menyen: «Fortsett å se», favorittene og radene
     static let home = "hjem"
     /// telles opp når kilden byttes (fanen henter kategoriene på nytt)
     private(set) var version = 0
@@ -48,6 +51,8 @@ final class VODModel {
     @ObservationIgnored private var categoriesTask: Task<Void, Never>?
     /// da kategoriene sist ble hentet (hentes på nytt når appen kommer fram etter en halvtime)
     @ObservationIgnored private var loadedAt: Date?
+    /// IPTV-leverandøren: alle filmene eller seriene, hentet første gang det søkes
+    @ObservationIgnored private var allItems: [VODItem]?
 
     init(kind: VODKind) {
         self.kind = kind
@@ -64,6 +69,8 @@ final class VODModel {
         items = [:]
         continueRow = []
         rows = []
+        favoriteRow = []
+        allItems = nil
         loadingCategories = false
         loadingItems = []
         loaded = false
@@ -112,7 +119,8 @@ final class VODModel {
         do {
             switch backend {
             case .xtream(let client):
-                found = try await client.vodCategories(kind)
+                let categories = try await client.vodCategories(kind)
+                found = categories.isEmpty ? [] : [ChannelCategory(id: Self.home, name: L("Hjem"))] + categories
             case .plex(let client):
                 // «Fortsett å se» samtidig med bibliotekene og radene (før etter hverandre)
                 let kind = kind
@@ -130,8 +138,7 @@ final class VODModel {
                 guard gen == generation, !Task.isCancelled else { return }
                 continueRow = resume
                 rows = home
-                found = (resume.isEmpty && home.isEmpty ? [] : [ChannelCategory(id: Self.home, name: L("Hjem"))])
-                    + libraries
+                found = libraries.isEmpty ? [] : [ChannelCategory(id: Self.home, name: L("Hjem"))] + libraries
             case .waiting:
                 return
             case .unavailable(let message):
@@ -214,6 +221,49 @@ final class VODModel {
         let libraries = categories.map(\.id).filter { $0 != Self.home }
         guard let home = try? await client.rows(kind, libraries: libraries), gen == generation else { return }
         rows = home
+    }
+
+    /// Plex: favorittene ([stored], lagret som id og navn) slik serveren har dem nå, i samme rekkefølge. Det som er
+    /// lagret, vises med en gang (uten plakat til svaret kommer).
+    func refreshFavorites(_ stored: [VODItem]) async {
+        guard case .plex(let client) = backend else {
+            favoriteRow = []
+            return
+        }
+        let known = Dictionary(favoriteRow.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        favoriteRow = stored.map { known[$0.id] ?? $0 }
+        guard !stored.isEmpty else { return }
+        let gen = generation
+        guard let found = try? await client.items(ids: stored.map(\.id), kind: kind), gen == generation,
+              !Task.isCancelled else { return }
+        favoriteRow = found
+    }
+
+    /// Plex: hele raden («Se alle»).
+    func rowItems(_ row: VODRow) async -> [VODRowItem] {
+        guard case .plex(let client) = backend else { return row.items }
+        return (try? await client.rowItems(row, kind: kind)) ?? row.items
+    }
+
+    /// Søket: Plex søker selv; hos IPTV-leverandøren hentes alle filmene eller seriene første gang, og søket går i
+    /// navnene.
+    func search(_ query: String) async throws -> [VODItem] {
+        switch backend {
+        case .plex(let client):
+            return try await client.search(query, kind: kind)
+        case .xtream(let client):
+            let all: [VODItem]
+            if let allItems {
+                all = allItems
+            } else {
+                let gen = generation
+                all = try await client.allVODItems(kind)
+                if gen == generation { allItems = all }
+            }
+            return await Task.detached(priority: .userInitiated) { searchVOD(query, in: all) }.value
+        default:
+            return []
+        }
     }
 
     /// Plex: episoden med fila (i radene mangler den noen ganger).

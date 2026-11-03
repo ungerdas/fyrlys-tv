@@ -45,7 +45,7 @@ public struct VODItem: Codable, Hashable, Identifiable, Sendable {
 }
 
 /// En episode i en serie.
-public struct Episode: Hashable, Identifiable, Sendable {
+public struct Episode: Codable, Hashable, Identifiable, Sendable {
     public let id: String
     public let season: Int
     public let number: Int
@@ -80,6 +80,25 @@ public struct Episode: Hashable, Identifiable, Sendable {
     }
 
     public var progressKey: String { source == "plex" ? "plex:\(id)" : "episode:\(id)" }
+}
+
+/// En film eller serie du har begynt på («Fortsett å se»): episoden du er midt i (serier), hvor langt du har kommet
+/// (0–1, 0 når det ikke er kjent eller ikke begynt) og et bredt bilde (bakgrunnen eller episodebildet; nil: plakaten).
+public struct VODResume: Codable, Hashable, Identifiable, Sendable {
+    /// filmen eller serien
+    public let item: VODItem
+    public var episode: Episode?
+    public var progress: Double
+    public var image: String?
+
+    public init(item: VODItem, episode: Episode? = nil, progress: Double = 0, image: String? = nil) {
+        self.item = item
+        self.episode = episode
+        self.progress = progress
+        self.image = image
+    }
+
+    public var id: String { item.id }
 }
 
 public struct Season: Hashable, Identifiable, Sendable {
@@ -120,6 +139,11 @@ extension XtreamClient {
     public func vodItems(_ kind: VODKind, category: String) async throws -> [VODItem] {
         parseVODItems(try await api(kind == .movies ? "get_vod_streams" : "get_series", ["category_id": category]),
                       kind: kind)
+    }
+
+    /// Alle filmene eller seriene (til søket; kan være mange tusen).
+    public func allVODItems(_ kind: VODKind) async throws -> [VODItem] {
+        parseVODItems(try await api(kind == .movies ? "get_vod_streams" : "get_series"), kind: kind)
     }
 
     public func vodDetails(_ item: VODItem) async throws -> VODDetails {
@@ -208,9 +232,8 @@ func firstURL(_ value: Any?) -> String? {
 }
 
 public func parseVODItems(_ json: Any, kind: VODKind) -> [VODItem] {
-    guard let list = json as? [[String: Any]] else { return [] }
     var seen = Set<String>()
-    return list.compactMap { v in
+    return objectList(json).compactMap { v in
         let id = text(v[kind == .movies ? "stream_id" : "series_id"])
         let name = text(v["name"]).trimmingCharacters(in: .whitespaces)
         guard !id.isEmpty, !name.isEmpty, seen.insert(id).inserted else { return nil }
@@ -301,4 +324,20 @@ public func durationText(_ raw: String) -> String {
     }
     let total = h * 60 + m + (s >= 30 ? 1 : 0)
     return total > 0 ? minutesText(total) : t
+}
+
+/// Søket i filmene eller seriene: alle ordene må stå i navnet (store og små bokstaver likt); de som begynner med det
+/// som er skrevet, først.
+public func searchVOD(_ query: String, in items: [VODItem], limit: Int = 200) -> [VODItem] {
+    let q = query.lowercased().trimmingCharacters(in: .whitespaces)
+    let words = q.split(separator: " ").map(String.init)
+    guard !words.isEmpty else { return [] }
+    var first: [VODItem] = [], rest: [VODItem] = []
+    for item in items {
+        let name = item.name.lowercased()
+        guard words.allSatisfy({ name.contains($0) }) else { continue }
+        if name.hasPrefix(q) { first.append(item) } else { rest.append(item) }
+        if first.count >= limit { break }
+    }
+    return Array((first + rest).prefix(limit))
 }

@@ -12,8 +12,9 @@ En enkel IPTV-spiller for Apple TV, iPhone og iPad: logg inn med Xtream Codes fr
 - **Spilleren** er Apples egen (AVPlayer). På Apple TV kan du pause og spole tilbake, bytte til neste eller forrige
   kanal i kontrollene, og sveipe ned for kanallista. På iPhone og iPad står kanallista under bildet, med bilde-i-bilde
   og AirPlay.
-- **Filmer og serier** med plakater, en side for hver film og serie, episodene sesong for sesong og «Fortsett å se».
-  Filtyper Apples avspiller ikke kan (mkv, avi …), spilles med VLC, med valg av lydspor og undertekster.
+- **Filmer og serier** med «Hjem» først: «Fortsett å se» (med episoden og hvor langt du har kommet), favorittene og
+  kategoriene som rader med «Se alle». Søk, en side for hver film og serie, episodene sesong for sesong. Filtyper
+  Apples avspiller ikke kan (mkv, avi …), spilles med VLC, med valg av lydspor og undertekster.
 - **TV-arkiv** for kanaler som har det hos leverandøren, og «se fra start» på det som går nå.
 - **Plex**: koble til Plex-serveren din (med en kode på plex.tv/link), og fanene Filmer og Serier viser bibliotekene
   derfra. Hvor langt du har sett, og hva du har sett, holdes i takt med Plex.
