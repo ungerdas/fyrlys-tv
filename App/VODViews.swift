@@ -306,7 +306,12 @@ struct PosterCard: View {
             Text(item.name)
                 .font(.system(size: Metrics.posterTitle, weight: .semibold))
                 .foregroundStyle(Theme.ink)
+                // på Apple TV like høye kort (plass til to linjer); på iPhone og iPad året rett under tittelen
+                #if os(tvOS)
                 .lineLimit(episode == nil ? 2 : 1, reservesSpace: true)
+                #else
+                .lineLimit(episode == nil ? 2 : 1)
+                #endif
                 .multilineTextAlignment(.leading)
             if let episode {
                 Text(episode.title)
