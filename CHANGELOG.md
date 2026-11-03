@@ -27,8 +27,8 @@ En gjennomgang av hele appen: feil som er rettet, og ting som tåler mer.
 - Serier: «Fortsett» velger ikke en gammel, avbrutt episode når du har sett nyere ferdig, og spesialene (sesong 0)
   står til slutt.
 - Lengden på filmer og episoder står som «1 t 32 min».
-- Kanallista: sender leverandøren en tom liste, står lista fra sist med en melding. Lista hentes på nytt når appen
-  kommer fram etter noen timer (eventkanalene har kampene i navnet).
+- Kanallista: sender leverandøren en tom liste, står lista fra sist. Lista hentes på nytt når appen kommer fram
+  etter noen timer (eventkanalene har kampene i navnet).
 - Innlogging: mellomrom i serveradressen og «+» i brukernavnet eller passordet virker, og avviser leverandøren
   innloggingen, står det.
 - Kanaler med kvalitet eller land foran navnet («4K | Kinokanalen») får riktig navn og programinfo.
