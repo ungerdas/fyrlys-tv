@@ -249,9 +249,9 @@ final class PlayerModel {
             }
         } else {
             player.pause()
-            // feilen med en gang (med knappene), og forklaringen når den er funnet
-            let detail = message.map { app.client?.redact($0) ?? $0 } ?? "?"
-            error = L("Kanalen kunne ikke spilles ({message}).", ["message": detail])
+            // feilen med en gang (med knappene), og forklaringen når den er funnet; overskriften over sier alt at
+            // kanalen ikke kunne spilles, så her står bare hvorfor (før sto «Kanalen kunne ikke spilles» to ganger)
+            error = message.map { app.client?.redact($0) ?? $0 } ?? L("Sendingen stoppet opp")
             let code = Self.httpCode(player.currentItem)
             Task { await explain(next, code) }
         }
@@ -272,9 +272,8 @@ final class PlayerModel {
                 status = await withTimeout(8) { await PlayerModel.streamStatus(url) }
             }
             if let status, status >= 400 {
-                let reason = playingProvider ? L("IPTV-serveren svarte HTTP {code}", ["code": status])
-                    : L("strømmen svarte HTTP {code}", ["code": status])
-                text = L("Kanalen kunne ikke spilles ({message}).", ["message": reason])
+                text = (playingProvider ? L("IPTV-serveren svarte HTTP {code}", ["code": status])
+                    : L("Strømmen svarte HTTP {code}", ["code": status])) + "."
             }
         }
         guard gen == generation, error != nil, let text else { return }

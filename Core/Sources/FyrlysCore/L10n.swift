@@ -235,7 +235,7 @@ public let english: [String: String] = [
     "IPTV-serveren sendte ingen kanaler. Viser lista fra sist.":
         "The IPTV server sent no channels. Showing the list from last time.",
     "Sendingen stoppet opp": "The broadcast stalled",
-    "strømmen svarte HTTP {code}": "the stream responded HTTP {code}",
+    "Strømmen svarte HTTP {code}": "The stream responded HTTP {code}",
     "Avspillingen stoppet ved {time}. Prøv igjen for å fortsette der.":
         "Playback stopped at {time}. Try again to continue from there.",
     "Velg Plex-serveren under Innstillinger.": "Choose the Plex server in Settings.",
