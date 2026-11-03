@@ -39,6 +39,7 @@ struct SearchView: View {
             .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
             #else
             .scrollDismissesKeyboard(.immediately)
+            .background(Theme.bg.ignoresSafeArea())
             .navigationTitle(L("Søk"))
             #endif
             #if os(iOS)

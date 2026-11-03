@@ -36,14 +36,22 @@ public struct XtreamClient: Sendable {
 
     // ── adresser ──
 
-    public func apiURL(action: String? = nil, _ params: [String: String] = [:]) -> URL {
-        var c = URLComponents(string: login.server + "/player_api.php")!
+    /// Adressen til player_api.php. Feil når serveradressen ikke er gyldig («iptv.example:8O8O» med bokstaven O).
+    public func apiURL(action: String? = nil, _ params: [String: String] = [:]) throws -> URL {
+        guard var c = URLComponents(string: login.server + "/player_api.php"), c.host?.isEmpty == false else {
+            throw SourceError(L("Serveradressen er ikke gyldig: {server}", ["server": login.server]))
+        }
         var items = [URLQueryItem(name: "username", value: login.username),
                      URLQueryItem(name: "password", value: login.password)]
         if let action { items.append(URLQueryItem(name: "action", value: action)) }
         for key in params.keys.sorted() { items.append(URLQueryItem(name: key, value: params[key])) }
         c.queryItems = items
-        return c.url!
+        // «+» står igjen i spørringen, og PHP leser det som mellomrom («a+b» som passord ble avvist)
+        c.percentEncodedQuery = c.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        guard let url = c.url else {
+            throw SourceError(L("Serveradressen er ikke gyldig: {server}", ["server": login.server]))
+        }
+        return url
     }
 
     /// brukernavn og passord som deler av en sti
@@ -73,10 +81,11 @@ public struct XtreamClient: Sendable {
     // ── spørringer ──
 
     func api(_ action: String? = nil, _ params: [String: String] = [:]) async throws -> Any {
+        let url = try apiURL(action: action, params)
         let data: Data
         let status: Int
         do {
-            (data, status) = try await fetch(apiURL(action: action, params))
+            (data, status) = try await fetch(url)
         } catch {
             throw SourceError(L("Får ikke kontakt med IPTV-serveren"))
         }
@@ -84,6 +93,11 @@ public struct XtreamClient: Sendable {
         if status >= 400 { throw SourceError(L("IPTV-serveren svarte HTTP {code}", ["code": status])) }
         guard let json = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) else {
             throw SourceError(L("Serveren svarte ikke som en Xtream-server"))
+        }
+        // avvist (feil passord, utløpt): noen svarer med kontoen og auth 0 i stedet for lista som ble spurt etter
+        if let info = (json as? [String: Any])?["user_info"] as? [String: Any], let auth = info["auth"],
+           int(auth) == 0 {
+            throw SourceError(L("Serveren avviste innloggingen"))
         }
         return json
     }
@@ -117,21 +131,45 @@ public struct XtreamClient: Sendable {
 func int(_ value: Any?) -> Int? {
     switch value {
     case let i as Int: return i
-    case let d as Double: return Int(d)
-    case let s as String: return Int(s.trimmingCharacters(in: .whitespaces)) ?? Double(s).map { Int($0) }
+    case let d as Double: return wholeNumber(d)
+    case let s as String:
+        let t = s.trimmingCharacters(in: .whitespaces)
+        return Int(t) ?? Double(t).flatMap(wholeNumber)
     case let n as NSNumber: return n.intValue
     default: return nil
     }
+}
+
+/// Et desimaltall som heltall; nil for «nan», «inf» og tall for store for Int (`Int(d)` krasjer på dem).
+func wholeNumber(_ d: Double) -> Int? {
+    guard d.isFinite, abs(d) < 9e18 else { return nil }
+    return Int(d)
 }
 
 func text(_ value: Any?) -> String {
     switch value {
     case let s as String: return s
     case let i as Int: return String(i)
-    case let d as Double: return d == d.rounded() ? String(Int(d)) : String(d)
+    case let d as Double:
+        if let whole = wholeNumber(d), Double(whole) == d { return String(whole) }
+        return d.isFinite ? String(d) : ""
     case let n as NSNumber: return n.stringValue
     default: return ""
     }
+}
+
+/// Lista i et svar: en liste med objekter, eller (hos noen leverandører) et objekt med objektene som verdier, i
+/// rekkefølgen til nøklene («0», «1», …).
+func objectList(_ json: Any) -> [[String: Any]] {
+    if let list = json as? [[String: Any]] { return list }
+    if let list = json as? [Any] { return list.compactMap { $0 as? [String: Any] } }
+    guard let dict = json as? [String: Any], dict["user_info"] == nil else { return [] }
+    return dict.sorted { a, b in
+        switch (Int(a.key), Int(b.key)) {
+        case let (x?, y?): return x < y
+        default: return a.key < b.key
+        }
+    }.compactMap { $0.value as? [String: Any] }
 }
 
 public func parseAccount(_ info: [String: Any]) -> Account {
@@ -142,7 +180,7 @@ public func parseAccount(_ info: [String: Any]) -> Account {
 }
 
 public func parseCategories(_ json: Any) -> [ChannelCategory] {
-    guard let list = json as? [[String: Any]] else { return [] }
+    let list = objectList(json)
     var seen = Set<String>()
     return list.compactMap { c in
         let id = text(c["category_id"])
@@ -153,7 +191,7 @@ public func parseCategories(_ json: Any) -> [ChannelCategory] {
 }
 
 public func parseChannels(_ json: Any) -> [Channel] {
-    guard let list = json as? [[String: Any]] else { return [] }
+    let list = objectList(json)
     var seen = Set<String>()
     return list.compactMap { c in
         let id = text(c["stream_id"])
@@ -179,12 +217,16 @@ public func parseShortEPG(_ json: Any) -> [Program] {
     }
 }
 
-/// Base64 til tekst; er det ikke base64, er det teksten selv.
+/// Base64 til tekst; er det ikke base64, er det teksten selv. Klartekst som tilfeldigvis er gyldig base64 («Film»,
+/// «TBA»), gir styretegn når den dekodes, og blir da stående som den er.
 func base64Text(_ s: String) -> String {
     let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
     var padded = trimmed
     while padded.count % 4 != 0 { padded += "=" }
-    if let data = Data(base64Encoded: padded), let decoded = String(data: data, encoding: .utf8) {
+    if let data = Data(base64Encoded: padded), let decoded = String(data: data, encoding: .utf8),
+       !decoded.unicodeScalars.contains(where: { scalar in
+           scalar == "\u{FFFD}" || (scalar.properties.generalCategory == .control && !"\t\n\r".unicodeScalars.contains(scalar))
+       }) {
         return decoded.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     return trimmed

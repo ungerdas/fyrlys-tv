@@ -64,15 +64,22 @@ struct ChannelsView: View {
     }
 
     var body: some View {
-        if model.channels.isEmpty {
-            ListsStatus()
-        } else {
-            let shelf = current
-            split(shelf)
-                // det som vises først, står til man velger noe annet (ellers hopper siden til Favoritter når den
-                // første favoritten legges til)
-                .onAppear { if chosen == nil { chosen = shelf } }
+        Group {
+            if model.channels.isEmpty {
+                ListsStatus()
+            } else {
+                let shelf = current
+                split(shelf)
+                    // det som vises først, står til man velger noe annet (ellers hopper siden til Favoritter når den
+                    // første favoritten legges til)
+                    .onAppear { if chosen == nil { chosen = shelf } }
+            }
         }
+        #if os(iOS)
+        // fanene på iPad har ellers systemets bakgrunn (svart eller hvit), ikke fargen til Fyrlys
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.bg.ignoresSafeArea())
+        #endif
     }
 
     /// Sidemenyen og rutenettet (Apple TV og iPad).

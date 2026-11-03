@@ -125,7 +125,8 @@ private struct Tiles: View {
         var id: String { shelf.testId }
     }
 
-    private static let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    /// to i bredden stående, flere liggende
+    private static let columns = [GridItem(.adaptive(minimum: 160), spacing: 12)]
 
     var body: some View {
         LazyVGrid(columns: Self.columns, spacing: 12) {
@@ -312,13 +313,12 @@ struct PhoneShelfPage: View {
     }
 }
 
-/// Kortene to i bredden (kategorisiden og søket).
+/// Kortene to i bredden (kategorisiden og søket); liggende flere (før to kjempekort, og knapt én rad synlig).
 private struct CardGrid: View {
     let channels: [Channel]
     let play: (Channel, [Channel]) -> Void
 
-    private static let columns = [GridItem(.flexible(), spacing: 12, alignment: .top),
-                                  GridItem(.flexible(), spacing: 12, alignment: .top)]
+    private static let columns = [GridItem(.adaptive(minimum: 160), spacing: 12, alignment: .top)]
 
     var body: some View {
         LazyVGrid(columns: Self.columns, spacing: 12) {
@@ -329,17 +329,18 @@ private struct CardGrid: View {
     }
 }
 
-/// En rad med kort du kan rulle sidelengs, to synlige om gangen (favorittene og «Sist sett»).
+/// En rad med kort du kan rulle sidelengs, to synlige om gangen (fire liggende) (favorittene og «Sist sett»).
 private struct Strip: View {
     let channels: [Channel]
     let play: (Channel, [Channel]) -> Void
+    @Environment(\.verticalSizeClass) private var vertical
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(alignment: .top, spacing: 12) {
                 ForEach(channels) { channel in
                     BigChannelCard(channel: channel) { play(channel, channels) }
-                        .containerRelativeFrame(.horizontal, count: 2, spacing: 12)
+                        .containerRelativeFrame(.horizontal, count: vertical == .compact ? 4 : 2, spacing: 12)
                 }
             }
             .scrollTargetLayout()

@@ -81,10 +81,11 @@ extension XtreamClient {
                             days: channel.archiveDays)
     }
 
-    /// Hvor langt serverens klokke er foran UTC (spørres én gang per innlogging).
-    public func serverClock() async -> TimeInterval? {
-        guard let json = try? await api() as? [String: Any] else { return nil }
-        return serverClockOffset(json["server_info"])
+    /// Hvor langt serverens klokke er foran UTC (spørres én gang per innlogging): nil når serveren ikke sier det;
+    /// feil når den ikke svarte (da spørres det igjen neste gang, i stedet for å gjette tidssonen resten av økta).
+    public func serverClock() async throws -> TimeInterval? {
+        let json = try await api() as? [String: Any]
+        return serverClockOffset(json?["server_info"])
     }
 
     /// Adressene til [program] i arkivet fra [from] sekunder inn (på minuttet: arkivet ligger i biter på ett minutt),

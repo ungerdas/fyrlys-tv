@@ -104,15 +104,25 @@ struct PlexSettings: View {
 
     private func button(_ title: String, icon: String, id: String, role: ButtonRole? = nil,
                         action: @escaping () -> Void) -> some View {
-        Button(role: role, action: action) {
-            #if os(tvOS)
-            Label(title, systemImage: icon)
-                .frame(minWidth: 520, alignment: .leading)
-            #else
-            Label(title, systemImage: icon)
-            #endif
+        #if os(tvOS)
+        // uten rolle på Apple TV: en rød knapp fikk rød tekst og var nesten ikke til å lese; rød tekst i stedet
+        return Button(action: action) {
+            if role == .destructive {
+                Label(title, systemImage: icon)
+                    .foregroundStyle(Theme.live)
+                    .frame(minWidth: 520, alignment: .leading)
+            } else {
+                Label(title, systemImage: icon)
+                    .frame(minWidth: 520, alignment: .leading)
+            }
         }
         .accessibilityIdentifier(id)
+        #else
+        return Button(role: role, action: action) {
+            Label(title, systemImage: icon)
+        }
+        .accessibilityIdentifier(id)
+        #endif
     }
 
     #if os(tvOS)
@@ -142,6 +152,8 @@ struct PlexSheet: View {
                 }
             }
         }
+        // arket vises fra topplinja, utenfor fanene (der fargen er satt)
+        .tint(Theme.signal)
     }
 }
 #endif

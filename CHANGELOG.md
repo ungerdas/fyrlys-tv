@@ -1,5 +1,47 @@
 # Endringer
 
+## v0.1.23
+
+En gjennomgang av hele appen: feil som er rettet, og ting som tåler mer.
+
+- TV: står bildet fast uten at det kommer noen feil (leverandøren slutter bare å sende), åpnes kanalen på nytt etter
+  25 sekunder; før sto det fast til du byttet kanal. Nye forsøk kommer etter 2, 5 og 10 sekunder, og feilmeldingen
+  vises med en gang, med forklaringen etter (alle tilkoblingene i bruk, eller hva serveren svarte).
+- NRK direkte og egne strømmer: virker ikke strømmen (nede, eller stengt der du er), spilles kanalen fra
+  leverandøren i stedet.
+- Kanalbytte (opp/ned på Apple TV og kanallista i spilleren): kanalen du går fra, stoppes med en gang, og trykker du
+  flere ganger på rad, åpnes bare den siste. Med én tilkobling hos leverandøren ga rask blaing ellers «alle
+  tilkoblingene i bruk». Velger du kanalen som allerede spilles, begynner den ikke på nytt.
+- Programmet i spilleren byttes når et nytt program begynner (før sto programmet fra da kanalen ble åpnet).
+  Programinfoen på kortene og i guiden hentes på nytt når den er gammel, når den feilet, og når appen kommer fram
+  igjen.
+- Filmer og serier: brytes forbindelsen midt i, fortsetter filmen der den slapp (to ganger), så kommer «Prøv igjen».
+  Før lukket VLC-spilleren seg som om filmen var sett ferdig, og hvor langt du hadde kommet, kunne bli skrevet over.
+- VLC tar pause når du går ut av appen eller låser skjermen, i stedet for å spille lyden videre uten bilde.
+- iPhone og iPad: fullskjermknappen i spilleren stoppet avspillingen; nå spilles det videre.
+- Plex: når appen kommer fram igjen, brukes adressen som svarer nå (hjemme eller ute), så Filmer og Serier virker
+  også etter at du har dratt hjemmefra. «Pause» og «stoppet» kommer fram til Plex i riktig rekkefølge, så økta ikke
+  blir hengende i Plex og Tautulli. En film du har sett ferdig og ser på nytt, fortsetter der du er. «Spill av»
+  venter til siden er hentet. Fant ikke appen serveren, eller må du velge en, står det i fanene i stedet for at de
+  laster i det uendelige.
+- Serier: «Fortsett» velger ikke en gammel, avbrutt episode når du har sett nyere ferdig, og spesialene (sesong 0)
+  står til slutt.
+- Lengden på filmer og episoder står som «1 t 32 min».
+- Kanallista: sender leverandøren en tom liste, står lista fra sist med en melding. Lista hentes på nytt når appen
+  kommer fram etter noen timer (eventkanalene har kampene i navnet).
+- Innlogging: mellomrom i serveradressen og «+» i brukernavnet eller passordet virker, og avviser leverandøren
+  innloggingen, står det.
+- Kanaler med kvalitet eller land foran navnet («4K | Kinokanalen») får riktig navn og programinfo.
+- En egen strøm uten land gjelder den norske kanalen («TV 2 = …» er ikke «TV 2 HD DK»).
+- Bytter du innlogging, begynner TV-siden på nytt, og etter utlogging viser ikke Top Shelf favorittene lenger.
+- Apple TV: «Logg ut», «Fjern alle egne strømmer» og «Koble fra Plex» var vanskelige å lese når de var valgt (rød
+  tekst på rødt); nå er teksten rød. Guiden viser hele den siste halvtimen, og kampen på eventkanalene.
+- iPhone: TV-guiden åpner på det som går nå, og «Til nå» ruller dit også når du bare har rullet litt. «Se kanalen» i
+  programinfoen virker hver gang. Liggende står flere fliser og kort i bredden, og Konto-menyen kan rulles. Sveip
+  tilbake begynner ikke midt i en overgang.
+- iPad: TV, Søk, Filmer og Serier har bakgrunnen til Fyrlys (var svart eller hvit).
+- Logoer som ikke kom fordi nettet var borte, prøves igjen etter et halvt minutt (før etter ti).
+
 ## v0.1.22
 
 - iPhone: filmer og serier spilles igjen. På de store iPhonene (Pro Max, Plus og Air) byttet hele appen til

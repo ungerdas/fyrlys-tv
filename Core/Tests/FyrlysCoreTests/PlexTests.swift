@@ -86,7 +86,7 @@ final class PlexTests: XCTestCase {
         XCTAssertEqual(details.plot, "Om et fyr.")
         XCTAssertEqual(details.genre, "Drama, Krim")
         XCTAssertEqual(details.cast, "A, B")
-        XCTAssertEqual(details.duration, "112 min")
+        XCTAssertEqual(details.duration, "1 t 52 min")
         XCTAssertEqual(details.resume, 754)
         XCTAssertEqual(details.ext, "mp4")
         XCTAssertEqual(details.fileKey, "/library/parts/9/1/file.mp4")

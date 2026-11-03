@@ -452,8 +452,9 @@ final class FyrlysUITests: XCTestCase {
     func test07PlayerError() {
         let app = launch("player-error")
         XCTAssertTrue(find(app, "spiller-feil").waitForExistence(timeout: 60), "feilen kom ikke")
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS '404'")).firstMatch.exists,
-                      "HTTP-koden står ikke i feilen")
+        // feilen kommer med en gang, forklaringen (HTTP-koden) like etter
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS '404'")).firstMatch
+                        .waitForExistence(timeout: 15), "HTTP-koden står ikke i feilen")
         wait(1)
         shot("11-spiller-feil")
     }
@@ -480,11 +481,18 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(all.waitForExistence(timeout: 30), "sidemenyen kom ikke")
         for _ in 0..<10 where !all.label.contains("19") { wait(1) }
         XCTAssertTrue(all.label.contains("19"), "kanalene ble ikke slått sammen: \(all.label)")
+        // spilleren bruker den egne adressen for kanalen; den finnes ikke, så spilles leverandørens strøm i stedet
+        // (før 0.1.23 kom feilen, og kanalen var ikke å se)
         let player = launch("player", extra: ["FYRLYS_TEST_STREAMS": Self.streams])
-        XCTAssertTrue(find(player, "spiller-feil").waitForExistence(timeout: 60),
-                      "spilleren brukte ikke den egne adressen")
-        wait(1)
-        shot("37-egen-strom-feil")
+        let screen = find(player, "spiller")
+        XCTAssertTrue(screen.waitForExistence(timeout: 30), "spilleren kom ikke")
+        let tried = { (screen.value as? String) ?? "" }
+        for _ in 0..<40 where !tried().contains("/live/") { wait(1) }
+        XCTAssertTrue(tried().contains("finnes-ikke"), "spilleren brukte ikke den egne adressen: \(tried())")
+        XCTAssertTrue(tried().contains("/live/"), "spilleren byttet ikke til leverandørens strøm: \(tried())")
+        wait(3)
+        XCTAssertFalse(find(player, "spiller-feil").exists, "feilen kom selv om leverandørens strøm virker")
+        shot("37-egen-strom-reserve")
     }
 
     func test08Settings() {

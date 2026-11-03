@@ -217,8 +217,9 @@ final class FyrlysMobilUITests: XCTestCase {
     func test08PlayerError() {
         let app = launch("player-error")
         XCTAssertTrue(find(app, "spiller-feil").waitForExistence(timeout: 60), "feilen kom ikke")
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS '404'")).firstMatch.exists,
-                      "HTTP-koden står ikke i feilen")
+        // feilen kommer med en gang, forklaringen (HTTP-koden) like etter
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS '404'")).firstMatch
+                        .waitForExistence(timeout: 15), "HTTP-koden står ikke i feilen")
         wait(1)
         shot("10-spiller-feil")
         find(app, "lukk-spiller").tap()

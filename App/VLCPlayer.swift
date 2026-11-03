@@ -41,6 +41,7 @@ final class VLCEngine {
     private let events = VLCEvents()
     @ObservationIgnored private var done = false
     @ObservationIgnored private var watchdog: Task<Void, Never>?
+    @ObservationIgnored private var background: NSObjectProtocol?
 
     init() {
         player = VLCMediaPlayer(options: Self.subtitleStyle())
@@ -49,6 +50,16 @@ final class VLCEngine {
         player.drawable = surface
         player.delegate = events
         events.engine = self
+        // appen går i bakgrunnen (låst skjerm, hjemskjermen): pause, i stedet for lyd uten bilde og uten kontroller
+        background = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.started, self.player.isPlaying else { return }
+                self.player.pause()
+                self.isPlaying = false
+            }
+        }
     }
 
     /// Spiller [url] fra [start] sekunder inn. Kommer ikke bildet i gang innen 45 sekunder, regnes det som feil.
@@ -76,6 +87,10 @@ final class VLCEngine {
     }
 
     func stop() {
+        if let background {
+            NotificationCenter.default.removeObserver(background)
+            self.background = nil
+        }
         guard !done || player.media != nil else { return }
         done = true
         watchdog?.cancel()
@@ -128,7 +143,9 @@ final class VLCEngine {
         case .error:
             fail()
         case .ended, .stopped:
-            if started {
+            // slutt mer enn et minutt før filmen er ferdig: forbindelsen ble brutt (leverandøren kastet ut
+            // tilkoblingen, nettet falt), ikke slutten (før lukket spilleren seg da, som om filmen var sett)
+            if started, !(length > 120 && time < length - 60) {
                 done = true
                 UIApplication.shared.isIdleTimerDisabled = false
                 onEnd?()

@@ -51,7 +51,10 @@ struct PlayerView: View {
             model = player
             player.open(request.channel)
         }
-        .onDisappear { model?.stop() }
+        // ikke når AVKit sin egen fullskjerm legger seg over (da forsvinner siden under, men det spilles videre der)
+        .onDisappear {
+            if model?.inFullScreen != true { model?.stop() }
+        }
         .onChange(of: programs) { model?.refreshMetadata() }
         .onChange(of: model?.closeRequested ?? false) { _, close in
             if close { dismiss() }
@@ -70,7 +73,8 @@ struct PlayerView: View {
             Color.black
             VideoSurface(player: model.player,
                          dragged: { drag = max(0, $0) },
-                         released: { finishDrag($0, velocity: $1, full: full) })
+                         released: { finishDrag($0, velocity: $1, full: full) },
+                         fullScreen: { model.inFullScreen = $0 })
             if let error = model.error {
                 PlayerErrorMobil(model: model, message: error) { dismiss() }
             }
@@ -100,6 +104,8 @@ private struct VideoSurface: UIViewControllerRepresentable {
     let dragged: (CGFloat) -> Void
     /// når du slipper: hvor langt og hvor fort (punkter per sekund)
     let released: (CGFloat, CGFloat) -> Void
+    /// AVKit sin fullskjerm kommer eller går
+    var fullScreen: (Bool) -> Void = { _ in }
 
     func makeCoordinator() -> DragDown { DragDown() }
 
@@ -115,8 +121,10 @@ private struct VideoSurface: UIViewControllerRepresentable {
         pan.delegate = context.coordinator
         pan.cancelsTouchesInView = false
         controller.view.addGestureRecognizer(pan)
+        controller.delegate = context.coordinator
         context.coordinator.dragged = dragged
         context.coordinator.released = released
+        context.coordinator.fullScreen = fullScreen
         return controller
     }
 
@@ -124,14 +132,30 @@ private struct VideoSurface: UIViewControllerRepresentable {
         if controller.player !== player { controller.player = player }
         context.coordinator.dragged = dragged
         context.coordinator.released = released
+        context.coordinator.fullScreen = fullScreen
     }
 }
 
 /// Dra bildet ned for å lukke spilleren. Begynner bare når fingeren går mest nedover (ikke når du spoler sidelengs), og
-/// virker sammen med kontrollene til AVKit.
-private final class DragDown: NSObject, UIGestureRecognizerDelegate {
+/// virker sammen med kontrollene til AVKit. Sier også fra når AVKit sin fullskjerm kommer og går.
+private final class DragDown: NSObject, UIGestureRecognizerDelegate, AVPlayerViewControllerDelegate {
     var dragged: (CGFloat) -> Void = { _ in }
     var released: (CGFloat, CGFloat) -> Void = { _, _ in }
+    var fullScreen: (Bool) -> Void = { _ in }
+
+    func playerViewController(_ playerViewController: AVPlayerViewController,
+                              willBeginFullScreenPresentationWithAnimationCoordinator
+                              coordinator: UIViewControllerTransitionCoordinator) {
+        fullScreen(true)
+    }
+
+    func playerViewController(_ playerViewController: AVPlayerViewController,
+                              willEndFullScreenPresentationWithAnimationCoordinator
+                              coordinator: UIViewControllerTransitionCoordinator) {
+        coordinator.animate(alongsideTransition: nil) { [weak self] context in
+            if !context.isCancelled { self?.fullScreen(false) }
+        }
+    }
 
     @objc func pan(_ pan: UIPanGestureRecognizer) {
         // i vinduets koordinater: bildet flytter seg med fingeren
@@ -268,7 +292,7 @@ private struct ChannelList: View {
                 LazyVStack(spacing: 6) {
                     ForEach(model.list) { channel in
                         Button {
-                            model.open(channel)
+                            model.choose(channel)
                         } label: {
                             ChannelRow(channel: channel, current: channel.id == model.channel.id)
                         }

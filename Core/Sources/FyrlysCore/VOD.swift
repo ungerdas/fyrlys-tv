@@ -232,7 +232,7 @@ public func parseMovieInfo(_ json: Any) -> VODDetails {
     d.genre = nonEmpty(info["genre"]) ?? ""
     d.cast = nonEmpty(info["cast"]) ?? nonEmpty(info["actors"]) ?? ""
     d.director = nonEmpty(info["director"]) ?? ""
-    d.duration = nonEmpty(info["duration"]) ?? ""
+    d.duration = durationText(nonEmpty(info["duration"]) ?? "")
     d.year = year(info["releasedate"], info["release_date"], info["year"], name: text(data["name"]))
     d.backdrop = firstURL(info["backdrop_path"])
     d.poster = nonEmpty(info["movie_image"]) ?? nonEmpty(info["cover_big"])
@@ -272,12 +272,33 @@ public func parseSeriesInfo(_ json: Any) -> VODDetails {
             return Episode(id: id, season: season, number: n,
                            title: nonEmpty(e["title"]) ?? L("Episode {n}", ["n": n]),
                            plot: nonEmpty(info["plot"]) ?? "",
-                           duration: nonEmpty(info["duration"]) ?? "",
+                           duration: durationText(nonEmpty(info["duration"]) ?? ""),
                            image: nonEmpty(info["movie_image"]),
                            ext: nonEmpty(e["container_extension"]) ?? "mp4")
         }.sorted { $0.number < $1.number }
         if !episodes.isEmpty { seasons.append(Season(number: episodes[0].season, episodes: episodes)) }
     }
-    d.seasons = seasons.sorted { $0.number < $1.number }
+    d.seasons = seasons.sorted { seasonOrder($0.number) < seasonOrder($1.number) }
     return d
+}
+
+/// Rekkefølgen på sesongene: 1, 2, 3 … og spesialene (sesong 0) til slutt, som i Plex.
+public func seasonOrder(_ number: Int) -> Int { number == 0 ? Int.max : number }
+
+/// «1 t 32 min» eller «44 min».
+public func minutesText(_ minutes: Int) -> String {
+    let m = max(1, minutes)
+    if m < 60 { return L("{n} min", ["n": m]) }
+    return m % 60 == 0 ? L("{h} t", ["h": m / 60]) : L("{h} t {m} min", ["h": m / 60, "m": m % 60])
+}
+
+/// Lengden slik leverandøren skriver den («01:32:00») som «1 t 32 min»; annen tekst («45 min») står som den er.
+public func durationText(_ raw: String) -> String {
+    let t = raw.trimmingCharacters(in: .whitespaces)
+    let parts = t.split(separator: ":", omittingEmptySubsequences: false).map { Int($0) }
+    guard parts.count == 3, let h = parts[0], let m = parts[1], let s = parts[2], h >= 0, m >= 0, s >= 0 else {
+        return t
+    }
+    let total = h * 60 + m + (s >= 30 ? 1 : 0)
+    return total > 0 ? minutesText(total) : t
 }

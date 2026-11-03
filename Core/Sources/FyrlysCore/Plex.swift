@@ -343,10 +343,10 @@ public func parseLibraries(_ container: [String: Any], kind: VODKind) -> [Channe
     }
 }
 
-/// «112 min»
+/// «1 t 52 min»
 func minutes(_ ms: Any?) -> String {
     guard let ms = int(ms), ms > 0 else { return "" }
-    return L("{n} min", ["n": Int((Double(ms) / 60000).rounded())])
+    return minutesText(Int((Double(ms) / 60000).rounded()))
 }
 
 func plexRating(_ m: [String: Any]) -> Double? {
@@ -434,7 +434,7 @@ public func parseEpisodes(_ container: [String: Any], client: PlexClient) -> [Se
         plexEpisode($0, client: client)
     }
     let groups = Dictionary(grouping: episodes, by: \.season)
-    return groups.keys.sorted().map { number in
+    return groups.keys.sorted { seasonOrder($0) < seasonOrder($1) }.map { number in
         Season(number: number, episodes: (groups[number] ?? []).sorted { $0.number < $1.number })
     }
 }

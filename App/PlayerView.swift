@@ -28,6 +28,8 @@ struct PlayerView: View {
         // for hele spilleren: en id på feilen inne i en beholder med egen id forsvant.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(model?.error == nil ? "spiller" : "spiller-feil")
+        // UI-testene: adressene som er prøvd
+        .accessibilityValue(TestSupport.isActive ? Text(verbatim: model?.tried.joined(separator: " ") ?? "") : Text(""))
         .onAppear {
             guard model == nil else { return }
             let player = PlayerModel(app: app, channel: request.channel, list: request.list)
@@ -209,7 +211,7 @@ struct ChannelStrip: View {
                 LazyHStack(spacing: 36) {
                     ForEach(model.list) { channel in
                         Button {
-                            model.open(channel)
+                            model.choose(channel)
                         } label: {
                             VStack(alignment: .leading, spacing: 0) {
                                 ChannelTile(channel: channel, compact: true)

@@ -101,9 +101,13 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - `App/`: `AppModel` (@Observable: innlogging i nøkkelringen (`Keychain.swift`), `index` (`ChannelIndex`; lista fra
   disk leses i bakgrunnen før `phase = .ready`, den hentede byttes bare inn når den er endret), `allChannels`
   (favorittkategoriene først), `generation` så svar for en tidligere innlogging ikke brukes, favoritter,
-  favorittkategorier og sist sett via `libraryVersion`) og `ProgramStore` (ikke observerbar selv: én `ChannelPrograms`
-  per kanal, så bare kortet for kanalen tegnes på nytt; 150 ms før henting, høyst fire om gangen, nyeste først, fem
-  minutter, tomt svar huskes, feil prøves igjen; ikke for `!wantsEpg`). `RootView` → `LoginView` eller `HomeView`
+  favorittkategorier via `libraryVersion`, «sist sett» via `recentVersion`; `becameActive()` fra `scenePhase` i
+  `RootView`: programinfo, `plex.reprobe()`, `refreshIfOld()` for filmer/serier, kanallista etter 3 t; en tom
+  kanalliste fra leverandøren erstatter ikke den forrige) og `ProgramStore` (ikke observerbar selv: én
+  `ChannelPrograms` per kanal, så bare kortet for kanalen tegnes på nytt; 150 ms før henting, høyst fire om gangen,
+  nyeste først, fem minutter, tomt svar huskes; ikke for `!wantsEpg`; fra 0.1.23 telles visningene (`want`/`forget`,
+  `visible`), og hvert minutt hentes de som vises på nytt når «nå» mangler, de er 30 min gamle eller feilet
+  (`refreshVisible`); etter to feil på rad `loaded`, så «Ingen programinfo» vises). `RootView` → `LoginView` eller `HomeView`
   (TabView: TV, TV-guide, Søk, Innstillinger; valgt hylle og søket står i HomeView; spilleren som `fullScreenCover`).
   `ChannelsView` (sidemeny 340 pt: Alle kanaler, Favoritter, Sist sett med ikoner, så «Dine kategorier» og «Alle
   kategorier», eller «Kategorier» med et hint når ingen er lagt øverst; hold inne på en kategori = «Legg øverst» /
@@ -119,7 +123,11 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   settes i `GuideSelection`, som bare `GuideHeader` leser, så guiden ikke tegnes på nytt ved hvert steg; egen
   `GuideCellStyle` med `@Environment(\.isFocused)`), `SearchView` (`.searchable`, favorittkategoriene først),
   `SettingsView`, `PlayerView` (`PlayerModel` med AVPlayer, User-Agent som VLC, nye forsøk tre i
-  minuttet, så forklaring: alle tilkoblinger i bruk, HTTP-koden fra leverandøren eller AVPlayers melding;
+  minuttet (etter 2, 5, 10 s), så feilen med en gang og forklaringen etter (`explain`, høyst 8 s: alle tilkoblinger
+  i bruk, HTTP-koden fra `errorLog()` eller et eget oppslag); fra 0.1.23 åpnes kanalen på nytt når
+  `timeControlStatus` har ventet i 25 s, en egen strøm som feiler to ganger byttes med leverandørens (`providerOnly`),
+  kanalbytte (`step`/`choose`) stopper den gamle med en gang og åpner etter 300 ms, programinfoen i kontrollene
+  byttes når programmet slutter, og `inFullScreen` (AVKits fullskjerm på iOS) hindrer at `onDisappear` stopper;
   `AVPlayerViewController` med neste/forrige/favoritt i `transportBarCustomMenuItems` og kanallista i
   `customInfoViewControllers`; programinfo i `externalMetadata`; fra 0.1.11 kanalbytte med opp/ned via AVKits
   `skipToNextChannel`/`skipToPreviousChannel` i `AVPlayerViewControllerDelegate` (koordinatoren) med `ChannelPreview`
@@ -161,7 +169,10 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   plakater `vod-<id>` (`.card` på Apple TV), siden `vod-side` med `spill-av`/`fra-start` eller `sesong-<n>` og
   `episode-<id>`, `VODPlayerView` (`vod-spiller`/`vod-feil`; fullskjerm på Apple TV, ark på iPhone/iPad) med
   `VODPlayerModel`: prøver adressene etter tur, begynner der du slapp, lagrer hvor langt (`AppModel.progress`, nøkkel
-  `sett@<innlogging>@<film|episode>`, hvert 10. s og ved lukking; glemmes nær slutten). Falsk leverandør: filmene
+  `sett@<innlogging>@<film|episode>`, hvert 10. s og ved lukking; glemmes nær slutten); fra 0.1.23 brudd etter at
+  filmen har kommet i gang (`position` > 5 s): samme adresse fra `resumeAt` etter 2 s, to ganger (`breaks`), så
+  feilen med `vod-igjen` («Prøv igjen», `retry()`); VLC regner slutt mer enn et minutt før lengden som brudd, og tar
+  pause når appen går i bakgrunnen. Falsk leverandør: filmene
   501–503 (502 er mkv: `tools/testdata/stormnatt.mkv`, oppdiktet, 30 s, to lydspor og norske undertekster, med Range)
   og serien 9001; testskjermene `movies`, `series`, `mkv` (502 i VLC) og `mkv-feil` (504.avi, som svarer 404).
 - **TV-arkiv fra 0.1.12** (som Fyrlys for Windows, `lib/core/xtream_source.dart`): `Core/.../Archive.swift`
@@ -434,3 +445,16 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `test17Mkv` feilet én gang på «reist opp»: testfilmen er 30 s, og den var ferdig (spilleren lukkes) før sjekken;
   testen pauser nå før telefonen snus. 0.1.22 (bygg 42) er i TestFlight, VALID for TV_OS og IOS. Ikke prøvd på hans
   Pro Max ennå.
+- 3.11.2026: eieren: «Gjerne forbedre appen så mye du kan, prøv å finn feil og gjør den så bra som mulig.» → 0.1.23,
+  en gjennomgang (fire agenter på kjernen, spilleren, filmer/Plex og visningene, og skjermbildene). Det som ble gjort,
+  står i CHANGELOG; i tillegg til det i Arkitektur: `XtreamClient.apiURL` kaster for en ugyldig adresse og koder «+»
+  (PHP leser den som mellomrom), `auth: 0` = avvist, lister som objekter (`objectList`), tall som NaN/uendelig,
+  base64 som ikke er det; `nameParts` tar bort et merke foran «|» (`isNameTag`); `channelKeyAndCountry` og
+  `homeCountries` (en strøm uten land gjelder de norske); `ChannelIndex.streamKey(of:)`/`streamNames` (strømmen
+  slås opp i indeksen); `durationText`/`seasonOrder`; `serverClock()` kaster, så den spørres igjen; `PlexModel`:
+  `connectGeneration`, `reprobe()` (beholder den gamle når ingen svarer), rapportene i kø (`reports`),
+  `finish` sier fra til fanene; `Images`: logo og farge sammen i `NSCache`, nettfeil prøves igjen etter 30 s;
+  `HomeView().id(login)`; iPad: `Theme.bg` bak TV, Søk og Filmer/Serier (var systemets); iPhone: fliser og kort
+  `.adaptive(minimum: 160)`, raden fire liggende, Konto i `ViewThatFits` med rulling, `SwipeBack` ikke under en
+  overgang; Apple TV: knapper som sletter, uten `role` (rød tekst), `GuideView` med marginene utenpå
+  `TimelineView`.

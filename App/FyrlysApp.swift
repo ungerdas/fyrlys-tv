@@ -42,6 +42,7 @@ private struct ChosenAppearance: ViewModifier {
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -55,11 +56,17 @@ struct RootView: View {
                 if model.addingLogin {
                     LoginView()
                 } else {
+                    // ny innlogging: ny side (før sto kategorien og stien fra den forrige leverandøren igjen)
                     HomeView()
+                        .id(model.login?.id)
                 }
             }
         }
         .task { model.start() }
+        // fram igjen fra bakgrunnen (eller Apple TV-en har sovet): programinfo, Plex, filmer og kanallista
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { model.becameActive() }
+        }
         // Top Shelf: fyrlys://kanal/<id>
         .onOpenURL { url in
             if url.scheme == "fyrlys", url.host == "kanal" {

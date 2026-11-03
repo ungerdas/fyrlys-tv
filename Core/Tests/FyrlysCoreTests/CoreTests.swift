@@ -14,9 +14,9 @@ final class XtreamTests: XCTestCase {
         XCTAssertEqual(login.label, "kari på iptv.example")
     }
 
-    func testURLs() {
+    func testURLs() throws {
         let client = XtreamClient(login: Login(server: "http://iptv.example", username: "kari nord", password: "p/a#ss"))
-        let api = client.apiURL(action: "get_short_epg", ["stream_id": "101", "limit": "4"]).absoluteString
+        let api = try client.apiURL(action: "get_short_epg", ["stream_id": "101", "limit": "4"]).absoluteString
         XCTAssertTrue(api.hasPrefix("http://iptv.example/player_api.php?username=kari%20nord&password=p/a%23ss"))
         XCTAssertTrue(api.hasSuffix("&action=get_short_epg&limit=4&stream_id=101"))
         let channel = Channel(id: "101", name: "NRK 1", categoryId: "1")
@@ -177,7 +177,11 @@ final class NameTests: XCTestCase {
         XCTAssertEqual(initials("TV 2 Sport"), "T2")
         // navn som begynner med et siffer, men ikke et klokkeslett
         XCTAssertEqual(nameParts("24 Nyheter"), NameParts(time: "", main: "24 Nyheter", sub: ""))
-        XCTAssertEqual(nameParts("4K | Kinokanalen"), NameParts(time: "", main: "4K", sub: "Kinokanalen"))
+        // et merke foran (land, kvalitet) er ikke kanalen: ikke en eventkanal, så programinfoen hentes
+        XCTAssertEqual(nameParts("4K | Kinokanalen"), NameParts(time: "", main: "Kinokanalen", sub: ""))
+        XCTAssertEqual(nameParts("NO | NRK 1 HD"), NameParts(time: "", main: "NRK 1 HD", sub: ""))
+        XCTAssertTrue(Channel(id: "1", name: "NO | NRK 1 HD", categoryId: "1").wantsEpg)
+        XCTAssertEqual(nameParts("Kamp | Eliteserien"), NameParts(time: "", main: "Kamp", sub: "Eliteserien"))
         XCTAssertEqual(nameParts("  20:00 Nordvik - Sørhavn | Cupen "),
                        NameParts(time: "20:00", main: "Nordvik - Sørhavn", sub: "Cupen"))
         XCTAssertEqual(logoText("Viaplay Sport"), "Via")

@@ -41,6 +41,12 @@ final class PlexModel {
     @ObservationIgnored private var account: PlexAccountClient
     @ObservationIgnored private var token: String?
     @ObservationIgnored private var linkTask: Task<Void, Never>?
+    /// økes for hver tilkobling, så et sent svar fra en tidligere ikke skriver over en nyere
+    @ObservationIgnored private var connectGeneration = 0
+    /// leter etter adressen som svarer (se `reprobe`)
+    @ObservationIgnored private var probing = false
+    /// rapportene til Plex sendes i rekkefølge (timeline og scrobble)
+    @ObservationIgnored private var reports: Task<Void, Never>?
     private let defaults = TestSupport.defaults
 
     private static let useKey = "plex-filmer"
@@ -88,7 +94,11 @@ final class PlexModel {
         phase = .connecting
         if let server = saved.server {
             self.server = server
-            Task { await connect(server, preferred: saved.uri) }
+            Task {
+                await connect(server, preferred: saved.uri)
+                // serverne på kontoen (for «Bytt server»), i bakgrunnen
+                if servers.isEmpty, let found = try? await account.servers(token: saved.token) { servers = found }
+            }
         } else {
             Task { await finish(token: saved.token) }
         }
@@ -167,19 +177,25 @@ final class PlexModel {
             save(nil)
             if found.isEmpty {
                 phase = .failed(L("Fant ingen Plex-server på kontoen."))
+                onChange?()
             } else if found.count == 1 && !choose {
                 await connect(found[0])
             } else {
                 phase = .choosing
+                onChange?()
             }
         } catch {
+            // fanene Filmer og Serier venter på Plex: si fra (før ble de stående og laste)
             phase = .failed(error.localizedDescription)
+            onChange?()
         }
     }
 
     /// Kobler til [server]: adressen fra sist hvis den svarer, ellers den beste som svarer (hjemmenettet først).
     func connect(_ server: PlexServer, preferred: String? = nil) async {
         var server = server
+        connectGeneration += 1
+        let gen = connectGeneration
         phase = .connecting
         var uri: String?
         if let preferred, await PlexClient(base: preferred, token: server.accessToken, device: device).ping() {
@@ -193,6 +209,7 @@ final class PlexModel {
             server = fresh
             uri = await PlexClient.reachable(fresh, device: device)
         }
+        guard gen == connectGeneration else { return }
         self.server = server
         guard let uri else {
             client = nil
@@ -215,6 +232,32 @@ final class PlexModel {
         Task { await connect(server) }
     }
 
+    /// Appen er framme igjen: finn adressen som svarer nå (kom du hjem, eller dro du hjemmefra, er en annen bedre), og
+    /// bytt til den. Før ble adressen fra da appen startet brukt til appen ble lukket, og ute svarte ingenting.
+    func reprobe() {
+        guard phase == .connected, let server, !probing else { return }
+        probing = true
+        let gen = connectGeneration
+        let device = device
+        Task {
+            defer { probing = false }
+            var uri = await PlexClient.reachable(server, device: device)
+            var found = server
+            if uri == nil, let token,
+               let fresh = try? await account.servers(token: token).first(where: { $0.id == server.id }) {
+                found = fresh
+                uri = await PlexClient.reachable(fresh, device: device)
+            }
+            // svarer ingen (nettet er ikke oppe ennå rett etter at enheten våknet): den gamle står; feiler den, kan
+            // fanen prøve igjen, og da letes det på nytt
+            guard gen == connectGeneration, phase == .connected, let uri, uri != client?.base else { return }
+            self.server = found
+            client = PlexClient(base: uri, token: found.accessToken, device: device)
+            save(uri)
+            onChange?()
+        }
+    }
+
     private func save(_ uri: String?) {
         guard !TestSupport.isActive, let token else { return }
         let saved = Saved(token: token, server: server, uri: uri)
@@ -224,7 +267,10 @@ final class PlexModel {
     /// Hvor langt du har sett, tilbake til Plex; [finished]: merk som sett.
     func report(_ ratingKey: String, time: Double, duration: Double, state: PlexClient.PlayState, finished: Bool) {
         guard let client else { return }
-        Task.detached {
+        // i rekkefølge: før kunne «pause» komme fram etter «stoppet», og økta ble hengende i Plex og Tautulli
+        let previous = reports
+        reports = Task.detached {
+            await previous?.value
             await client.timeline(ratingKey, state: state, time: time, duration: duration)
             if finished { await client.scrobble(ratingKey) }
         }

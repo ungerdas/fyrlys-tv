@@ -46,6 +46,8 @@ final class VODModel {
     @ObservationIgnored private var generation = 0
     /// hentingen av kategoriene som pågår (eies av modellen, se `loadCategories`)
     @ObservationIgnored private var categoriesTask: Task<Void, Never>?
+    /// da kategoriene sist ble hentet (hentes på nytt når appen kommer fram etter en halvtime)
+    @ObservationIgnored private var loadedAt: Date?
 
     init(kind: VODKind) {
         self.kind = kind
@@ -76,7 +78,18 @@ final class VODModel {
     /// stoppet av den som pågikk.
     func loadCategories(force: Bool = false) async {
         guard let backend, force || !loaded else { return }
-        if case .unavailable = backend, force { reconnect?() }
+        if force {
+            switch backend {
+            case .unavailable:
+                reconnect?()
+            case .plex where error != nil:
+                // Plex svarte ikke: let etter adressen som svarer nå (hjemme eller ute); fanen hentes på nytt etterpå
+                reconnect?()
+                return
+            default:
+                break
+            }
+        }
         if let running = categoriesTask {
             if !force {
                 await running.value
@@ -101,9 +114,18 @@ final class VODModel {
             case .xtream(let client):
                 found = try await client.vodCategories(kind)
             case .plex(let client):
-                let libraries = try await client.libraries(kind)
-                let resume = (try? await client.continueWatching(kind)) ?? []
+                // «Fortsett å se» samtidig med bibliotekene og radene (før etter hverandre)
+                let kind = kind
+                let resumeTask = Task { (try? await client.continueWatching(kind)) ?? [] }
+                let libraries: [ChannelCategory]
+                do {
+                    libraries = try await client.libraries(kind)
+                } catch {
+                    resumeTask.cancel()
+                    throw error
+                }
                 let home = (try? await client.rows(kind, libraries: libraries.map(\.id))) ?? []
+                let resume = await resumeTask.value
                 // avbrutt (en ny henting har tatt over): ikke tomme rader i stedet for dem som kommer
                 guard gen == generation, !Task.isCancelled else { return }
                 continueRow = resume
@@ -119,6 +141,7 @@ final class VODModel {
             guard gen == generation, !Task.isCancelled else { return }
             categories = found
             loaded = true
+            loadedAt = Date()
             error = nil
             if chosen == nil || !found.contains(where: { $0.id == chosen }) { chosen = found.first?.id }
         } catch {
@@ -156,6 +179,29 @@ final class VODModel {
         case .xtream(let client): return try await client.vodDetails(item)
         case .plex(let client): return try await client.details(item)
         default: throw SourceError(L("Ikke logget inn"))
+        }
+    }
+
+    /// Appen er framme igjen: er det en halvtime siden sist, hentes «Fortsett å se», radene og kategorien som vises
+    /// på nytt (nye filmer fra serveren, det som er sett på andre enheter), de andre når de vises igjen.
+    func refreshIfOld() {
+        guard loaded, let at = loadedAt, Date().timeIntervalSince(at) > 1800, let backend else { return }
+        loadedAt = Date()
+        let gen = generation
+        let shown = chosen
+        Task {
+            await refreshContinue()
+            guard let shown, shown != Self.home, gen == generation else { return }
+            let found: [VODItem]?
+            switch backend {
+            case .xtream(let client): found = try? await client.vodItems(kind, category: shown)
+            case .plex(let client): found = try? await client.items(kind, library: shown)
+            default: found = nil
+            }
+            guard gen == generation else { return }
+            // de andre kategoriene hentes på nytt når de velges
+            items = items.filter { $0.key == shown }
+            if let found { items[shown] = found }
         }
     }
 

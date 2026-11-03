@@ -15,6 +15,10 @@ public struct ChannelIndex: Sendable {
     public let merged: [String: [String]]
     /// nøklene (`channelKey`) kanalene ble slått sammen etter
     public let mergeKeys: Set<String>
+    /// kanalene en egen strøm gjelder for: id → nøkkelen (også id-ene som er slått inn i en annen)
+    let streamKeyById: [String: String]
+    /// navnene på kanalene hver egen strøm gjelder for, hos leverandøren (til innstillingene)
+    public let streamNames: [String: [String]]
     let categoryById: [String: ChannelCategory]
     /// kanalnavnene med små bokstaver, i samme rekkefølge som `channels`
     let searchNames: [String]
@@ -30,6 +34,8 @@ public struct ChannelIndex: Sendable {
         mergeKeys = keys
         var source: [Channel] = []
         var keyAt: [Int: String] = [:]
+        // landet i navnet («TV 2 HD DK»): en strøm uten land gjelder de norske, se `homeCountries`
+        var countryAt: [Int: String] = [:]
         // delt ut av en annen kanal (har ikke egen programinfo eller logo)
         var derived = Set<Int>()
         if keys.isEmpty {
@@ -48,8 +54,10 @@ public struct ChannelIndex: Sendable {
                     source.append(channel)
                     continue
                 }
+                let country = channelKeyAndCountry(channel.name).country
                 for (n, match) in found.enumerated() {
                     keyAt[source.count] = match.key
+                    if let country { countryAt[source.count] = country }
                     if n == 0 {
                         source.append(match.name == channel.name ? channel : channel.renamed(match.name))
                     } else {
@@ -59,13 +67,22 @@ public struct ChannelIndex: Sendable {
                 }
             }
         }
-        // gruppene: kanalene med samme nøkkel
+        // gruppene: kanalene med samme nøkkel (i Norge, eller i landet der kanalen finnes)
         var keptFor: [Int: Int] = [:]
         var merged: [String: [String]] = [:]
+        var streamKeyById: [String: String] = [:]
+        var streamNames: [String: [String]] = [:]
         if !keyAt.isEmpty {
             var groups: [String: [Int]] = [:]
             for (i, key) in keyAt.sorted(by: { $0.key < $1.key }) { groups[key, default: []].append(i) }
-            for members in groups.values where members.count > 1 {
+            for (key, all) in groups {
+                let home = all.filter { countryAt[$0].map(homeCountries.contains) ?? true }
+                let members = home.isEmpty ? all : home
+                for i in members {
+                    streamKeyById[source[i].id] = key
+                    streamNames[key, default: []].append(source[i].name)
+                }
+                guard members.count > 1 else { continue }
                 let score = { (i: Int) -> Int in
                     (derived.contains(i) ? 0 : 4) + (source[i].hasEpg ? 2 : 0) + (source[i].logo == nil ? 0 : 1)
                 }
@@ -75,6 +92,8 @@ public struct ChannelIndex: Sendable {
             }
         }
         self.merged = merged
+        self.streamKeyById = streamKeyById
+        self.streamNames = streamNames
         // kanalene uten de som er slått inn i en annen
         var channels: [Channel] = []
         var newIndex: [Int: Int] = [:]
@@ -116,6 +135,9 @@ public struct ChannelIndex: Sendable {
 
     /// Id-ene en kanal har (flere når kanaler er slått sammen).
     public func ids(of channel: Channel) -> [String] { merged[channel.id] ?? [channel.id] }
+
+    /// Nøkkelen til den egne strømmen kanalen spilles fra (nil: leverandørens).
+    public func streamKey(of channel: Channel) -> String? { streamKeyById[channel.id] }
 
     public static let empty = ChannelIndex(Lists(categories: [], channels: []))
 

@@ -23,10 +23,22 @@ public func nameParts(_ name: String) -> NameParts {
         n = String(n[m.upperBound...])
     }
     if let bar = n.range(of: " | ") {
-        return NameParts(time: time, main: String(n[..<bar.lowerBound]).trimmingCharacters(in: .whitespaces),
-                         sub: String(n[bar.upperBound...]).trimmingCharacters(in: .whitespaces))
+        let left = String(n[..<bar.lowerBound]).trimmingCharacters(in: .whitespaces)
+        let right = String(n[bar.upperBound...]).trimmingCharacters(in: .whitespaces)
+        // «NO | NRK 1 HD», «4K | Kinokanalen»: landet eller kvaliteten foran er ikke kanalen (og da er det ingen
+        // eventkanal, så programinfoen hentes)
+        if time.isEmpty, !right.isEmpty, isNameTag(left) {
+            return NameParts(time: time, main: right, sub: "")
+        }
+        return NameParts(time: time, main: left, sub: right)
     }
     return NameParts(time: time, main: n, sub: "")
+}
+
+/// Et merke foran navnet: en landskode («NO», «SWE») eller kvaliteten («4K», «FHD»).
+func isNameTag(_ text: String) -> Bool {
+    if ["4K", "8K", "UHD", "FHD", "HD", "SD", "HEVC"].contains(text.uppercased()) { return true }
+    return (2...3).contains(text.count) && text.allSatisfy { $0.isLetter && $0.isUppercase }
 }
 
 /// Teksten i logofeltet til en kanal uten logo, som i Fyrlys på Windows: de tre første tegnene i navnet (hele tegn,

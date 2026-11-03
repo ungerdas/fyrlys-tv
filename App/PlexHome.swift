@@ -102,7 +102,8 @@ struct PlexHomeView: View {
         let full = await model.withFile(episode)
         let urls = model.episodeURLs(full)
         guard !urls.isEmpty else { return }
-        let start = full.resume > 0 ? full.resume : app.progress(full.progressKey)
+        // Plex vet hvor langt du har sett (også i de andre Plex-appene); sett ferdig der: fra start
+        let start = full.resume > 0 ? full.resume : (full.watched ? 0 : app.progress(full.progressKey))
         let subtitle = L("Sesong {s}, episode {e}", ["s": full.season, "e": full.number]) + ": " + full.title
         playing = VODPlay(id: full.progressKey, urls: urls, title: show.name, subtitle: subtitle,
                           progressKey: full.progressKey, start: start, item: show, plex: full.id)

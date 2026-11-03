@@ -2,16 +2,24 @@ import FyrlysCore
 import SwiftUI
 import UIKit
 
-/// Logoene: hentes én gang (User-Agent som VLC, som leverandørene liker), gjøres små og tas vare på i minnet. En
-/// adresse som ikke virket, prøves ikke igjen før etter ti minutter.
+/// Logoene: hentes én gang (User-Agent som VLC, som leverandørene liker), gjøres små og tas vare på i minnet sammen
+/// med fargen bak dem. En adresse som svarte med en feil eller ikke var et bilde, prøves ikke igjen før etter ti
+/// minutter; var nettet borte eller tok det for lang tid, prøves den igjen etter et halvt minutt.
 final class Images: @unchecked Sendable {
     static let shared = Images()
 
-    private let cache = NSCache<NSURL, UIImage>()
+    /// bildet og bakgrunnsfargen bak det (de store kortene), regnet ut én gang; sammen, så fargen ikke blir borte
+    /// fra et bilde som fortsatt er i minnet
+    private final class Logo {
+        let image: UIImage
+        let tint: Color?
+        init(image: UIImage, tint: Color?) { self.image = image; self.tint = tint }
+    }
+
+    private let cache = NSCache<NSURL, Logo>()
     private let lock = NSLock()
+    /// når en adresse som feilet, kan prøves igjen
     private var failed: [URL: Date] = [:]
-    /// bakgrunnsfargen bak hver logo (de store kortene), regnet ut én gang
-    private var tints: [URL: Color?] = [:]
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.urlCache = URLCache(memoryCapacity: 8 << 20, diskCapacity: 150 << 20)
@@ -23,17 +31,15 @@ final class Images: @unchecked Sendable {
 
     init() { cache.countLimit = 600 }
 
-    func cached(_ url: URL) -> UIImage? { cache.object(forKey: url as NSURL) }
+    func cached(_ url: URL) -> UIImage? { cache.object(forKey: url as NSURL)?.image }
 
     /// Fargen bak logoen, når bildet er hentet (nil: ikke hentet ennå, eller standardflaten).
-    func tint(for url: URL) -> Color? {
-        lock.withLock { tints[url] ?? nil }
-    }
+    func tint(for url: URL) -> Color? { cache.object(forKey: url as NSURL)?.tint }
 
     func load(_ url: URL, maxPixels: CGFloat = 360) async -> UIImage? {
         if let image = cached(url) { return image }
-        let recentlyFailed = lock.withLock { failed[url].map { Date().timeIntervalSince($0) < 600 } ?? false }
-        if recentlyFailed { return nil }
+        let waiting = lock.withLock { failed[url].map { Date() < $0 } ?? false }
+        if waiting { return nil }
         var request = URLRequest(url: url)
         request.setValue(xtreamUserAgent, forHTTPHeaderField: "User-Agent")
         do {
@@ -43,15 +49,21 @@ final class Images: @unchecked Sendable {
             let scale = min(1, maxPixels / max(image.size.width, image.size.height, 1))
             let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
             let small = await image.byPreparingThumbnail(ofSize: size) ?? image
-            let tint = logoTint(small)
-            lock.withLock {
-                if tints.count > 1500 { tints.removeAll() }
-                tints[url] = .some(tint)
-            }
-            cache.setObject(small, forKey: url as NSURL)
+            cache.setObject(Logo(image: small, tint: logoTint(small)), forKey: url as NSURL)
+            lock.withLock { _ = failed.removeValue(forKey: url) }
             return small
         } catch {
-            if !Task.isCancelled { lock.withLock { failed[url] = Date() } }
+            guard !Task.isCancelled else { return nil }
+            let wait: TimeInterval
+            switch (error as? URLError)?.code {
+            case .cancelled?: return nil
+            case .notConnectedToInternet?, .networkConnectionLost?, .timedOut?: wait = 30
+            default: wait = 600
+            }
+            lock.withLock {
+                if failed.count > 5000 { failed = failed.filter { $0.value > Date() } }
+                failed[url] = Date().addingTimeInterval(wait)
+            }
             return nil
         }
     }

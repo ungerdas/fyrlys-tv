@@ -23,8 +23,10 @@ struct GuideView: View {
     @State private var picking = false
     @State private var shown = GuideView.page
     @State private var picked: GuidePick?
-    /// den halvtimen som står lengst til venstre (rulles dit av «Til nå»)
-    @State private var mark: Int? = 1
+    /// «Se kanalen» i info-arket: spilles når arket er borte (to ark på en gang avvises)
+    @State private var watch: (channel: Channel, list: [Channel])?
+    /// den halvtimen som står lengst til venstre (rulles dit når guiden vises, og av «Til nå»)
+    @State private var mark: Int?
     @State private var scroll = GuideScroll()
 
     static let perMinute: CGFloat = 4
@@ -66,17 +68,32 @@ struct GuideView: View {
                                current: selection)
                     .environment(model)
             }
-            .sheet(item: $picked, onDismiss: { model.showPendingReplay() }) { pick in
+            .sheet(item: $picked, onDismiss: {
+                model.showPendingReplay()
+                if let watch {
+                    self.watch = nil
+                    play(watch.channel, watch.list)
+                }
+            }) { pick in
                 ProgramInfo(pick: pick) {
+                    watch = (pick.channel, rows)
                     picked = nil
-                    play(pick.channel, rows)
                 } fromStart: {
                     Task {
-                        model.pendingReplay = await model.archivePlay(pick.channel, pick.program)
+                        let replay = await model.archivePlay(pick.channel, pick.program)
+                        // arket er lukket imens: ikke spill det senere, når et annet ark lukkes
+                        guard picked?.id == pick.id else { return }
+                        model.pendingReplay = replay
                         picked = nil
                     }
                 }
                 .presentationDetents([.medium, .large])
+            }
+            // til nå når guiden vises (startverdien i scrollPosition ble ikke brukt, så guiden sto en halvtime eller
+            // mer bakover)
+            .task {
+                try? await Task.sleep(for: .milliseconds(80))
+                if mark == nil { mark = 1 }
             }
         }
     }
@@ -153,7 +170,12 @@ struct GuideView: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("guide-velger")
                 Button {
-                    withAnimation(.easeOut(duration: 0.3)) { mark = 1 }
+                    // via nil, så det rulles også når den står på 1 (men du har rullet bort)
+                    mark = nil
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(20))
+                        withAnimation(.easeOut(duration: 0.3)) { mark = 1 }
+                    }
                 } label: {
                     Text(L("Til nå"))
                         .font(.system(size: 15, weight: .semibold))

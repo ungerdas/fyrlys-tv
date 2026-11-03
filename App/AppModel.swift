@@ -27,8 +27,12 @@ final class AppModel {
     var loading = false
     var error: String?
 
-    /// telles opp når favoritter, favorittkategorier eller «sist sett» endres (Library er ikke observerbar selv)
+    /// telles opp når favoritter eller favorittkategorier endres (Library er ikke observerbar selv)
     private(set) var libraryVersion = 0
+    /// telles opp når «sist sett» endres (for seg: et kanalbytte skal ikke tegne alle kortene og søket på nytt)
+    private(set) var recentVersion = 0
+    /// da kanallista sist ble hentet (hentes igjen når appen kommer fram etter noen timer)
+    @ObservationIgnored private var listsFetchedAt: Date?
     @ObservationIgnored private var library: Library?
 
     let programs = ProgramStore()
@@ -119,6 +123,7 @@ final class AppModel {
     /// Bytter til en annen lagret innlogging.
     func switchTo(_ other: Login) {
         guard other.id != login?.id else { return }
+        pendingPlay = nil
         logins = [other] + logins.filter { $0.id != other.id }
         if !TestSupport.isActive { Keychain.saveAll(logins) }
         account = nil
@@ -135,6 +140,7 @@ final class AppModel {
 
     /// Logger ut av den som er i bruk; finnes det flere, brukes den neste.
     func signOut() {
+        pendingPlay = nil
         if let login { cache.remove(login.id) }
         logins.removeAll { $0.id == login?.id }
         if !TestSupport.isActive { Keychain.saveAll(logins) }
@@ -153,9 +159,30 @@ final class AppModel {
         account = nil
         index = .empty
         allChannels = []
+        listsFetchedAt = nil
         programs.reset(client: nil)
         refreshVOD()
         phase = .signedOut
+        #if os(tvOS)
+        // Top Shelf skal ikke vise favorittene til en innlogging som er borte
+        if !TestSupport.isActive {
+            SharedFavorites.save([])
+            TVTopShelfContentProvider.topShelfContentDidChange()
+        }
+        #endif
+    }
+
+    /// Appen er framme igjen (fra bakgrunnen, eller Apple TV-en har sovet): programinfoen for det som vises, adressen
+    /// til Plex, filmene og seriene, og kanallista når den er noen timer gammel (eventkanalene har kampene i navnet).
+    func becameActive() {
+        guard phase == .ready, login != nil else { return }
+        programs.refreshVisible()
+        plex.reprobe()
+        movies.refreshIfOld()
+        series.refreshIfOld()
+        if let at = listsFetchedAt, Date().timeIntervalSince(at) > 3 * 3600 {
+            Task { await reload() }
+        }
     }
 
     private func use(_ login: Login) {
@@ -168,6 +195,7 @@ final class AppModel {
         error = nil
         index = .empty
         allChannels = []
+        listsFetchedAt = nil
         library = Library(store: store, loginId: login.id)
         libraryVersion += 1
         programs.reset(client: client)
@@ -211,6 +239,13 @@ final class AppModel {
             let lists = Lists(categories: try await cats, channels: try await chans)
             guard gen == generation else { return }
             let current = index
+            // ingen kanaler i svaret (et uventet svar, eller leverandøren har problemer): lista fra sist står, og
+            // den på disken skrives ikke over med en tom
+            if lists.channels.isEmpty && !current.lists.channels.isEmpty {
+                error = L("IPTV-serveren sendte ingen kanaler. Viser lista fra sist.")
+                return
+            }
+            listsFetchedAt = Date()
             let keys = mergeKeys
             // oppslagene lages i bakgrunnen, og bare når lista er endret: ellers tegnes alt på nytt for ingenting
             let next = await Task.detached(priority: .userInitiated) { () -> ChannelIndex? in
@@ -246,7 +281,8 @@ final class AppModel {
     func serverClock() async -> TimeInterval? {
         if let clock { return clock }
         guard let client else { return nil }
-        let found = await client.serverClock()
+        // svarte ikke serveren, spørres det igjen neste gang (ellers ble tidssonen gjettet resten av økta)
+        guard let found = try? await client.serverClock() else { return nil }
         clock = .some(found)
         return found
     }
@@ -272,6 +308,7 @@ final class AppModel {
         if plex.useForVOD && (plex.server != nil || plex.phase != .off) {
             if let client = plex.client { return .plex(client) }
             if case .failed(let message) = plex.phase { return .unavailable(message) }
+            if plex.phase == .choosing { return .unavailable(L("Velg Plex-serveren under Innstillinger.")) }
             return .waiting
         }
         return client.map { .xtream($0) }
@@ -340,26 +377,12 @@ final class AppModel {
 
     /// Adressen kanalen spilles fra: en egen når det er lagt inn en for den, ellers leverandørens.
     func streamURL(_ channel: Channel) -> URL? {
-        if !streamByKey.isEmpty, let own = streamByKey[channelKey(channel.name)] { return own }
+        if !streamByKey.isEmpty, let key = index.streamKey(of: channel), let own = streamByKey[key] { return own }
         return client?.liveURL(channel)
     }
 
-    /// Kanalene hver egen strøm gjelder for (i bakgrunnen: lista kan ha titusenvis av kanaler). Alle leverandørens,
-    /// også dem som er slått sammen til én.
-    func streamMatches() async -> [String: [String]] {
-        let keys = Set(streamOverrides.map(\.key) + builtInStreams.map(\.key))
-        guard !keys.isEmpty else { return [:] }
-        let list = index.lists.channels
-        return await Task.detached(priority: .userInitiated) {
-            var found: [String: [String]] = [:]
-            for channel in list {
-                for match in matchingStreamKeys(channel.name, in: keys) {
-                    found[match.key, default: []].append(channel.name)
-                }
-            }
-            return found
-        }.value
-    }
+    /// Kanalene hver egen strøm gjelder for (navnene hos leverandøren), fra indeksen.
+    var streamMatches: [String: [String]] { index.streamNames }
 
     // ── «Fortsett å se»: filmene og seriene du har begynt på, sist sett først ──
 
@@ -367,20 +390,26 @@ final class AppModel {
 
     func continueItems(_ kind: VODKind) -> [VODItem] {
         _ = continueVersion
+        return storedContinue().filter { $0.kind == kind }
+    }
+
+    /// Alle, sist sett først (filmer og serier om hverandre).
+    private func storedContinue() -> [VODItem] {
         guard let key = continueKey, let data = defaults.data(forKey: key),
               let items = try? JSONDecoder().decode([VODItem].self, from: data) else { return [] }
-        return items.filter { $0.kind == kind }
+        return items
     }
 
     func rememberContinue(_ item: VODItem) {
-        guard let key = continueKey, continueItems(item.kind).first?.progressKey != item.progressKey else { return }
-        let all = (continueItems(.movies) + continueItems(.series)).filter { $0.progressKey != item.progressKey }
-        save([item] + all.prefix(29), key)
+        let stored = storedContinue()
+        guard let key = continueKey, stored.first?.progressKey != item.progressKey else { return }
+        // i rekkefølgen de er sett (før: filmene først, så seriene, og da ble seriene kuttet når lista var full)
+        save([item] + stored.filter { $0.progressKey != item.progressKey }.prefix(29), key)
     }
 
     func forgetContinue(_ item: VODItem) {
         guard let key = continueKey else { return }
-        save((continueItems(.movies) + continueItems(.series)).filter { $0.progressKey != item.progressKey }, key)
+        save(storedContinue().filter { $0.progressKey != item.progressKey }, key)
     }
 
     private func save(_ items: [VODItem], _ key: String) {
@@ -441,6 +470,7 @@ final class AppModel {
 
     var recent: [Channel] {
         _ = libraryVersion
+        _ = recentVersion
         return FyrlysCore.channels(library?.recent ?? [], in: byId)
     }
 
@@ -464,8 +494,9 @@ final class AppModel {
     }
 
     func played(_ channel: Channel) {
+        guard library?.recent.first != channel.id else { return }
         library?.addRecent(channel.id)
-        libraryVersion += 1
+        recentVersion += 1
     }
 
     // ── favorittkategorier («Dine kategorier») ──
@@ -520,19 +551,27 @@ final class ChannelPrograms {
 
 /// Programinfo for kanalene som vises: hentes når et kort har vært framme litt (høyst fire om gangen, de nyeste
 /// først) og tas vare på i fem minutter. Eventkanaler og kanaler uten programinfo hos leverandøren hoppes over, som i
-/// Fyrlys på Windows.
+/// Fyrlys på Windows. Kanalene som vises (kort, guiderader, kanallista i spilleren), hentes på nytt hvert minutt når
+/// det som går nå mangler eller det er en halvtime siden sist, og når appen kommer fram igjen; feil prøves igjen.
 @MainActor
 final class ProgramStore {
     private var boxes: [String: ChannelPrograms] = [:]
     private var fetched: [String: Date] = [:]
+    /// feil på rad per kanal (etter to vises «ingen programinfo» i stedet for at den henter)
+    private var failures: [String: Int] = [:]
+    /// kanalene som vises, og av hvor mange visninger (samme kanal kan stå i favorittraden og i lista)
+    private var visible: [String: (channel: Channel, count: Int)] = [:]
     private var waiting: [Channel] = []
     private var running = 0
     private var client: XtreamClient?
     private var generation = 0
     private var pumpQueued = false
+    private var ticker: Task<Void, Never>?
 
     static let maxRunning = 4
     static let keep: TimeInterval = 300
+    /// så gammel programinfoen for en kanal som vises, kan være før den hentes på nytt (selv om den har «nå»)
+    static let refreshAfter: TimeInterval = 1800
     /// ventetid før henting, så rask blaing ikke fyller køen med kanaler du bare passerte
     static let settle: Duration = .milliseconds(150)
 
@@ -543,6 +582,7 @@ final class ProgramStore {
             box.loaded = false
         }
         fetched = [:]
+        failures = [:]
         waiting = []
         running = 0
         generation += 1
@@ -550,7 +590,7 @@ final class ProgramStore {
 
     func programs(for channel: Channel) -> [Program] { box(channel.id).list }
 
-    /// Om programinfoen for kanalen er hentet (også når leverandøren ikke hadde noe).
+    /// Om programinfoen for kanalen er hentet (også når leverandøren ikke hadde noe, eller det feilet to ganger).
     func isLoaded(_ channel: Channel) -> Bool { box(channel.id).loaded }
 
     private func box(_ id: String) -> ChannelPrograms {
@@ -560,8 +600,32 @@ final class ProgramStore {
         return box
     }
 
-    /// Kanalen vises: hent programinfoen om den ikke er hentet nylig.
+    /// Kanalen vises (kalles én gang per visning, med `forget` når den forsvinner): hent programinfoen om den ikke er
+    /// hentet nylig.
     func want(_ channel: Channel) {
+        guard channel.wantsEpg else { return }
+        // så mange vises aldri samtidig: har en visning forsvunnet uten å si fra, begynner tellingen på nytt (ellers
+        // ble de hentet på nytt hver halvtime for alltid)
+        if visible.count > 500 { visible.removeAll() }
+        let count = visible[channel.id]?.count ?? 0
+        visible[channel.id] = (channel, count + 1)
+        refresh(channel)
+        startTicker()
+    }
+
+    /// Visningen forsvinner: ikke hent kanalen hvis det ikke har begynt (og ingen annen visning viser den).
+    func forget(_ channel: Channel) {
+        guard let entry = visible[channel.id] else { return }
+        if entry.count > 1 {
+            visible[channel.id] = (entry.channel, entry.count - 1)
+        } else {
+            visible[channel.id] = nil
+            waiting.removeAll { $0.id == channel.id }
+        }
+    }
+
+    /// Hent programinfoen for kanalen om den ikke er hentet nylig (spilleren, uten å telle som en visning).
+    func refresh(_ channel: Channel) {
         guard channel.wantsEpg else { return }
         if let at = fetched[channel.id], Date().timeIntervalSince(at) < Self.keep { return }
         waiting.removeAll { $0.id == channel.id }
@@ -569,9 +633,31 @@ final class ProgramStore {
         queuePump()
     }
 
-    /// Kanalen er ikke framme lenger: ikke hent den hvis det ikke har begynt.
-    func forget(_ channel: Channel) {
-        waiting.removeAll { $0.id == channel.id }
+    /// Kanalene som vises og mangler det som går nå, ble hentet for en halvtime siden, eller feilet: hent på nytt.
+    func refreshVisible() {
+        let now = Date()
+        for (id, entry) in visible {
+            let age = fetched[id].map { now.timeIntervalSince($0) } ?? .infinity
+            let missing = nowAndNext(box(id).list, at: now).now == nil
+            if age >= Self.refreshAfter || (missing && age >= Self.keep) || (failures[id] ?? 0) > 0 {
+                refresh(entry.channel)
+            }
+        }
+    }
+
+    private func startTicker() {
+        guard ticker == nil else { return }
+        ticker = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                guard let self else { return }
+                if self.visible.isEmpty {
+                    self.ticker = nil
+                    return
+                }
+                self.refreshVisible()
+            }
+        }
     }
 
     private func queuePump() {
@@ -600,14 +686,19 @@ final class ProgramStore {
                 // etter reset: running er alt satt til 0
                 guard gen == generation else { return }
                 running -= 1
+                let target = self.box(channel.id)
                 if let result {
                     // en tom liste huskes også (leverandøren har ingenting nå), til den er fem minutter gammel
-                    let target = self.box(channel.id)
+                    failures[channel.id] = nil
                     if target.list != result { target.list = result }
                     if !target.loaded { target.loaded = true }
                 } else {
-                    // feil: prøv igjen neste gang kanalen vises
+                    // feil: prøves igjen om et minutt så lenge kanalen vises (eller neste gang den vises); etter to
+                    // feil på rad slutter kortet å vise at det henter
                     fetched[channel.id] = nil
+                    let count = (failures[channel.id] ?? 0) + 1
+                    failures[channel.id] = count
+                    if count >= 2, !target.loaded { target.loaded = true }
                 }
                 pump()
             }

@@ -147,6 +147,22 @@ private struct AccountMenu: View {
     let openStreams: () -> Void
 
     var body: some View {
+        // på tvers på iPhone er det ikke alltid plass til alt; da kan menyen rulles
+        ViewThatFits(in: .vertical) {
+            menu
+            ScrollView { menu }
+                .scrollIndicators(.visible)
+        }
+        .alert(L("Logg ut av {name}?", ["name": model.login?.label ?? ""]), isPresented: $confirmSignOut) {
+            Button(L("Logg ut"), role: .destructive) {
+                done()
+                model.signOut()
+            }
+            Button(L("Avbryt"), role: .cancel) {}
+        }
+    }
+
+    private var menu: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let login = model.login {
                 Text(login.label)
@@ -231,13 +247,6 @@ private struct AccountMenu: View {
         .frame(width: 290, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("innstillinger")
-        .alert(L("Logg ut av {name}?", ["name": model.login?.label ?? ""]), isPresented: $confirmSignOut) {
-            Button(L("Logg ut"), role: .destructive) {
-                done()
-                model.signOut()
-            }
-            Button(L("Avbryt"), role: .cancel) {}
-        }
     }
 
     private func menuButton(_ title: String) -> some View {
@@ -316,13 +325,18 @@ struct SwipeBackEnabler: UIViewControllerRepresentable {
     }
 }
 
-/// Lar sveipet begynne bare når det er en side å gå tilbake til.
+/// Lar sveipet begynne bare når det er en side å gå tilbake til, og ikke mens en side er på vei inn eller ut (et sveip
+/// midt i en overgang kan låse navigasjonen).
 final class SwipeBack: NSObject, UIGestureRecognizerDelegate {
     static let shared = SwipeBack()
     weak var navigation: UINavigationController?
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        (navigation?.viewControllers.count ?? 0) > 1
+        // navigasjonen sveipet hører til (det er én per fane), ellers den som sist slo det på
+        guard let navigation = (gestureRecognizer.view?.next as? UINavigationController) ?? self.navigation else {
+            return false
+        }
+        return navigation.viewControllers.count > 1 && navigation.transitionCoordinator == nil
     }
 }
 #endif

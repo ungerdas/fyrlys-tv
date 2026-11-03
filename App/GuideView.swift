@@ -127,11 +127,14 @@ struct GuideView: View {
                     // radene som rulles forbi, skal ikke legge seg over tidslinja og overskriften
                     .clipped()
                 }
-                .padding(.top, 12)
-                .padding(.horizontal, Theme.edge)
-                // nærmere sidene og helt ned, som TV-siden
-                .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
+            // utenpå TimelineView: inne i den fikk guiden bare bredden innenfor den trygge sonen, så radene ble klippet
+            // før tidslinja var slutt (den siste halvtimen synes ikke)
+            .padding(.top, 12)
+            .padding(.horizontal, Theme.edge)
+            // nærmere sidene og helt ned, som TV-siden
+            .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("guide")
         }
@@ -198,6 +201,7 @@ private struct GuideRow: View {
 
     var body: some View {
         let programs = model.programs.programs(for: channel)
+        let parts = nameParts(channel.name)
         HStack(spacing: 12) {
             Button(action: play) {
                 HStack(spacing: 12) {
@@ -241,11 +245,18 @@ private struct GuideRow: View {
                             .padding(.leading, CGFloat(span.from) * GuideView.perMinute)
                     }
                 }
+                // som på iPhone: kampen for eventkanaler, og «Ingen programinfo» først når svaret er kommet
                 if programs.isEmpty {
-                    Text(L("Ingen programinfo"))
-                        .font(.system(size: 19))
-                        .foregroundStyle(Theme.muted)
-                        .padding(.leading, 20)
+                    let note = !parts.sub.isEmpty ? parts.sub
+                        : !parts.time.isEmpty ? L("Starter {time}", ["time": parts.time])
+                        : !channel.hasEpg || model.programs.isLoaded(channel) ? L("Ingen programinfo") : ""
+                    if !note.isEmpty {
+                        Text(note)
+                            .font(.system(size: 19))
+                            .foregroundStyle(Theme.muted)
+                            .lineLimit(1)
+                            .padding(.leading, 20)
+                    }
                 }
                 Rectangle()
                     .fill(Theme.live)

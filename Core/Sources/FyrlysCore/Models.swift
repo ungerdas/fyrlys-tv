@@ -129,7 +129,8 @@ public struct Login: Codable, Hashable, Sendable {
 
     /// «iptv.example:8080/» → «http://iptv.example:8080»
     public static func normalize(_ server: String) -> String {
-        var s = server.trimmingCharacters(in: .whitespacesAndNewlines)
+        // mellomrom hører aldri hjemme i en serveradresse («iptv.example.com :8080»)
+        var s = String(server.filter { !$0.isWhitespace })
         if !s.lowercased().hasPrefix("http://") && !s.lowercased().hasPrefix("https://") {
             s = "http://" + s
         }

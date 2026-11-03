@@ -84,10 +84,12 @@ struct SettingsView: View {
                             .frame(minWidth: 520, alignment: .leading)
                         }
                         .disabled(model.loading)
-                        Button(role: .destructive) {
+                        Button {
                             confirmSignOut = true
                         } label: {
+                            // rød tekst, ikke rød knapp (rød tekst på rødt var nesten ikke til å lese)
                             Text(L("Logg ut"))
+                                .foregroundStyle(Theme.live)
                                 .frame(minWidth: 520, alignment: .leading)
                         }
                         .accessibilityIdentifier("logg-ut")
@@ -97,8 +99,10 @@ struct SettingsView: View {
                 .padding(.vertical, 24)
                 .padding(.horizontal, 30)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                // inne i rullelista: den finner UIScrollView-en blant foreldrene sine (på rullelista selv gjorde den
+                // ingenting)
+                .hidesScrollIndex()
             }
-            .hidesScrollIndex()
         }
         .padding(.horizontal, Theme.edge + 8)
         .padding(.vertical, 50)

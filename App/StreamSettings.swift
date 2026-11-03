@@ -7,7 +7,8 @@ import SwiftUI
 struct StreamSettings: View {
     @Environment(AppModel.self) private var model
     @State private var text = ""
-    @State private var matches: [String: [String]] = [:]
+    /// kanalene hver strøm gjelder for (fra indeksen)
+    private var matches: [String: [String]] { model.streamMatches }
     #if os(tvOS)
     @State private var newLine = ""
     #endif
@@ -42,16 +43,16 @@ struct StreamSettings: View {
                 }
                 .accessibilityIdentifier("ny-strom")
             if !model.streamLines.isEmpty {
-                Button(role: .destructive) {
+                Button {
                     model.setStreams("")
                 } label: {
+                    // rød tekst, ikke rød knapp (den hadde rød tekst på rødt på Apple TV)
                     Label(L("Fjern alle egne strømmer"), systemImage: "trash")
+                        .foregroundStyle(Theme.live)
                         .frame(minWidth: 520, alignment: .leading)
                 }
             }
         }
-        .task(id: model.streamLines) { matches = await model.streamMatches() }
-        .task(id: model.channels.count) { matches = await model.streamMatches() }
         #else
         Section {
             Toggle(L("NRK1, NRK2, NRK3 og NRK Super direkte"),
@@ -83,8 +84,6 @@ struct StreamSettings: View {
         }
         .listRowBackground(Theme.surface)
         .onAppear { text = model.streamLines.joined(separator: "\n") }
-        .task(id: model.streamLines) { matches = await model.streamMatches() }
-        .task(id: model.channels.count) { matches = await model.streamMatches() }
         #endif
     }
 
@@ -142,6 +141,8 @@ struct StreamSheet: View {
                 }
             }
         }
+        // arket vises fra topplinja, utenfor fanene (der fargen er satt)
+        .tint(Theme.signal)
     }
 }
 #endif
