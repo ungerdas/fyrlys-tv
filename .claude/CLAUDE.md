@@ -457,4 +457,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `HomeView().id(login)`; iPad: `Theme.bg` bak TV, Søk og Filmer/Serier (var systemets); iPhone: fliser og kort
   `.adaptive(minimum: 160)`, raden fire liggende, Konto i `ViewThatFits` med rulling, `SwipeBack` ikke under en
   overgang; Apple TV: knapper som sletter, uten `role` (rød tekst), `GuideView` med marginene utenpå
-  `TimelineView`.
+  `TimelineView`. Testene: feilen i spilleren vises før forklaringen (testene venter på «404»), og
+  `test20EgneStrommer` sjekker reserven via `accessibilityValue` på `spiller` (`PlayerModel.tried`, stiene som er
+  prøvd, bare i testene). 0.1.23 (bygg 43) er i TestFlight, VALID for TV_OS og IOS; alle UI-testene grønne
+  (`test19PlexKobling` på iPad på andre forsøk), fartstesten 5,6 s uten lista fra sist og 4,9 s med. Ikke prøvd på
+  hans enheter. Lagt inn etter bygg 43, kommer med neste versjon: feilteksten i spilleren uten «Kanalen kunne ikke
+  spilles» to ganger (overskriften sier det), og rødt ikon på «Koble fra Plex» på iPhone/iPad.
