@@ -163,11 +163,21 @@ final class FyrlysUITests: XCTestCase {
             .matching(NSPredicate(format: "label == %@", "Legg til i favoritter")).firstMatch
         XCTAssertTrue(add.waitForExistence(timeout: 8), "hurtigmenyen kom ikke")
         remote.press(.select)
-        XCTAssertTrue(find(app, "seksjon-favoritter").waitForExistence(timeout: 10), "«Nå på favorittene» kom ikke")
+        let head = find(app, "seksjon-favoritter")
+        XCTAssertTrue(head.waitForExistence(timeout: 10), "«Nå på favorittene» kom ikke")
         wait(2)
-        // kanal-1 står nå både i raden øverst og blant kortene; den første er den i raden
-        let favorite = find(app, "kanal-1")
-        XCTAssertTrue(focus(app, favorite), "fikk ikke fokus på favoritten")
+        // kanal-1 står nå både i raden øverst og blant kortene (fokus er på det i rutenettet): opp til raden, rett under
+        // overskriften «Nå på favorittene»
+        let focusedCard = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        let inStrip = {
+            focusedCard.exists && head.exists && focusedCard.frame.minY > head.frame.maxY - 4
+                && focusedCard.frame.minY < head.frame.maxY + 120
+        }
+        for _ in 0..<4 where !inStrip() {
+            remote.press(.up)
+            wait(0.8)
+        }
+        XCTAssertTrue(inStrip(), "fikk ikke fokus på raden med favorittene")
         for _ in 0..<3 {
             remote.press(.down)
             wait(0.8)
@@ -177,8 +187,8 @@ final class FyrlysUITests: XCTestCase {
             remote.press(.up)
             wait(0.8)
         }
-        XCTAssertTrue(focused(favorite, timeout: 5), "fokus kom ikke tilbake til favoritten")
         wait(2)
+        XCTAssertTrue(inStrip(), "fokus kom ikke tilbake til raden med favorittene")
         shot("40-fanelinja-favoritter")
         XCTAssertTrue(bar.exists, "fanelinja kom ikke tilbake over «Nå på favorittene»")
         XCTAssertEqual(bar.frame.minY, rest, accuracy: 2,
