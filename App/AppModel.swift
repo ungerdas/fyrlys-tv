@@ -95,6 +95,7 @@ final class AppModel {
         }
         plex.start()
         loadStreams()
+        loadHiddenLibraries()
         if TestSupport.isActive {
             if TestSupport.screen != "login", let test = TestSupport.login {
                 use(test)
@@ -320,8 +321,41 @@ final class AppModel {
 
     func refreshVOD() {
         let backend = vodBackend
-        movies.reset(backend)
-        series.reset(backend)
+        let hidden = hiddenSections
+        movies.reset(backend, hidden: hidden)
+        series.reset(backend, hidden: hidden)
+    }
+
+    // ── Plex: bibliotekene som ikke vises i Filmer og Serier (i iCloud, delt mellom enhetene) ──
+
+    static let hiddenLibrariesKey = "plex-skjulte"
+    /// «<server>/<bibliotek>» (som i Fyrlys for Windows)
+    private(set) var hiddenLibraries: Set<String> = []
+
+    private func loadHiddenLibraries() {
+        hiddenLibraries = Set(store.strings(Self.hiddenLibrariesKey))
+    }
+
+    /// nøklene til bibliotekene som er skjult på serveren som er valgt
+    var hiddenSections: Set<String> {
+        guard let server = plex.server?.id else { return [] }
+        let prefix = server + "/"
+        return Set(hiddenLibraries.filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) })
+    }
+
+    func isHidden(_ library: String) -> Bool { hiddenSections.contains(library) }
+
+    /// Viser eller skjuler biblioteket [library] (på serveren som er valgt): sidemenyen, Hjem, «Fortsett å se» og søket
+    /// hentes på nytt.
+    func setHidden(_ library: String, _ hidden: Bool) {
+        guard let server = plex.server?.id else { return }
+        let id = "\(server)/\(library)"
+        var set = hiddenLibraries
+        if hidden { set.insert(id) } else { set.remove(id) }
+        guard set != hiddenLibraries else { return }
+        hiddenLibraries = set
+        if !TestSupport.isActive { store.set(set.sorted(), for: Self.hiddenLibrariesKey) }
+        refreshVOD()
     }
 
     // ── egne strømmer: adresser som spilles i stedet for leverandørens (i iCloud, delt mellom enhetene) ──
@@ -508,6 +542,9 @@ final class AppModel {
     /// Favorittene eller «Dine kategorier» er endret på en annen enhet (iCloud).
     private func libraryChangedElsewhere() {
         loadStreams()
+        let before = hiddenLibraries
+        loadHiddenLibraries()
+        if hiddenLibraries != before { refreshVOD() }
         vodFavoritesCache = [:]
         vodFavoritesVersion += 1
         guard let library else { return }

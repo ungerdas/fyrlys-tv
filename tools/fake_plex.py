@@ -6,7 +6,7 @@ oppdiktede filmer og serier, på samme port. Nøkkelen er «test-token».
   inn på plex.tv/link imens).
 - /api/v2/resources: serveren «Hjemmekino» med en tilkobling på hjemmenettet som ikke svarer (port 9) og en utenfra
   som er denne serveren (Fyrlys skal finne den som svarer), og en spiller som ikke er en server.
-- Serveren: bibliotekene Filmer (movie), Serier (show) og Musikk (artist), filmene 1001–1003 (1003 svarer 404),
+- Serveren: bibliotekene Filmer (movie), Serier (show), Musikk (artist) og Andre videoer (movie, tomt; kan skjules), filmene 1001–1003 (1003 svarer 404),
   serien 2001 med to sesonger, «Fortsett å se», radene på Hjem (/hubs/promoted: «Nytt fra Kystkanalen» med episoder,
   «Nylig lagt til» med filmer og en sesong, og hele raden under /hubs/home/recentlyAdded, «Se alle»), søket
   (/hubs/search), flere på en gang (/library/metadata/1001,2001: favorittene), plakatene (ensfargede PNG) og filene
@@ -14,6 +14,8 @@ oppdiktede filmer og serier, på samme port. Nøkkelen er «test-token».
 - Episodene 2102 og 2103 har markører (introen og rulleteksten til slutt, på sekundene i testfilmen på 30 s) og en
   engelsk undertekstfil ved siden av (/library/streams/77.srt; fila har norske undertekster inni selv).
 - «Mer som dette» (/hubs/metadata/<id>/related) for filmene: de andre filmene.
+- Bibliotekene: sjangrene (/library/sections/<n>/genre: Drama og Dokumentar), genre=, sort=titleSort og
+  X-Plex-Container-Start/-Size (med totalSize), og kvaliteten på 1001 (4K, HEVC, HDR, 5.1 EAC3, 12, Norge).
 - /:/scrobble og /:/unscrobble merker filmen 1002 som sett og ikke sett (de andre står som de er, så testene som
   spiller dem, ikke endrer det de andre testene venter).
 
@@ -63,7 +65,8 @@ MOVIES = [
     {"ratingKey": "1001", "type": "movie", "title": "Nordlys over fjorden", "year": 2022, "audienceRating": 8.1,
      "summary": "En oppdiktet film om en fyrvokter som ser nordlyset for første gang.", "duration": 30000,
      "viewOffset": 12000, "Genre": [{"tag": "Drama"}], "Role": [{"tag": "Kari Fyr"}, {"tag": "Ola Strand"}],
-     "Director": [{"tag": "Ingrid Lykt"}], "Media": media(1001)},
+     "Director": [{"tag": "Ingrid Lykt"}], "Media": media(1001), "contentRating": "12",
+     "Country": [{"tag": "Norge"}]},
     {"ratingKey": "1002", "type": "movie", "title": "Fjordbyen", "year": 2020, "audienceRating": 6.9,
      "summary": "Oppdiktet dokumentar om en by ved fjorden.", "duration": 30000, "viewCount": 1,
      "Genre": [{"tag": "Dokumentar"}], "Media": media(1002)},
@@ -105,6 +108,25 @@ for i, m in enumerate(MOVIES + [SHOW]):
     m["addedAt"] = 1700000000 - i * 1000
     m["librarySectionID"] = 2 if m["type"] == "show" else 1
 METADATA = {m["ratingKey"]: m for m in MOVIES + [SHOW] + EPISODES}
+# kvaliteten på 1001 (merkene på siden for filmen)
+MOVIES[0]["Media"][0].update({"videoResolution": "4k", "videoCodec": "hevc", "audioCodec": "eac3", "audioChannels": 6})
+MOVIES[0]["Media"][0]["Part"][0]["Stream"] = [{"id": 11, "streamType": 1, "codec": "hevc", "colorTrc": "smpte2084"}]
+GENRES = {"1": [{"key": "101", "title": "Drama"}, {"key": "102", "title": "Dokumentar"}],
+          "2": [{"key": "201", "title": "Drama"}]}
+
+
+def library_page(items, q):
+    """En side av et bibliotek: sjangeren, rekkefølgen (titleSort, ellers som de står) og Start/Size."""
+    genre = q.get("genre")
+    if genre:
+        names = {g["key"]: g["title"] for lib in GENRES.values() for g in lib}
+        items = [m for m in items if names.get(genre) in [t["tag"] for t in m.get("Genre", [])]]
+    if q.get("sort") == "titleSort":
+        items = sorted(items, key=lambda m: m["title"].lower())
+    start = int(q.get("X-Plex-Container-Start", "0"))
+    size = int(q.get("X-Plex-Container-Size", "1000"))
+    return {"MediaContainer": {"size": len(items[start:start + size]), "totalSize": len(items),
+                               "Metadata": items[start:start + size]}}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -186,13 +208,17 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/library/sections":
             return self.container(Directory=[{"key": "1", "type": "movie", "title": "Filmer"},
                                              {"key": "2", "type": "show", "title": "Serier"},
-                                             {"key": "3", "type": "artist", "title": "Musikk"}])
+                                             {"key": "3", "type": "artist", "title": "Musikk"},
+                                             {"key": "4", "type": "movie", "title": "Andre videoer"}])
         if path == "/library/sections/1/all":
-            return self.container(Metadata=MOVIES)
+            return self.json(library_page(MOVIES, q))
         if path == "/library/sections/2/all":
-            return self.container(Metadata=[SHOW])
-        if path == "/library/sections/3/all":
-            return self.container(Metadata=[])
+            return self.json(library_page([SHOW], q))
+        m = re.fullmatch(r"/library/sections/(\d+)/genre", path)
+        if m:
+            return self.container(Directory=GENRES.get(m.group(1), []))
+        if path in ("/library/sections/3/all", "/library/sections/4/all"):
+            return self.json(library_page([], q))
         if path == "/hubs/promoted" or path.startswith("/hubs/sections/"):
             # Hjem: en samling med nye episoder, nylig lagt til (filmer og en sesong), og rader som skal hoppes over
             season = {"ratingKey": "2100", "type": "season", "title": "Sesong 1", "parentRatingKey": "2001",

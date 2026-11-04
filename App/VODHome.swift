@@ -39,6 +39,8 @@ struct VODHomeView: View {
             guard model.isPlex else { return }
             await model.refreshFavorites(app.vodFavorites(model.kind, fromPlex: true))
         }
+        // IPTV: «Nylig lagt til» (alle hentes én gang)
+        .task(id: model.version) { await model.loadRecent() }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("vod-hjem")
     }
@@ -47,13 +49,17 @@ struct VODHomeView: View {
         let resume = model.isPlex ? model.continueRow : app.continueEntries(model.kind)
         let favorites = model.isPlex ? model.favoriteRow : app.vodFavorites(model.kind, fromPlex: false)
         let rows = model.isPlex ? model.rows : []
-        let categories = model.isPlex ? [] : model.categories.filter { $0.id != VODModel.home }
+        let recent = model.isPlex ? [] : (model.recent ?? [])
+        let categories = model.isPlex ? []
+            : model.categories.filter { $0.id != VODModel.home && $0.id != VODModel.all }
         // den øverste raden (den ruller lista helt opp); en tom kategori vises ikke
         let first: String
         if !resume.isEmpty {
             first = "fortsett"
         } else if !favorites.isEmpty {
             first = "favoritter"
+        } else if !recent.isEmpty {
+            first = "nylig"
         } else if let row = rows.first {
             first = "rad:\(row.id)"
         } else if let category = categories.first(where: { model.items[$0.id]?.isEmpty != true }) {
@@ -75,6 +81,23 @@ struct VODHomeView: View {
                         ForEach(favorites) { item in
                             VODPosterLink(item: item, id: "vodfav-\(item.id)",
                                           onFocus: first == "favoritter" ? toTop : nil)
+                                .frame(width: Metrics.rowPoster)
+                        }
+                    }
+                }
+                if !recent.isEmpty {
+                    VODShelf(title: L("Nylig lagt til")) {
+                        Button {
+                            model.setSort(.newest)
+                            model.chosen = VODModel.all
+                        } label: {
+                            SeeAllLabel()
+                        }
+                        .seeAllStyle()
+                        .accessibilityIdentifier("se-alle-nylig")
+                    } content: {
+                        ForEach(recent) { item in
+                            VODPosterLink(item: item, id: "nylig-\(item.id)", onFocus: first == "nylig" ? toTop : nil)
                                 .frame(width: Metrics.rowPoster)
                         }
                     }
@@ -489,8 +512,7 @@ struct VODRowPage: View {
     }
 }
 
-#if os(iOS)
-/// Treffene i søket i filmene eller seriene.
+/// Treffene i søket i filmene eller seriene (iPhone og iPad under søkefeltet, Apple TV på søkesiden).
 struct VODSearchResults: View {
     let model: VODModel
     let query: String
@@ -500,7 +522,9 @@ struct VODSearchResults: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if let results {
+                if query.isEmpty {
+                    EmptyView()
+                } else if let results {
                     if results.isEmpty {
                         Text(L("Ingen treff."))
                             .font(.system(size: Metrics.pageCount + 2))
@@ -529,9 +553,15 @@ struct VODSearchResults: View {
             .padding(.bottom, 24)
         }
         .scrollIndicators(.never)
+        #if os(iOS)
         .scrollDismissesKeyboard(.immediately)
+        #endif
         // litt etter siste tastetrykk; hos leverandøren hentes alle første gang
         .task(id: query) {
+            guard !query.isEmpty else {
+                results = nil
+                return
+            }
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
             do {
@@ -547,4 +577,3 @@ struct VODSearchResults: View {
         .accessibilityIdentifier("vod-treff")
     }
 }
-#endif

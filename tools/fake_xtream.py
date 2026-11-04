@@ -61,12 +61,14 @@ CHANNELS = [
 LOGOS = {1: (0xF2, 0xB5, 0x44), 11: (0x4F, 0xA3, 0xFF), 41: (0x5C, 0xC9, 0x8B)}
 
 # filmer og serier (oppdiktede): 501 og 503 spilles som HLS (Apples avspiller), 502 er mkv (VLC: en oppdiktet film på
-# 30 sekunder med to lydspor og norske undertekster, tools/testdata/stormnatt.mkv); alt annet svarer 404
+# 30 sekunder med to lydspor og norske undertekster, tools/testdata/stormnatt.mkv); alt annet svarer 404. 505 har
+# merker i navnet («[PRE] [2026]») og 4K, HDR og 5.1 i get_vod_info (merkene på plakaten og siden).
 VOD_CATEGORIES = [("31", "Norske filmer"), ("32", "Dokumentarer")]
 MOVIES = [
     (501, "Fyret i nord (2021)", "31", "m3u8", "7.4"),
     (502, "Stormnatt (2019)", "31", "mkv", "6.1"),
     (503, "Kysten fra lufta", "32", "m3u8", "8.0"),
+    (505, "Fjordlys [PRE] [2026]", "32", "mkv", "6.8"),
 ]
 SERIES_CATEGORIES = [("41", "Norske serier")]
 SERIES = [(9001, "Losene", "41", "2020-09-01", "7.9")]
@@ -272,9 +274,16 @@ class Handler(BaseHTTPRequestHandler):
                 mid = int(q.get("vod_id", "0"))
                 for m, name, c, ext, rating in MOVIES:
                     if m == mid:
-                        return self.json({"info": {"plot": f"En oppdiktet film om {name.split(' (')[0].lower()}.",
-                                                   "genre": "Drama", "duration": "01:32:00", "rating": rating,
-                                                   "releasedate": "2021-03-04", "cast": "Kari Nordmann, Ola Nordmann"},
+                        info = {"plot": f"En oppdiktet film om {name.split(' (')[0].split(' [')[0].lower()}.",
+                                "genre": "Drama", "duration": "01:32:00", "rating": rating,
+                                "releasedate": "2021-03-04", "cast": "Kari Nordmann, Ola Nordmann",
+                                "video": {"height": 1080, "codec_name": "h264"},
+                                "audio": {"codec_name": "aac", "channels": 2}}
+                        if m == 505:
+                            info.update({"age": "12", "country": "Norge", "releasedate": "2026-01-01",
+                                         "video": {"height": 2160, "codec_name": "hevc", "color_transfer": "smpte2084"},
+                                         "audio": {"codec_name": "eac3", "channels": 6}})
+                        return self.json({"info": info,
                                           "movie_data": {"stream_id": m, "name": name, "container_extension": ext}})
                 return self.json({"info": [], "movie_data": {}})
             if action == "get_series":

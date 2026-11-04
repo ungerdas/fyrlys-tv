@@ -28,10 +28,12 @@ public struct PlexDevice: Hashable, Sendable {
         self.version = version
     }
 
+    /// Hodene; X-Plex-Language etter språket i appen, så overskriftene Plex lager selv («Nylig lagt til i …»), kan
+    /// komme på norsk (om serveren oversetter dem, er ikke sikkert).
     public var headers: [String: String] {
         ["X-Plex-Product": "Fyrlys", "X-Plex-Version": version, "X-Plex-Client-Identifier": clientId,
          "X-Plex-Platform": platform, "X-Plex-Device": platform, "X-Plex-Device-Name": deviceName,
-         "Accept": "application/json"]
+         "X-Plex-Language": appLanguage == "en" ? "en" : "nb", "Accept": "application/json"]
     }
 }
 
@@ -107,6 +109,39 @@ public func isPrivateIPv4(_ address: String) -> Bool {
     guard n.count == 4 else { return false }
     return n[0] == 10 || (n[0] == 172 && (16...31).contains(n[1])) || (n[0] == 192 && n[1] == 168)
         || (n[0] == 169 && n[1] == 254)
+}
+
+/// Rekkefølgen i et bibliotek hos Plex (som Fyrlys for Windows).
+public enum PlexSort: String, CaseIterable, Sendable {
+    /// nylig lagt til (serier: etter den nyeste episoden, som i Plex)
+    case added
+    /// A–Å
+    case title
+    /// nyeste utgivelser
+    case released
+    /// best vurdert
+    case rating
+    /// sist sett
+    case viewed
+
+    public func key(_ kind: VODKind) -> String {
+        switch self {
+        case .added: return kind == .series ? "episode.addedAt:desc" : "addedAt:desc"
+        case .title: return "titleSort"
+        case .released: return "originallyAvailableAt:desc"
+        case .rating: return "audienceRating:desc"
+        case .viewed: return "lastViewedAt:desc"
+        }
+    }
+}
+
+/// /library/sections/<n>/genre: sjangrene (nøkkelen brukes i genre=).
+public func parseGenres(_ container: [String: Any]) -> [ChannelCategory] {
+    (container["Directory"] as? [[String: Any]] ?? []).compactMap { d in
+        let key = text(d["key"]), title = text(d["title"]).trimmingCharacters(in: .whitespaces)
+        guard !key.isEmpty, !title.isEmpty else { return nil }
+        return ChannelCategory(id: key, name: title)
+    }
 }
 
 /// Feil fra Plex som kan vises.
@@ -245,10 +280,35 @@ public struct PlexClient: Sendable {
         parseLibraries(try await json("/library/sections"), kind: kind)
     }
 
+    /// Alle bibliotekene med filmer og serier (til valget av hvilke som vises).
+    public func sections() async throws -> [PlexSection] {
+        parseSections(try await json("/library/sections"))
+    }
+
     /// Filmene eller seriene i et bibliotek, sist lagt til først.
     public func items(_ kind: VODKind, library: String) async throws -> [VODItem] {
         let path = "/library/sections/\(library)/all?sort=addedAt:desc&includeCollections=0"
         return parseItems(try await json(path), kind: kind, client: self, library: library)
+    }
+
+    /// En side (100 om gangen) av filmene eller seriene i et bibliotek, i rekkefølgen [sort] og eventuelt bare i
+    /// sjangeren [genre], og hvor mange det er i alt.
+    public func page(_ kind: VODKind, library: String, sort: PlexSort, genre: String?, start: Int,
+                     size: Int = 100) async throws -> (items: [VODItem], total: Int) {
+        var path = "/library/sections/\(library)/all?type=\(kind == .movies ? 1 : 2)&sort=\(sort.key(kind))"
+            + "&includeCollections=0"
+        if let genre, let encoded = genre.addingPercentEncoding(withAllowedCharacters: .alphanumerics) {
+            path += "&genre=\(encoded)"
+        }
+        path += "&X-Plex-Container-Start=\(start)&X-Plex-Container-Size=\(size)"
+        let container = try await json(path)
+        let items = parseItems(container, kind: kind, client: self, library: library)
+        return (items, int(container["totalSize"]) ?? (start + items.count))
+    }
+
+    /// Sjangrene i et bibliotek.
+    public func genres(library: String) async throws -> [ChannelCategory] {
+        parseGenres(try await json("/library/sections/\(library)/genre"))
     }
 
     /// Siden for en film, eller en serie med alle episodene.
@@ -541,6 +601,27 @@ func flag(_ value: Any?) -> Bool {
     return int(value) == 1 || text(value).lowercased() == "true"
 }
 
+/// Et bibliotek med filmer eller serier på serveren.
+public struct PlexSection: Hashable, Identifiable, Sendable {
+    public let id: String
+    public let name: String
+    public let kind: VODKind
+}
+
+/// /library/sections: bibliotekene med filmer og serier (i den rekkefølgen Plex har dem; musikk og bilder står ikke).
+public func parseSections(_ container: [String: Any]) -> [PlexSection] {
+    (container["Directory"] as? [[String: Any]] ?? []).compactMap { d in
+        let key = text(d["key"])
+        let kind: VODKind
+        switch text(d["type"]) {
+        case "movie": kind = .movies
+        case "show": kind = .series
+        default: return nil
+        }
+        return key.isEmpty ? nil : PlexSection(id: key, name: text(d["title"]), kind: kind)
+    }
+}
+
 /// /library/sections: bibliotekene med filmer (movie) eller serier (show).
 public func parseLibraries(_ container: [String: Any], kind: VODKind) -> [ChannelCategory] {
     let type = kind == .movies ? "movie" : "show"
@@ -618,7 +699,32 @@ public func parseDetails(_ m: [String: Any], client: PlexClient) -> VODDetails {
     d.fileKey = part.key
     d.resume = Double(int(m["viewOffset"]) ?? 0) / 1000
     d.watched = (int(m["viewCount"]) ?? 0) > 0
+    d.age = nonEmpty(m["contentRating"])
+    d.country = tags(m["Country"], limit: 1).isEmpty ? nil : tags(m["Country"], limit: 1)
+    d.quality = plexQuality(m)
     return d
+}
+
+/// Bildet og lyden fra den første fila: oppløsningen (høyden, ellers videoResolution), HDR (fra videostrømmen, bare
+/// på siden for filmen eller episoden), kodekene og kanalene.
+func plexQuality(_ m: [String: Any]) -> [String] {
+    guard let media = (m["Media"] as? [[String: Any]])?.first else { return [] }
+    var height = int(media["height"])
+    if height == nil {
+        switch text(media["videoResolution"]).lowercased() {
+        case "4k": height = 2160
+        case "1080": height = 1080
+        case "720": height = 720
+        case "576", "480", "sd": height = 480
+        default: break
+        }
+    }
+    let part = (media["Part"] as? [[String: Any]])?.first
+    let video = (part?["Stream"] as? [[String: Any]] ?? []).first { int($0["streamType"]) == 1 }
+    let transfer = text(video?["colorTrc"]).lowercased()
+    let hdr = transfer == "smpte2084" || transfer == "arib-std-b67" || flag(video?["DOVIPresent"])
+    return qualityBadges(height: height, hdr: hdr, video: text(media["videoCodec"]),
+                         channels: int(media["audioChannels"]), audio: text(media["audioCodec"]))
 }
 
 /// /library/metadata/<serie>/allLeaves: alle episodene, sesong for sesong.

@@ -465,6 +465,139 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
     }
 
+    /// Flytter fokus fra sidemenyen inn på siden og opp til [target] (menyene over plakatene), og til siden når fokus
+    /// står på samme linje.
+    func focusUp(_ app: XCUIApplication, _ target: XCUIElement, tries: Int = 10) -> Bool {
+        for _ in 0..<tries {
+            if target.hasFocus { return true }
+            let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+            if focused.exists, focused.identifier.hasPrefix("vodkat-") {
+                remote.press(.right)
+            } else if focused.exists, abs(focused.frame.midY - target.frame.midY) < 40 {
+                remote.press(focused.frame.midX > target.frame.midX ? .left : .right)
+            } else {
+                remote.press(.up)
+            }
+            wait(0.8)
+        }
+        return target.hasFocus
+    }
+
+    /// Velger [label] i menyen som er åpen (ned til den, så velg).
+    func choose(_ app: XCUIApplication, _ label: String) -> Bool {
+        let option = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
+        guard option.waitForExistence(timeout: 5) else { return false }
+        for _ in 0..<8 where !option.hasFocus {
+            remote.press(.down)
+            wait(0.6)
+        }
+        guard option.hasFocus else { return false }
+        remote.press(.select)
+        return true
+    }
+
+    /// Filmer hos leverandøren: «Nylig lagt til» på Hjem, rekkefølgen i en kategori («A–Å»), merkene fra navnet og
+    /// kvaliteten på siden for en film, og «Mer fra <kategori>».
+    func test24Sortering() {
+        let app = launch("movies")
+        XCTAssertTrue(find(app, "nylig-501").waitForExistence(timeout: 30), "«Nylig lagt til» mangler på Hjem")
+        let docs = find(app, "vodkat-32")
+        XCTAssertTrue(focus(app, docs), "fikk ikke fokus på Dokumentarer")
+        remote.press(.select)
+        let fjord = find(app, "vod-505"), coast = find(app, "vod-503")
+        XCTAssertTrue(fjord.waitForExistence(timeout: 15) && coast.exists, "filmene i kategorien kom ikke")
+        XCTAssertTrue(before(coast, fjord), "leverandørens rekkefølge: «Kysten fra lufta» først")
+        let sort = find(app, "vod-sortering")
+        XCTAssertTrue(sort.exists, "valget av rekkefølge mangler")
+        XCTAssertTrue(focusUp(app, sort), "fikk ikke fokus på rekkefølgen")
+        remote.press(.select)
+        XCTAssertTrue(choose(app, "A–Å"), "fant ikke «A–Å» i menyen")
+        XCTAssertTrue(until(10) { fjord.exists && coast.exists && before(fjord, coast) }, "A–Å: «Fjordlys» først")
+        wait(1)
+        shot("45-filmer-a-a")
+        XCTAssertTrue(focus(app, fjord), "fikk ikke fokus på filmen")
+        remote.press(.select)
+        XCTAssertTrue(find(app, "merke-PRE").waitForExistence(timeout: 15), "merket fra navnet mangler")
+        for badge in ["2026", "4K", "HDR", "H.265", "5.1", "Dolby Digital+", "12+", "Norge"] {
+            XCTAssertTrue(find(app, "merke-\(badge)").exists, "merket «\(badge)» mangler")
+        }
+        XCTAssertTrue(find(app, "lik-503").waitForExistence(timeout: 10), "«Mer fra Dokumentarer» mangler")
+        wait(1)
+        shot("46-film-merker")
+    }
+
+    /// Plex: et bibliotek med sjanger og rekkefølge (Dokumentar: bare «Fjordbyen»), og kvaliteten på siden for en film.
+    func test25PlexSjanger() {
+        let app = launch("plex")
+        let library = find(app, "vodkat-1")
+        XCTAssertTrue(library.waitForExistence(timeout: 40), "biblioteket Filmer mangler")
+        XCTAssertTrue(focus(app, library), "fikk ikke fokus på biblioteket")
+        remote.press(.select)
+        XCTAssertTrue(find(app, "vod-1001").waitForExistence(timeout: 15), "filmene i biblioteket kom ikke")
+        let genre = find(app, "vod-sjanger")
+        XCTAssertTrue(genre.waitForExistence(timeout: 10), "valget av sjanger mangler")
+        XCTAssertTrue(focusUp(app, genre), "fikk ikke fokus på sjangeren")
+        remote.press(.select)
+        XCTAssertTrue(choose(app, "Dokumentar"), "fant ikke «Dokumentar» i menyen")
+        XCTAssertTrue(until(15) { !find(app, "vod-1001").exists && find(app, "vod-1002").exists },
+                      "sjangeren ble ikke brukt")
+        wait(1)
+        shot("47-plex-sjanger")
+    }
+
+    /// Plex: «Velg biblioteker» nederst i sidemenyen; et bibliotek som slås av, er borte fra sidemenyen.
+    func test27PlexBiblioteker() {
+        let app = launch("plex")
+        let other = find(app, "vodkat-4")
+        XCTAssertTrue(other.waitForExistence(timeout: 40), "biblioteket «Andre videoer» mangler")
+        XCTAssertTrue(focus(app, other), "fikk ikke fokus på «Andre videoer»")
+        let choose = find(app, "velg-biblioteker")
+        XCTAssertTrue(choose.exists, "«Velg biblioteker» mangler")
+        for _ in 0..<3 where !choose.hasFocus {
+            remote.press(.down)
+            wait(0.8)
+        }
+        XCTAssertTrue(choose.hasFocus, "fikk ikke fokus på «Velg biblioteker»")
+        remote.press(.select)
+        let toggle = find(app, "vis-bibliotek-4")
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), "bibliotekene kom ikke")
+        for _ in 0..<6 where !toggle.hasFocus {
+            remote.press(.down)
+            wait(0.6)
+        }
+        XCTAssertTrue(toggle.hasFocus, "fikk ikke fokus på «Andre videoer»")
+        remote.press(.select)
+        wait(1)
+        shot("49-plex-biblioteker")
+        remote.press(.menu)
+        XCTAssertTrue(until(20) { find(app, "vodkat-1").exists && !find(app, "vodkat-4").exists },
+                      "«Andre videoer» står fortsatt i sidemenyen")
+        wait(1)
+        shot("50-plex-skjult")
+    }
+
+    /// Søket i filmene på Apple TV (øverst i sidemenyen).
+    func test26FilmSok() {
+        let app = launch("movies")
+        let home = find(app, "vodkat-hjem")
+        XCTAssertTrue(home.waitForExistence(timeout: 30), "sidemenyen kom ikke")
+        XCTAssertTrue(focus(app, home), "fikk ikke fokus på Hjem")
+        let search = find(app, "vod-sok")
+        XCTAssertTrue(search.exists, "søket mangler i sidemenyen")
+        for _ in 0..<3 where !search.hasFocus {
+            remote.press(.up)
+            wait(0.8)
+        }
+        XCTAssertTrue(search.hasFocus, "fikk ikke fokus på søket")
+        remote.press(.select)
+        wait(3)
+        app.typeText("fjord")
+        XCTAssertTrue(find(app, "sok-505").waitForExistence(timeout: 15), "søket fant ikke «Fjordlys»")
+        XCTAssertFalse(find(app, "sok-501").exists, "søket fant en film uten «fjord» i navnet")
+        wait(1)
+        shot("48-film-sok")
+    }
+
     /// Plex: «Merk som sett» eller «Merk som ikke sett» på siden for en film (merkes på serveren), og «Mer som dette».
     func test23PlexSett() {
         let app = launch("plex")

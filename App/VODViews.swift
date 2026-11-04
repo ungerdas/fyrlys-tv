@@ -16,6 +16,8 @@ struct VODTab: View {
     #endif
     let kind: VODKind
     @State private var path = NavigationPath()
+    /// Plex: valget av bibliotekene som vises
+    @State private var libraries = false
 
     private var model: VODModel { kind == .movies ? app.movies : app.series }
 
@@ -35,9 +37,33 @@ struct VODTab: View {
                 .navigationDestination(for: VODRow.self) { row in
                     VODRowPage(model: model, row: row)
                 }
+                #if os(tvOS)
+                .navigationDestination(for: VODSearchRoute.self) { _ in
+                    VODSearchPage(model: model)
+                }
+                #endif
         }
         // på nytt når kilden byttes (en annen innlogging, eller Plex)
         .task(id: model.version) { await model.loadCategories() }
+        .sheet(isPresented: $libraries) {
+            PlexLibrariesSheet()
+                .environment(app)
+        }
+    }
+
+    /// Plex: «Velg biblioteker» (sidemenyen nederst, menyen på iPhone, og når alle er skjult).
+    private var librariesButton: some View {
+        Button {
+            libraries = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "books.vertical")
+                Text(L("Velg biblioteker"))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+        }
+        .accessibilityIdentifier("velg-biblioteker")
     }
 
     @ViewBuilder
@@ -50,7 +76,19 @@ struct VODTab: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         } else if model.categories.isEmpty {
-            if model.isPlex {
+            if model.isPlex, model.hiddenAll {
+                VStack(spacing: 24) {
+                    Text(kind == .movies ? L("Bibliotekene med filmer er skjult.")
+                         : L("Bibliotekene med serier er skjult."))
+                        .font(.system(size: Metrics.pageCount + 6))
+                        .foregroundStyle(Theme.muted)
+                        .multilineTextAlignment(.center)
+                    librariesButton
+                        .fixedSize()
+                }
+                .padding(40)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if model.isPlex {
                 VODMessage(text: kind == .movies ? L("Ingen filmbiblioteker på Plex-serveren.")
                            : L("Ingen seriebiblioteker på Plex-serveren."))
             } else {
@@ -71,6 +109,21 @@ struct VODTab: View {
         HStack(alignment: .top, spacing: 0) {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
+                    #if os(tvOS)
+                    // søket i filmene eller seriene (egen side med tastaturet til Apple TV)
+                    Button {
+                        path.append(VODSearchRoute(kind: kind))
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "magnifyingglass")
+                            Text(L("Søk"))
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                    .buttonStyle(SidebarStyle(selected: false))
+                    .accessibilityIdentifier("vod-sok")
+                    #endif
                     ForEach(model.categories) { category in
                         Button {
                             model.chosen = category.id
@@ -83,6 +136,11 @@ struct VODTab: View {
                         }
                         .buttonStyle(SidebarStyle(selected: model.chosen == category.id))
                         .accessibilityIdentifier("vodkat-\(category.id)")
+                    }
+                    if model.isPlex {
+                        librariesButton
+                            .buttonStyle(SidebarStyle(selected: false))
+                            .padding(.top, 10)
                     }
                 }
                 .padding(.vertical, 6)
@@ -124,6 +182,14 @@ struct VODTab: View {
             Menu {
                 ForEach(model.categories) { category in
                     Button(category.name) { model.chosen = category.id }
+                }
+                if model.isPlex {
+                    Divider()
+                    Button {
+                        libraries = true
+                    } label: {
+                        Label(L("Velg biblioteker"), systemImage: "books.vertical")
+                    }
                 }
             } label: {
                 HStack(spacing: 10) {
@@ -207,13 +273,41 @@ private struct PosterGrid: View {
             }
         }
         .task(id: category) {
-            if let category { await model.load(category) }
+            guard let category else { return }
+            await model.load(category)
+            await model.loadGenres(category)
+        }
+        // IPTV: sortert i rekkefølgen som er valgt (utenfor hovedtråden)
+        .task(id: "\(model.sort.rawValue)-\(category.flatMap { model.items[$0]?.count } ?? -1)") {
+            if let category { await model.prepareSorted(category) }
         }
         .id(category)
     }
 
+    /// Tittelen (Apple TV og iPad), rekkefølgen (og sjangeren hos Plex) og hvor mange.
+    private func header(_ items: [VODItem]?) -> some View {
+        HStack(alignment: .center, spacing: 20) {
+            if showsTitle {
+                Text(model.name(category))
+                    .font(.system(size: Metrics.pageTitle, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if let category {
+                VODSortMenu(model: model, category: category)
+            }
+            if let count = category.flatMap({ model.totals[$0] }) ?? items?.count {
+                Text(verbatim: CountText.of(count))
+                    .font(.system(size: Metrics.pageCount))
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1)
+            }
+        }
+    }
+
     private func grid(_ toTop: @escaping () -> Void) -> some View {
-        let items = category.flatMap { model.items[$0] }
+        let items = category.flatMap { model.shown($0) }
         #if os(tvOS)
         let firstRow = Set((items ?? []).prefix(Metrics.posterColumns).map(\.id))
         #else
@@ -221,20 +315,7 @@ private struct PosterGrid: View {
         #endif
         return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                if showsTitle {
-                    HStack(alignment: .firstTextBaseline, spacing: 20) {
-                        Text(model.name(category))
-                            .font(.system(size: Metrics.pageTitle, weight: .bold))
-                            .foregroundStyle(Theme.ink)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                        if let items {
-                            Text(verbatim: CountText.of(items.count))
-                                .font(.system(size: Metrics.pageCount))
-                                .foregroundStyle(Theme.muted)
-                        }
-                    }
-                }
+                header(items)
                 if let items {
                     if items.isEmpty {
                         Text(L("Ingen her."))
@@ -246,6 +327,13 @@ private struct PosterGrid: View {
                                 VODPosterLink(item: item, id: "vod-\(item.id)",
                                               onFocus: firstRow.contains(item.id) ? toTop : nil)
                             }
+                        }
+                        // Plex: neste side når de nederste vises
+                        if let category, model.hasMore(category) {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 20)
+                                .onAppear { Task { await model.loadMore(category) } }
                         }
                     }
                 } else if model.error != nil, let category {
@@ -269,6 +357,163 @@ private struct PosterGrid: View {
         #if os(tvOS)
         .safeAreaPadding(.bottom, Theme.bottomFocus)
         #endif
+    }
+}
+
+/// Rekkefølgen i en kategori («Leverandørens rekkefølge», «Nyeste først», «A–Å»), og hos Plex sjangeren og
+/// rekkefølgen i biblioteket («Nylig lagt til», «A–Å», «Nyeste utgivelser», «Best vurdert», «Sist sett»).
+private struct VODSortMenu: View {
+    let model: VODModel
+    let category: String
+
+    var body: some View {
+        HStack(spacing: Metrics.posterGap * 0.5) {
+            if model.isPlex {
+                if let genres = model.genres[category], !genres.isEmpty {
+                    let chosen = model.plexGenres[category] ?? ""
+                    Menu {
+                        Picker(L("Sjanger"), selection: Binding(get: { chosen }, set: {
+                            model.setPlexGenre($0.isEmpty ? nil : $0, for: category)
+                        })) {
+                            Text(L("Alle sjangre")).tag("")
+                            ForEach(genres) { genre in
+                                Text(verbatim: genre.name).tag(genre.id)
+                            }
+                        }
+                    } label: {
+                        SortLabel(title: genres.first { $0.id == chosen }?.name ?? L("Alle sjangre"),
+                                  icon: "line.3.horizontal.decrease")
+                    }
+                    .accessibilityIdentifier("vod-sjanger")
+                }
+                Menu {
+                    Picker(L("Sortering"), selection: Binding(get: { model.plexSort(category) }, set: {
+                        model.setPlexSort($0, for: category)
+                    })) {
+                        ForEach(PlexSort.allCases, id: \.self) { sort in
+                            Text(sort.title).tag(sort)
+                        }
+                    }
+                } label: {
+                    SortLabel(title: model.plexSort(category).title, icon: "arrow.up.arrow.down")
+                }
+                .accessibilityIdentifier("vod-sortering")
+            } else {
+                Menu {
+                    Picker(L("Sortering"), selection: Binding(get: { model.sort }, set: { model.setSort($0) })) {
+                        ForEach(VODSort.allCases, id: \.self) { sort in
+                            Text(sort.title).tag(sort)
+                        }
+                    }
+                } label: {
+                    SortLabel(title: model.sort.title, icon: "arrow.up.arrow.down")
+                }
+                .accessibilityIdentifier("vod-sortering")
+            }
+        }
+    }
+}
+
+private struct SortLabel: View {
+    let title: String
+    let icon: String
+
+    var body: some View {
+        #if os(tvOS)
+        Label(title, systemImage: icon)
+            .font(.system(size: 22, weight: .semibold))
+            .lineLimit(1)
+        #else
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(Theme.ink2)
+        .padding(.horizontal, 11)
+        .frame(height: 30)
+        .background(Capsule().fill(Theme.surface))
+        .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
+        #endif
+    }
+}
+
+extension VODSort {
+    var title: String {
+        switch self {
+        case .provider: return L("Leverandørens rekkefølge")
+        case .newest: return L("Nyeste først")
+        case .name: return L("A–Å")
+        }
+    }
+}
+
+extension PlexSort {
+    var title: String {
+        switch self {
+        case .added: return L("Nylig lagt til")
+        case .title: return L("A–Å")
+        case .released: return L("Nyeste utgivelser")
+        case .rating: return L("Best vurdert")
+        case .viewed: return L("Sist sett")
+        }
+    }
+}
+
+/// Merker som brytes over flere linjer når det ikke er plass (alder, land, «4K», «5.1» …).
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, row: CGFloat = 0, widest: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > width {
+                x = 0
+                y += row + spacing
+                row = 0
+            }
+            x += size.width + spacing
+            row = max(row, size.height)
+            widest = max(widest, x - spacing)
+        }
+        return CGSize(width: min(widest, width), height: y + row)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, row: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += row + spacing
+                row = 0
+            }
+            view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            row = max(row, size.height)
+        }
+    }
+}
+
+/// Et merke på siden for en film eller serie; merkene fra navnet («PRE») er gule.
+struct InfoBadge: View {
+    let text: String
+    var accent = false
+
+    var body: some View {
+        Text(verbatim: text)
+            .font(.system(size: Metrics.badge, weight: .semibold))
+            .foregroundStyle(accent ? Theme.signalInk : Theme.ink2)
+            .lineLimit(1)
+            .padding(.horizontal, Metrics.badge * 0.6)
+            .padding(.vertical, Metrics.badge * 0.25)
+            .background(accent ? Theme.signal : Theme.surface2,
+                        in: RoundedRectangle(cornerRadius: Metrics.badge * 0.35, style: .continuous))
+            .accessibilityIdentifier("merke-\(text)")
     }
 }
 
@@ -316,6 +561,23 @@ struct PosterCard: View {
                 }
             }
             .clipped()
+            .overlay(alignment: .topLeading) {
+                // merkene fra navnet hos leverandøren («PRE»), høyst to
+                if episode == nil, let tags = item.tags, !tags.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(tags.prefix(2)), id: \.self) { tag in
+                            Text(verbatim: tag.uppercased())
+                                .font(.system(size: Metrics.posterTag, weight: .bold))
+                                .foregroundStyle(Theme.signalInk)
+                                .lineLimit(1)
+                                .padding(.horizontal, Metrics.posterTag * 0.45)
+                                .padding(.vertical, Metrics.posterTag * 0.15)
+                                .background(Theme.signal, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        }
+                    }
+                    .padding(Metrics.posterTag * 0.6)
+                }
+            }
             .overlay(alignment: .topTrailing) {
                 if episode?.watched ?? (item.watched == true) {
                     Image(systemName: "checkmark.circle.fill")
@@ -355,7 +617,7 @@ struct PosterCard: View {
 
     private var meta: String {
         if let episode { return "S\(episode.season) · E\(episode.number)" }
-        return [item.year, item.rating.map { String(format: "★ %.1f", $0) }].compactMap { $0 }.joined(separator: "  ")
+        return [item.year, item.rating.map(ratingText)].compactMap { $0 }.joined(separator: "  ")
     }
 }
 
@@ -404,8 +666,9 @@ struct VODDetailView: View {
     @State private var playing: VODPlay?
     /// telles opp når spilleren lukkes, så «Fortsett» viser hvor langt du kom
     @State private var watched = 0
-    /// Plex: «Mer som dette»
+    /// «Mer som dette» (Plex) eller «Mer fra <kategori>» (leverandøren)
     @State private var related: [VODItem] = []
+    @State private var relatedTitle = ""
     /// merker som sett eller ikke sett
     @State private var busy = false
     /// en feil som vises en liten stund (Plex svarte ikke da noe skulle merkes som sett)
@@ -499,11 +762,13 @@ struct VODDetailView: View {
                     .font(.system(size: Metrics.detailTitle, weight: .bold))
                     .foregroundStyle(Theme.ink)
                     .lineLimit(3)
-                if !meta.isEmpty {
-                    Text(verbatim: meta)
-                        .font(.system(size: Metrics.detailText))
-                        .foregroundStyle(Theme.signal)
-                        .lineLimit(2)
+                let badges = badgeList
+                if !badges.isEmpty {
+                    FlowLayout(spacing: Metrics.badge * 0.5) {
+                        ForEach(Array(badges.enumerated()), id: \.offset) { _, badge in
+                            InfoBadge(text: badge.text, accent: badge.accent)
+                        }
+                    }
                 }
                 if let details {
                     if !details.plot.isEmpty {
@@ -641,17 +906,37 @@ struct VODDetailView: View {
         }
     }
 
-    /// Plex: «Mer som dette» under (filmer og serier som ligner).
+    /// «Mer som dette» (Plex: filmer og serier som ligner) eller «Mer fra <kategori>» (leverandøren) under.
     @ViewBuilder
     private var relatedRow: some View {
         if !related.isEmpty {
-            VODShelf(title: L("Mer som dette")) {
+            VODShelf(title: relatedTitle) {
                 ForEach(related) { other in
                     VODPosterLink(item: other, id: "lik-\(other.id)")
                         .frame(width: Metrics.rowPoster)
                 }
             }
         }
+    }
+
+    /// Merkene under tittelen: merkene fra navnet («PRE»), året, sjangeren, lengden (serier: sesonger og episoder),
+    /// terningkastet, aldersgrensen, landet og kvaliteten (bildet og lyden).
+    private var badgeList: [(text: String, accent: Bool)] {
+        let d = details
+        var list: [(text: String, accent: Bool)] = (item.tags ?? []).map { (text: $0.uppercased(), accent: true) }
+        var plain: [String?] = [d?.year ?? item.year, d.map(\.genre).flatMap { $0.isEmpty ? nil : $0 }]
+        if item.kind == .series, let d {
+            let seasons = d.seasons.filter { $0.number != 0 }.count
+            let episodes = d.seasons.reduce(0) { $0 + $1.episodes.count }
+            if seasons > 1 { plain.append(L("{n} sesonger", ["n": seasons])) }
+            if episodes > 0 { plain.append(episodes == 1 ? L("1 episode") : L("{n} episoder", ["n": episodes])) }
+        } else {
+            plain.append(d.map(\.duration).flatMap { $0.isEmpty ? nil : $0 })
+        }
+        plain += [(d?.rating ?? item.rating).map(ratingText), d?.age, d?.country]
+        list += plain.compactMap { $0 }.map { (text: $0, accent: false) }
+        list += (d?.quality ?? []).map { (text: $0, accent: false) }
+        return list
     }
 
     private var meta: String {
@@ -810,7 +1095,14 @@ struct VODDetailView: View {
             self.error = error.localizedDescription
             return
         }
-        if item.isPlex { related = await model.related(item) }
+        if item.isPlex {
+            related = await model.related(item)
+            relatedTitle = L("Mer som dette")
+        } else {
+            let more = await model.moreFrom(item)
+            related = more.items
+            relatedTitle = more.title
+        }
     }
 
     /// Plex: hvor langt du har sett, slik Plex har det (også fra de andre Plex-appene).
@@ -963,6 +1255,32 @@ private struct PillLabel<Label: View>: View {
             .background(Capsule().fill(focused ? Theme.ink : (selected ? Theme.surface2 : Theme.surface)))
             .scaleEffect(focused ? (pressed ? 1.0 : 1.06) : 1)
             .animation(.easeOut(duration: 0.15), value: focused)
+    }
+}
+#endif
+
+/// «★ 7,5» (på engelsk «★ 7.5»); hele tall uten desimaler.
+func ratingText(_ rating: Double) -> String {
+    let rounded = (rating * 10).rounded() / 10
+    let number = rounded == rounded.rounded() ? String(Int(rounded)) : String(format: "%.1f", rounded)
+    return "★ " + (appLanguage == "no" ? number.replacingOccurrences(of: ".", with: ",") : number)
+}
+
+#if os(tvOS)
+/// Søket i filmene eller seriene på Apple TV (fra sidemenyen).
+struct VODSearchRoute: Hashable {
+    let kind: VODKind
+}
+
+/// Apple TV: søket i filmene eller seriene, med tastaturet til Apple TV øverst og treffene under.
+struct VODSearchPage: View {
+    let model: VODModel
+    @State private var query = ""
+
+    var body: some View {
+        VODSearchResults(model: model, query: query.trimmingCharacters(in: .whitespaces))
+            .searchable(text: $query, prompt: model.kind == .movies ? L("Søk i filmer") : L("Søk i serier"))
+            .background(Theme.bg.ignoresSafeArea())
     }
 }
 #endif

@@ -423,6 +423,66 @@ final class VODTests: XCTestCase {
         XCTAssertEqual(list.seasons.first?.episodes.count, 2)
     }
 
+    /// Navnene uten merkene på slutten (som Fyrlys for Windows): merkene og året for seg.
+    func testCleanTitle() {
+        let a = cleanTitle("Matchbox the Movie [PRE] [2026]")
+        XCTAssertEqual(a.title, "Matchbox the Movie")
+        XCTAssertEqual(a.tags, ["PRE"])
+        XCTAssertEqual(a.year, "2026")
+        let b = cleanTitle("Film (2019) [MULTI] [4K]")
+        XCTAssertEqual(b.title, "Film")
+        XCTAssertEqual(b.tags, ["MULTI", "4K"])
+        XCTAssertEqual(b.year, "2019")
+        XCTAssertEqual(cleanTitle("[4K]").title, "[4K]", "bare et merke: står")
+        XCTAssertEqual(cleanTitle("Kysten").tags, [])
+        XCTAssertEqual(cleanTitle("Om (mor og far) i (2010)").title, "Om (mor og far) i")
+        XCTAssertEqual(cleanTitle("Lang [et merke som er altfor langt til å være et merke]").tags, [])
+        XCTAssertEqual(cleanEpisodeTitle("Kysten - S01E03 - Tåka", series: "Kysten"), "Tåka")
+        XCTAssertEqual(cleanEpisodeTitle("kysten s2 e10: Storm", series: "Kysten"), "Storm")
+        XCTAssertEqual(cleanEpisodeTitle("Kysten - Tåka", series: "Kysten"), "Tåka")
+        XCTAssertEqual(cleanEpisodeTitle("S01E03", series: "Kysten"), "S01E03", "ingenting igjen")
+        XCTAssertEqual(cleanEpisodeTitle("Tåka", series: "Kysten"), "Tåka")
+        let items = parseVODItems([["stream_id": 1, "name": "Stormnatt [PRE] [2026]", "added": "1700000100"]],
+                                  kind: .movies)
+        XCTAssertEqual(items.first?.name, "Stormnatt")
+        XCTAssertEqual(items.first?.tags, ["PRE"])
+        XCTAssertEqual(items.first?.year, "2026")
+        XCTAssertEqual(items.first?.added, 1700000100)
+    }
+
+    /// Leverandørens rekkefølge, nyeste først (like står som før) og navnene som i en norsk ordbok.
+    func testSortVOD() {
+        func item(_ id: String, _ name: String, _ added: Int?) -> VODItem {
+            VODItem(id: id, kind: .movies, name: name, added: added)
+        }
+        let items = [item("1", "Øya", 10), item("2", "Aske", nil), item("3", "Ærlig", 30), item("4", "bølge", 30),
+                     item("5", "Åsen", 20)]
+        XCTAssertEqual(sortVOD(items, .provider).map(\.id), ["1", "2", "3", "4", "5"])
+        XCTAssertEqual(sortVOD(items, .newest).map(\.id), ["3", "4", "5", "1", "2"])
+        XCTAssertEqual(sortVOD(items, .name).map(\.name), ["Aske", "bølge", "Ærlig", "Øya", "Åsen"])
+    }
+
+    /// Alder, land og kvaliteten (bildet og lyden) fra get_vod_info.
+    func testMovieQuality() {
+        let d = parseMovieInfo(["info": ["age": "12", "country": "Norge", "duration_secs": 5520, "plot": "N/A",
+                                         "video": ["height": 2160, "codec_name": "hevc", "color_transfer": "smpte2084"],
+                                         "audio": ["codec_name": "eac3", "channels": 6]],
+                                "movie_data": ["name": "Fjord"]])
+        XCTAssertEqual(d.age, "12+")
+        XCTAssertEqual(d.country, "Norge")
+        XCTAssertEqual(d.quality, ["4K", "HDR", "H.265", "5.1", "Dolby Digital+"])
+        XCTAssertEqual(d.duration, "1 t 32 min")
+        XCTAssertEqual(d.plot, "", "«N/A» er ingen handling")
+        let sd = parseMovieInfo(["info": ["mpaa_rating": "PG-13", "video": ["height": 576, "codec_name": "h264"],
+                                          "audio": ["codec_name": "aac", "channels": 2]]])
+        XCTAssertEqual(sd.age, "PG-13")
+        XCTAssertEqual(sd.quality, ["SD", "H.264", "Stereo"])
+        XCTAssertEqual(parseMovieInfo(["info": []]).quality, [])
+        let series = parseSeriesInfo(["info": ["name": "Kysten [MULTI]"],
+                                      "episodes": ["1": [["id": "7", "episode_num": 1, "title": "Kysten - S01E01 - Lys"]]]])
+        XCTAssertEqual(series.seasons.first?.episodes.first?.title, "Lys")
+    }
+
     /// Forrige og neste episode: videre til neste sesong, uten spesialene (sesong 0), og spesialene for seg.
     func testNeighbours() {
         func ep(_ s: Int, _ n: Int) -> Episode { Episode(id: "\(s)-\(n)", season: s, number: n, title: "") }

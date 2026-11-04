@@ -13,7 +13,20 @@
 - Plex: «Mer som dette» nederst på siden for en film eller serie.
 - Plex: stopper ruteren adressene som slutter på plex.direct (de peker inn i hjemmenettet), kobles det til serveren
   rett på hjemmenettet i stedet.
+- Plex: biblioteker kan skjules («Velg biblioteker» nederst i sidemenyen, i menyen på iPhone og under Plex i
+  innstillingene). Det som er skjult, er borte fra sidemenyen, Hjem, «Fortsett å se» og søket, på alle enhetene dine.
+- Plex: overskriftene Plex lager selv, bes om på norsk (når serveren har dem på norsk).
 - Spilles en film med Apples egen avspiller, lukkes spilleren når filmen er ferdig (som med VLC).
+- Filmer og serier hos IPTV-leverandøren: «Nylig lagt til» på Hjem, «Alle filmer» og «Alle serier», og rekkefølgen i
+  kategoriene kan velges («Leverandørens rekkefølge», «Nyeste først», «A–Å»).
+- Plex: bibliotekene har sjanger og rekkefølge («Nylig lagt til», «A–Å», «Nyeste utgivelser», «Best vurdert», «Sist
+  sett»), og store bibliotek hentes 100 om gangen.
+- Merker: «[PRE]» og lignende i navnet blir et merke på plakaten, og «[2026]» blir året (navnet står uten dem). Siden
+  for en film viser kvaliteten (4K, HDR, H.265, 5.1, Dolby …), aldersgrensen og landet når leverandøren eller Plex sier
+  det, og antall sesonger og episoder for en serie.
+- «Mer fra <kategori>» nederst på siden for en film eller serie fra leverandøren.
+- Episodene heter bare det de heter, uten serien og «S01E03» foran.
+- Søk i filmer og serier på Apple TV (øverst i sidemenyen).
 
 ## v0.1.25
 

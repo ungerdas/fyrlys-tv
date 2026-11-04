@@ -303,7 +303,33 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   prøver `lanHTTP` (http://<adresse>:<port> fra navnet `a-b-c-d.<id>.plex.direct`, bare private adresser og
   `local`) etter https-adressen hjemme. Falsk Plex: markører og en engelsk undertekstfil på 2102/2103, «Mer som dette»
   for filmene, sett/ikke sett for 1002. Testene `test22PlexEpisoder`/`test23PlexSett` (Apple TV, iPhone; iPad bare
-  `test23`).
+  `test23`). Skjulte biblioteker (Windows 2.1.37; eieren vil ikke se «Andre videoer» og et sportsbibliotek):
+  `AppModel.hiddenLibraries` («<server>/<bibliotek>», iCloud-nøkkelen `plex-skjulte`), `hiddenSections`/`setHidden`
+  → `refreshVOD()` → `VODModel.reset(_:hidden:)`: bibliotekene og `rows(…libraries:)` (contentDirectoryID) bare de
+  som vises, og `visible` filtrerer «Fortsett å se», radene, «Se alle» og søket på `categoryId`
+  (librarySectionID); `hiddenAll` gir meldingen med `velg-biblioteker`. `PlexLibrariesSheet` (`PlexSettings.swift`:
+  `PlexClient.sections()`, bryterne `vis-bibliotek-<n>`, `biblioteker-ferdig`) fra «Biblioteker» i innstillingene
+  (`plex-biblioteker`), nederst i sidemenyen og i menyen på iPhone. Falsk Plex: biblioteket 4 «Andre videoer»
+  (tomt). `X-Plex-Language` (nb/en) i `PlexDevice.headers`. Testene `test27PlexBiblioteker` (Apple TV) og
+  `test26PlexBiblioteker` (iPhone og iPad).
+- **Filmer og serier fra Windows-lista, også i 0.1.26** (pakken «Filmer og serier»; hvordan Windows gjør det:
+  `lib/core/vod.dart`, `lib/ui/vod_browser.dart`, `vod_detail_page.dart`, `lib/ui/plex/plex_view.dart`): Core
+  `cleanTitle` (merker i [ ] eller ( ) på slutten, høyst 24 tegn: år → året, resten → `VODItem.tags`; navnet uten dem
+  i `parseVODItems`), `cleanEpisodeTitle` (uten serien og «S01E03» foran), `VODItem.added` (`added`/`last_modified`),
+  `VODSort` og `sortVOD` (leverandørens, nyeste først, A–Å med norsk rekkefølge), `meaningful` («N/A» … er tomt),
+  `VODDetails.age`/`country`/`quality` (`qualityBadges`: get_vod_info `video`/`audio`, Plex `Media[0]` og
+  `colorTrc`/`DOVIPresent`), Plex `PlexSort` (`added` = `episode.addedAt:desc` for serier), `page` (100 om gangen,
+  `X-Plex-Container-Start/Size` i spørringen, `totalSize`) og `genres` (`/library/sections/<n>/genre`). `VODModel`:
+  «Alle filmer/serier» (`VODModel.all`, alle hentes én gang: `everything`, delt med søket), `recent` («Nylig lagt til»
+  på Hjem, de 24 nyeste; tom når ingen har `added`), `sort`/`shown`/`prepareSorted` (sortert utenfor hovedtråden),
+  `plexSorts`/`plexGenres`/`genres`/`totals`/`loadMore` (en ny side når hjulet nederst vises; en tom side avslutter;
+  `requests` per kategori kaster sene svar), `moreFrom` («Mer fra <kategori>», 24, IPTV). Visningene: `VODSortMenu`
+  (`vod-sortering`, `vod-sjanger`) i overskriften over plakatene, merkene på plakatene (høyst to, oppe til venstre),
+  `InfoBadge` (`merke-<tekst>`) i en `FlowLayout` på siden, `ratingText` («★ 7,5»), «Mer fra …» som `lik-<id>`, Hjem
+  `nylig-<id>` og `se-alle-nylig`. Apple TV: «Søk» øverst i sidemenyen (`vod-sok`) → `VODSearchPage` (`.searchable`,
+  `VODSearchResults` på begge plattformene nå, `sok-<id>`). Falsk leverandør: 505 «Fjordlys [PRE] [2026]» med 4K, HDR,
+  5.1, 12 og Norge; falsk Plex: sjangrene, sidene og kvaliteten på 1001. Testene `test24Sortering`, `test25PlexSjanger`
+  (Apple TV, iPhone; iPad bare `test24`) og `test26FilmSok` (Apple TV).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -537,5 +563,10 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   noe særlig mer. Men se menyen på toppen, den er nok litt for høy?» Fanelinja sto halvveis ute over kanten fordi
   lista var rullet litt (merket over sidemenyen sto der det står i simulatoren) → 0.1.25 (se Arkitektur). Pakkene over
   kommer etter det.
-- 4.11.2026: 0.1.26 = pakken «Plex og episoder» (se Arkitektur). Ikke prøvd mot hans Plex: markørene (krever at Plex
-  har funnet dem: «Intro/Credits detection»), undertekstfilene i VLC over nettet, adressen rett i hjemmenettet.
+- 4.11.2026: ny liste fra Windows-økta (2.1.38, med 10 skjule biblioteker og 16 X-Plex-Language); eieren valgte
+  «Skjul Plex-biblioteker først» (10 og 16 med i 0.1.26), så «Resten» og «TV-spilleren» som før.
+- 4.11.2026: 0.1.26 = pakkene «Plex og episoder» og «Filmer og serier» (se Arkitektur). Ikke prøvd mot hans Plex:
+  markørene (krever at Plex har funnet dem: «Intro/Credits detection»), undertekstfilene i VLC over nettet, adressen
+  rett i hjemmenettet, sjangrene og sidene i store bibliotek. Igjen fra lista: «Resten» (flere kanaler samtidig, M3U og
+  XMLTV, feilrapport, egne navn på innloggingene) og «TV-spilleren» (pause og spol tilbake i direktesending, strøminfo,
+  bildeformat).

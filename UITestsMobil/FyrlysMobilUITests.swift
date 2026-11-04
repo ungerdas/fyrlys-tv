@@ -491,6 +491,100 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(gone(player, timeout: 10), "krysset lukket ikke spilleren")
     }
 
+    /// [a] står foran [b]: høyere opp, eller på samme linje og til venstre.
+    func before(_ a: XCUIElement, _ b: XCUIElement) -> Bool {
+        a.frame.minY < b.frame.minY - 4 || (abs(a.frame.minY - b.frame.minY) <= 4 && a.frame.minX < b.frame.minX)
+    }
+
+    /// Velger kategorien [id] («[name]»): i sidemenyen på iPad, i menyen øverst på iPhone.
+    func chooseCategory(_ app: XCUIApplication, id: String, name: String) {
+        if isPad {
+            find(app, "vodkat-\(id)").tap()
+        } else {
+            find(app, "vod-kategori").tap()
+            let item = app.buttons[name]
+            if item.waitForExistence(timeout: 5) { item.tap() }
+        }
+    }
+
+    /// Velger [label] i menyen [menu].
+    func choose(_ app: XCUIApplication, menu: String, _ label: String) -> Bool {
+        find(app, menu).tap()
+        let option = app.buttons[label]
+        guard option.waitForExistence(timeout: 5) else { return false }
+        option.tap()
+        return true
+    }
+
+    /// Filmer hos leverandøren: «Nylig lagt til» på Hjem, rekkefølgen i en kategori («A–Å»), merkene fra navnet og
+    /// kvaliteten på siden for en film, og «Mer fra <kategori>».
+    func test24Sortering() {
+        let app = launch("movies")
+        XCTAssertTrue(find(app, "nylig-501").waitForExistence(timeout: 30), "«Nylig lagt til» mangler på Hjem")
+        chooseCategory(app, id: "32", name: "Dokumentarer")
+        let fjord = find(app, "vod-505"), coast = find(app, "vod-503")
+        XCTAssertTrue(fjord.waitForExistence(timeout: 15) && coast.exists, "filmene i kategorien kom ikke")
+        XCTAssertTrue(before(coast, fjord), "leverandørens rekkefølge: «Kysten fra lufta» først")
+        XCTAssertTrue(choose(app, menu: "vod-sortering", "A–Å"), "fant ikke «A–Å» i menyen")
+        XCTAssertTrue(until(10) { fjord.exists && coast.exists && before(fjord, coast) }, "A–Å: «Fjordlys» først")
+        wait(1)
+        shot("39-filmer-a-a")
+        XCTAssertTrue(openPage(app, "vod-505", then: "merke-PRE", timeout: 15), "merket fra navnet mangler")
+        for badge in ["2026", "4K", "HDR", "H.265", "5.1", "Dolby Digital+", "12+", "Norge"] {
+            XCTAssertTrue(find(app, "merke-\(badge)").exists, "merket «\(badge)» mangler")
+        }
+        XCTAssertTrue(find(app, "lik-503").waitForExistence(timeout: 10), "«Mer fra Dokumentarer» mangler")
+        wait(1)
+        shot("40-film-merker")
+    }
+
+    /// Plex: et bibliotek med sjanger (Dokumentar: bare «Fjordbyen»).
+    func test25PlexSjanger() {
+        let app = launch("plex")
+        XCTAssertTrue(find(app, "vod-hjem").waitForExistence(timeout: 40), "Hjem fra Plex kom ikke")
+        chooseCategory(app, id: "1", name: "Filmer")
+        XCTAssertTrue(find(app, "vod-1001").waitForExistence(timeout: 15), "filmene i biblioteket kom ikke")
+        XCTAssertTrue(find(app, "vod-sjanger").waitForExistence(timeout: 10), "valget av sjanger mangler")
+        XCTAssertTrue(choose(app, menu: "vod-sjanger", "Dokumentar"), "fant ikke «Dokumentar» i menyen")
+        XCTAssertTrue(until(15) { !find(app, "vod-1001").exists && find(app, "vod-1002").exists },
+                      "sjangeren ble ikke brukt")
+        wait(1)
+        shot("41-plex-sjanger")
+    }
+
+    /// Plex: «Velg biblioteker» (sidemenyen på iPad, menyen øverst på iPhone); et bibliotek som slås av, er borte.
+    func test26PlexBiblioteker() {
+        let app = launch("plex")
+        XCTAssertTrue(find(app, "vod-hjem").waitForExistence(timeout: 40), "Hjem fra Plex kom ikke")
+        if isPad {
+            XCTAssertTrue(find(app, "vodkat-4").waitForExistence(timeout: 10), "«Andre videoer» mangler")
+            find(app, "velg-biblioteker").tap()
+        } else {
+            find(app, "vod-kategori").tap()
+            XCTAssertTrue(app.buttons["Andre videoer"].waitForExistence(timeout: 5), "«Andre videoer» mangler i menyen")
+            app.buttons["Velg biblioteker"].tap()
+        }
+        let toggle = find(app, "vis-bibliotek-4")
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), "bibliotekene kom ikke")
+        // bryteren (raden kan være elementet som har id-en)
+        let control = toggle.switches.firstMatch.exists ? toggle.switches.firstMatch : toggle
+        control.tap()
+        wait(1)
+        shot("42-plex-biblioteker")
+        find(app, "biblioteker-ferdig").tap()
+        if isPad {
+            XCTAssertTrue(until(20) { find(app, "vodkat-1").exists && !find(app, "vodkat-4").exists },
+                          "«Andre videoer» står fortsatt i sidemenyen")
+        } else {
+            wait(3)
+            find(app, "vod-kategori").tap()
+            // «Velg biblioteker» står bare i menyen («Filmer» er også fanen nederst)
+            XCTAssertTrue(app.buttons["Velg biblioteker"].waitForExistence(timeout: 10), "menyen kom ikke")
+            XCTAssertFalse(app.buttons["Andre videoer"].exists, "«Andre videoer» står fortsatt i menyen")
+        }
+        shot("43-plex-skjult")
+    }
+
     /// Plex: «Merk som sett» eller «Merk som ikke sett» i menyen på siden for en film (merkes på serveren), og «Mer
     /// som dette».
     func test23PlexSett() {

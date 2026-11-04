@@ -109,6 +109,9 @@ enum Metrics {
     static let posterMin: CGFloat = 230
     static let posterGap: CGFloat = 40
     static let posterTitle: CGFloat = 22
+    /// merkene på plakatene («PRE») og på siden («4K», «12+»)
+    static let posterTag: CGFloat = 15
+    static let badge: CGFloat = 21
     static let detailPadding: CGFloat = 60
     static let detailPoster: CGFloat = 340
     static let detailTitle: CGFloat = 52
@@ -165,6 +168,9 @@ enum Metrics {
     static let posterMin: CGFloat = 104
     static let posterGap: CGFloat = 12
     static let posterTitle: CGFloat = 13
+    /// merkene på plakatene («PRE») og på siden («4K», «12+»)
+    static let posterTag: CGFloat = 9
+    static let badge: CGFloat = 12
     static let detailPadding: CGFloat = 18
     static let detailPoster: CGFloat = 120
     static let detailTitle: CGFloat = 22

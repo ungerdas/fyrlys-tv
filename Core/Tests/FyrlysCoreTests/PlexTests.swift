@@ -280,6 +280,50 @@ final class PlexTests: XCTestCase {
         XCTAssertEqual(old.subtitles.first?.name, "Undertekster")
     }
 
+    /// Et bibliotek side for side (rekkefølgen og sjangeren som spørring), sjangrene og kvaliteten på siden for en film.
+    func testLibraryPagesGenresAndQuality() async throws {
+        let calls = Calls()
+        let fetch: RequestFetch = { request in
+            await calls.add(request)
+            if request.url?.path.hasSuffix("/genre") == true {
+                return (Data(#"{"MediaContainer": {"Directory": [{"key": "12", "title": "Drama"}, {"key": "", "title": "x"}]}}"#.utf8), 200)
+            }
+            return (Data(#"{"MediaContainer": {"totalSize": 250, "Metadata": [{"ratingKey": "1", "type": "movie", "title": "A"}]}}"#.utf8), 200)
+        }
+        let client = PlexClient(base: "http://192.168.1.10:32400", token: "hemmelig", device: device, fetch: fetch)
+        let page = try await client.page(.series, library: "2", sort: .added, genre: "12", start: 100)
+        XCTAssertEqual(page.total, 250)
+        let genres = try await client.genres(library: "2")
+        XCTAssertEqual(genres.map(\.name), ["Drama"])
+        let urls = await calls.urls
+        XCTAssertEqual(urls.first, "http://192.168.1.10:32400/library/sections/2/all?type=2&sort=episode.addedAt:desc"
+                       + "&includeCollections=0&genre=12&X-Plex-Container-Start=100&X-Plex-Container-Size=100")
+        XCTAssertEqual(PlexSort.added.key(.movies), "addedAt:desc")
+        XCTAssertEqual(PlexSort.rating.key(.series), "audienceRating:desc")
+        let meta = (container("""
+        {"MediaContainer": {"Metadata": [{"ratingKey": "9", "type": "movie", "title": "Fjord", "contentRating": "15",
+          "Country": [{"tag": "Norge"}],
+          "Media": [{"videoResolution": "4k", "videoCodec": "hevc", "audioCodec": "dca", "audioChannels": 8,
+                     "Part": [{"key": "/library/parts/9/1/file.mkv", "Stream": [
+                       {"streamType": 1, "colorTrc": "smpte2084"}]}]}]}]}}
+        """)["Metadata"] as! [[String: Any]])[0]
+        let d = parseDetails(meta, client: client)
+        XCTAssertEqual(d.age, "15")
+        XCTAssertEqual(d.country, "Norge")
+        XCTAssertEqual(d.quality, ["4K", "HDR", "H.265", "7.1", "DTS"])
+    }
+
+    /// Bibliotekene med filmer og serier (til valget av hvilke som vises).
+    func testSections() {
+        let sections = parseSections(container("""
+        {"MediaContainer": {"Directory": [{"key": "1", "type": "movie", "title": "Filmer"},
+          {"key": "3", "type": "artist", "title": "Musikk"}, {"key": "2", "type": "show", "title": "Serier"},
+          {"key": "", "type": "movie", "title": "Uten nøkkel"}]}}
+        """))
+        XCTAssertEqual(sections, [PlexSection(id: "1", name: "Filmer", kind: .movies),
+                                  PlexSection(id: "2", name: "Serier", kind: .series)])
+    }
+
     /// «Mer som dette»: den første raden med filmer (eller serier), uten filmen selv.
     func testRelated() {
         let related = parseRelated(container("""
@@ -325,6 +369,7 @@ final class PlexTests: XCTestCase {
             await calls.add(request)
             XCTAssertEqual(request.value(forHTTPHeaderField: "X-Plex-Client-Identifier"), "fyrlys-test")
             XCTAssertEqual(request.value(forHTTPHeaderField: "X-Plex-Product"), "Fyrlys")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "X-Plex-Language"), "nb")
             if request.httpMethod == "POST" { return (Data(#"{"id": 7, "code": "ABCD"}"#.utf8), 201) }
             return (Data(#"{"id": 7, "code": "ABCD", "authToken": "nøkkel"}"#.utf8), 200)
         }

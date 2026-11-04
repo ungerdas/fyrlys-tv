@@ -223,6 +223,30 @@ public let english: [String: String] = [
     "Merk som ikke sett": "Mark as unwatched",
     "Mer som dette": "More like this",
     "Mer": "More",
+    "Mer fra {category}": "More from {category}",
+    "{n} sesonger": "{n} seasons",
+    "1 episode": "1 episode",
+    "{n} episoder": "{n} episodes",
+    // rekkefølgen og sjangeren i filmer og serier
+    "Alle filmer": "All movies",
+    "Alle serier": "All series",
+    "Nylig lagt til": "Recently added",
+    "Sortering": "Sort",
+    "Leverandørens rekkefølge": "Provider's order",
+    "Nyeste først": "Newest first",
+    "A–Å": "A–Z",
+    "Nyeste utgivelser": "Newest releases",
+    "Best vurdert": "Top rated",
+    "Sjanger": "Genre",
+    "Alle sjangre": "All genres",
+    // Plex: bibliotekene som vises
+    "Biblioteker": "Libraries",
+    "Velg biblioteker": "Choose libraries",
+    "Det du slår av, vises ikke i sidemenyen, på Hjem eller i søket.":
+        "What you turn off isn't shown in the sidebar, on Home or in search.",
+    "Ingen biblioteker med filmer eller serier.": "No libraries with movies or series.",
+    "Bibliotekene med filmer er skjult.": "The libraries with movies are hidden.",
+    "Bibliotekene med serier er skjult.": "The libraries with series are hidden.",
     // guiden
     "Velg hva guiden viser oppe til høyre: favorittene, alle kanaler eller en kategori.":
         "Choose what the guide shows at the top right: your favorites, all channels or a category.",

@@ -5,6 +5,8 @@ import SwiftUI
 /// velg server, velg om Filmer og Serier skal komme fra Plex, og koble fra.
 struct PlexSettings: View {
     @Environment(AppModel.self) private var model
+    /// valget av bibliotekene som vises
+    @State private var libraries = false
 
     private var plex: PlexModel { model.plex }
 
@@ -20,6 +22,10 @@ struct PlexSettings: View {
                 .foregroundStyle(Theme.muted)
             content
         }
+        .sheet(isPresented: $libraries) {
+            PlexLibrariesSheet()
+                .environment(model)
+        }
         #else
         Section {
             content
@@ -31,6 +37,10 @@ struct PlexSettings: View {
             }
         }
         .listRowBackground(Theme.surface)
+        .sheet(isPresented: $libraries) {
+            PlexLibrariesSheet()
+                .environment(model)
+        }
         #endif
     }
 
@@ -78,6 +88,8 @@ struct PlexSettings: View {
             }
             .accessibilityIdentifier("vod-kilde")
             #endif
+            // bibliotekene som vises i Filmer og Serier (for eksempel uten «Andre videoer»)
+            button(L("Biblioteker"), icon: "books.vertical", id: "plex-biblioteker") { libraries = true }
             if plex.servers.count > 1 {
                 button(L("Bytt server"), icon: "server.rack", id: "bytt-plex-server") { plex.chooseServer() }
             }
@@ -132,6 +144,74 @@ struct PlexSettings: View {
     #else
     static let codeSize: CGFloat = 34
     #endif
+}
+
+/// Hvilke Plex-biblioteker som vises i Filmer og Serier: det som slås av, er borte fra sidemenyen, Hjem, «Fortsett å
+/// se» og søket (som i Fyrlys for Windows; delt mellom enhetene med iCloud).
+struct PlexLibrariesSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var sections: [PlexSection]?
+    @State private var failed = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    if let sections {
+                        if sections.isEmpty {
+                            Text(L("Ingen biblioteker med filmer eller serier."))
+                        }
+                        ForEach(sections) { section in
+                            Toggle(isOn: Binding(get: { !model.isHidden(section.id) },
+                                                 set: { model.setHidden(section.id, !$0) })) {
+                                Label(section.name, systemImage: section.kind == .movies ? "film" : "tv")
+                            }
+                            .accessibilityIdentifier("vis-bibliotek-\(section.id)")
+                        }
+                    } else if failed {
+                        Text(L("Får ikke kontakt med Plex-serveren"))
+                    } else {
+                        ProgressView()
+                    }
+                } footer: {
+                    Text(L("Det du slår av, vises ikke i sidemenyen, på Hjem eller i søket."))
+                }
+                #if os(iOS)
+                .listRowBackground(Theme.surface)
+                #endif
+            }
+            #if os(iOS)
+            .scrollContentBackground(.hidden)
+            .background(Theme.bg)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L("Ferdig")) { dismiss() }
+                        .accessibilityIdentifier("biblioteker-ferdig")
+                }
+            }
+            #endif
+            .navigationTitle(L("Biblioteker"))
+        }
+        #if os(iOS)
+        .tint(Theme.signal)
+        #endif
+        .accessibilityIdentifier("plex-bibliotekvalg")
+        .task { await load() }
+    }
+
+    private func load() async {
+        guard let client = model.plex.client else {
+            failed = true
+            return
+        }
+        do {
+            sections = try await client.sections()
+        } catch {
+            failed = true
+        }
+    }
 }
 
 #if os(iOS)
