@@ -629,23 +629,26 @@ final class FyrlysUITests: XCTestCase {
         shot("46-film-merker")
     }
 
-    /// Plex: et bibliotek med sjanger og rekkefølge (Dokumentar: bare «Fjordbyen»), og kvaliteten på siden for en film.
-    func test25PlexSjanger() {
+    /// Plex: rekkefølgen i et bibliotek («A–Å»: «Fjordbyen» foran «Nordlys over fjorden»), uten valg av sjanger.
+    func test25PlexSortering() {
         let app = launch("plex")
         let library = find(app, "vodkat-1")
         XCTAssertTrue(library.waitForExistence(timeout: 40), "biblioteket Filmer mangler")
         XCTAssertTrue(focus(app, library), "fikk ikke fokus på biblioteket")
         remote.press(.select)
-        XCTAssertTrue(find(app, "vod-1001").waitForExistence(timeout: 15), "filmene i biblioteket kom ikke")
-        let genre = find(app, "vod-sjanger")
-        XCTAssertTrue(genre.waitForExistence(timeout: 10), "valget av sjanger mangler")
-        XCTAssertTrue(focusUp(app, genre), "fikk ikke fokus på sjangeren (\(focusText(app)), menyen \(genre.frame))")
+        let nordlys = find(app, "vod-1001"), fjordbyen = find(app, "vod-1002")
+        XCTAssertTrue(nordlys.waitForExistence(timeout: 15) && fjordbyen.exists, "filmene i biblioteket kom ikke")
+        XCTAssertTrue(before(nordlys, fjordbyen), "«Nylig lagt til»: «Nordlys over fjorden» først")
+        XCTAssertFalse(find(app, "vod-sjanger").exists, "valget av sjanger skal ikke vises")
+        let sort = find(app, "vod-sortering")
+        XCTAssertTrue(sort.exists, "valget av rekkefølge mangler")
+        XCTAssertTrue(focusUp(app, sort), "fikk ikke fokus på rekkefølgen (\(focusText(app)), menyen \(sort.frame))")
         remote.press(.select)
-        XCTAssertTrue(choose(app, "Dokumentar"), "fant ikke «Dokumentar» i menyen")
-        XCTAssertTrue(until(15) { !find(app, "vod-1001").exists && find(app, "vod-1002").exists },
-                      "sjangeren ble ikke brukt")
+        XCTAssertTrue(choose(app, "A–Å"), "fant ikke «A–Å» i menyen")
+        XCTAssertTrue(until(15) { nordlys.exists && fjordbyen.exists && before(fjordbyen, nordlys) },
+                      "A–Å: «Fjordbyen» først")
         wait(1)
-        shot("47-plex-sjanger")
+        shot("47-plex-a-a")
     }
 
     /// Plex: «Velg biblioteker» nederst i sidemenyen; et bibliotek som slås av, er borte fra sidemenyen.

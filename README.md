@@ -16,7 +16,7 @@ IPTV-leverandøren din og se TV.
   kontrollene og sveiper ned for kanallista. På iPhone og iPad står kanallista under bildet, med bilde-i-bilde og
   AirPlay.
 - **Filmer og serier** med «Hjem» først: «Fortsett å se» (med episoden og hvor langt du har kommet), favorittene og
-  kategoriene som rader med «Se alle», og «Nylig lagt til». Rekkefølge og sjanger, søk, en side for hver film og serie
+  kategoriene som rader med «Se alle», og «Nylig lagt til». Rekkefølge, søk, en side for hver film og serie
   med kvaliteten (4K, HDR, 5.1 …), episodene sesong for sesong, og «Merk som sett». Når en episode er ferdig, begynner den neste, og spilleren har forrige og neste episode. Filtyper Apples
   avspiller ikke kan (mkv, avi …), spilles med VLC, med valg av lydspor og undertekster.
 - **TV-arkiv** for kanaler som har det hos leverandøren, og «se fra start» på det som går nå.

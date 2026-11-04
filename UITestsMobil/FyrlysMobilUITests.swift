@@ -567,18 +567,20 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("40-film-merker")
     }
 
-    /// Plex: et bibliotek med sjanger (Dokumentar: bare «Fjordbyen»).
-    func test25PlexSjanger() {
+    /// Plex: rekkefølgen i et bibliotek («A–Å»: «Fjordbyen» foran «Nordlys over fjorden»), uten valg av sjanger.
+    func test25PlexSortering() {
         let app = launch("plex")
         XCTAssertTrue(find(app, "vod-hjem").waitForExistence(timeout: 40), "Hjem fra Plex kom ikke")
         chooseCategory(app, id: "1", name: "Filmer")
-        XCTAssertTrue(find(app, "vod-1001").waitForExistence(timeout: 15), "filmene i biblioteket kom ikke")
-        XCTAssertTrue(find(app, "vod-sjanger").waitForExistence(timeout: 10), "valget av sjanger mangler")
-        XCTAssertTrue(choose(app, menu: "vod-sjanger", "Dokumentar"), "fant ikke «Dokumentar» i menyen")
-        XCTAssertTrue(until(15) { !find(app, "vod-1001").exists && find(app, "vod-1002").exists },
-                      "sjangeren ble ikke brukt")
+        let nordlys = find(app, "vod-1001"), fjordbyen = find(app, "vod-1002")
+        XCTAssertTrue(nordlys.waitForExistence(timeout: 15) && fjordbyen.exists, "filmene i biblioteket kom ikke")
+        XCTAssertTrue(before(nordlys, fjordbyen), "«Nylig lagt til»: «Nordlys over fjorden» først")
+        XCTAssertFalse(find(app, "vod-sjanger").exists, "valget av sjanger skal ikke vises")
+        XCTAssertTrue(choose(app, menu: "vod-sortering", "A–Å"), "fant ikke «A–Å» i menyen")
+        XCTAssertTrue(until(15) { nordlys.exists && fjordbyen.exists && before(fjordbyen, nordlys) },
+                      "A–Å: «Fjordbyen» først")
         wait(1)
-        shot("41-plex-sjanger")
+        shot("41-plex-a-a")
     }
 
     /// «Gi nytt navn» på innloggingen, og feilrapporten med «Kopier» (Konto på iPhone, innstillingene på iPad).

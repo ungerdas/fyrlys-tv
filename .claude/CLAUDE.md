@@ -320,17 +320,20 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `VODSort` og `sortVOD` (leverandørens, nyeste først, A–Å med norsk rekkefølge), `meaningful` («N/A» … er tomt),
   `VODDetails.age`/`country`/`quality` (`qualityBadges`: get_vod_info `video`/`audio`, Plex `Media[0]` og
   `colorTrc`/`DOVIPresent`), Plex `PlexSort` (`added` = `episode.addedAt:desc` for serier), `page` (100 om gangen,
-  `X-Plex-Container-Start/Size` i spørringen, `totalSize`) og `genres` (`/library/sections/<n>/genre`). `VODModel`:
+  `X-Plex-Container-Start/Size` i spørringen, `totalSize`) og `genres` (`/library/sections/<n>/genre`; appen bruker
+  den ikke fra 0.1.31: eieren 5.11 «Vi trenger ikke sjangermeny.»). `VODModel`:
   «Alle filmer/serier» (`VODModel.all`, alle hentes én gang: `everything`, delt med søket), `recent` («Nylig lagt til»
   på Hjem, de 24 nyeste; tom når ingen har `added`), `sort`/`shown`/`prepareSorted` (sortert utenfor hovedtråden),
-  `plexSorts`/`plexGenres`/`genres`/`totals`/`loadMore` (en ny side når hjulet nederst vises; en tom side avslutter;
+  `plexSorts`/`totals`/`loadMore` (en ny side når hjulet nederst vises; en tom side avslutter;
   `requests` per kategori kaster sene svar), `moreFrom` («Mer fra <kategori>», 24, IPTV). Visningene: `VODSortMenu`
-  (`vod-sortering`, `vod-sjanger`) i overskriften over plakatene, merkene på plakatene (høyst to, oppe til venstre),
+  (`vod-sortering`; `ChoiceMenu`: på Apple TV en knapp per valg med hake, på iPhone/iPad en Picker) i overskriften
+  over plakatene, merkene på plakatene (høyst to, oppe til venstre),
   `InfoBadge` (`merke-<tekst>`) i en `FlowLayout` på siden, `ratingText` («★ 7,5»), «Mer fra …» som `lik-<id>`, Hjem
   `nylig-<id>` og `se-alle-nylig`. Apple TV: «Søk» øverst i sidemenyen (`vod-sok`) → `VODSearchPage` (`.searchable`,
   `VODSearchResults` på begge plattformene nå, `sok-<id>`). Falsk leverandør: 505 «Fjordlys [PRE] [2026]» med 4K, HDR,
-  5.1, 12 og Norge; falsk Plex: sjangrene, sidene og kvaliteten på 1001. Testene `test24Sortering`, `test25PlexSjanger`
-  (Apple TV, iPhone; iPad bare `test24`) og `test26FilmSok` (Apple TV).
+  5.1, 12 og Norge; falsk Plex: sjangrene, sidene, «A–Å» (`titleSort`) og kvaliteten på 1001. Testene
+  `test24Sortering`, `test25PlexSortering` (Apple TV, iPhone; iPad bare `test24`) og `test26FilmSok` (Apple TV).
+  Menyene på Apple TV i testene: elementet med fokus er raden uten tekst, så `choose` ser på rammen (`focusCovers`).
 - **Egne navn og feilrapport fra 0.1.27** (fra «Resten» i Windows-lista; hvordan Windows gjør det:
   `lib/core/app_log.dart`, `lib/core/report.dart`, `lib/ui/report_page.dart`, `lib/ui/settings_page.dart`): `Login.name`
   (Codable, valgfri, så lagrede innlogginger uten navn leses), `label` (navnet, ellers `defaultLabel` «bruker på

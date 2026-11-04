@@ -54,11 +54,9 @@ final class VODModel {
     /// IPTV: «Nylig lagt til» på Hjem (de 24 nyeste av alle); nil til de er hentet, tom når leverandøren ikke sier når
     /// noe ble lagt til
     private(set) var recent: [VODItem]?
-    /// Plex: rekkefølgen og sjangeren i hvert bibliotek (i minnet), sjangrene, og hvor mange det er i alt (flere sider
-    /// hentes når de nederste plakatene vises)
+    /// Plex: rekkefølgen i hvert bibliotek (i minnet), og hvor mange det er i alt (flere sider hentes når de nederste
+    /// plakatene vises)
     private(set) var plexSorts: [String: PlexSort] = [:]
-    private(set) var plexGenres: [String: String] = [:]
-    private(set) var genres: [String: [ChannelCategory]] = [:]
     private(set) var totals: [String: Int] = [:]
     /// telles opp når kilden byttes (fanen henter kategoriene på nytt)
     private(set) var version = 0
@@ -75,7 +73,7 @@ final class VODModel {
     @ObservationIgnored private var allItems: [VODItem]?
     /// hentingen av alle som pågår (søket, «Alle» og «Nylig lagt til» venter på den samme)
     @ObservationIgnored private var allTask: Task<[VODItem], Error>?
-    /// telles opp per kategori når rekkefølgen eller sjangeren byttes, så et sent svar for den forrige ikke brukes
+    /// telles opp per kategori når rekkefølgen byttes, så et sent svar for den forrige ikke brukes
     @ObservationIgnored private var requests: [String: Int] = [:]
     @ObservationIgnored private var loadingMore: Set<String> = []
     /// sett ferdig mens appen har vært åpen (nøklene for hvor langt): begynner fra start neste gang, selv om Plex ikke
@@ -119,8 +117,6 @@ final class VODModel {
         sorted = [:]
         recent = nil
         plexSorts = [:]
-        plexGenres = [:]
-        genres = [:]
         totals = [:]
         requests = [:]
         loadingMore = []
@@ -233,9 +229,9 @@ final class VODModel {
                 found = category == Self.all ? try await everything(client)
                     : try await client.vodItems(kind, category: category)
             case .plex(let client):
-                // en side om gangen (store bibliotek), i rekkefølgen og sjangeren som er valgt
+                // en side om gangen (store bibliotek), i rekkefølgen som er valgt
                 let page = try await client.page(kind(of: category), library: category, sort: plexSort(category),
-                                                 genre: plexGenres[category], start: 0)
+                                                 genre: nil, start: 0)
                 found = page.items
                 total = page.total
             default:
@@ -284,7 +280,7 @@ final class VODModel {
         if gen == generation { recent = newest }
     }
 
-    // ── rekkefølgen og sjangeren ──
+    // ── rekkefølgen ──
 
     /// IPTV: en annen rekkefølge; kategoriene som er hentet, sorteres utenfor hovedtråden.
     func setSort(_ new: VODSort) {
@@ -320,13 +316,6 @@ final class VODModel {
         restart(category)
     }
 
-    /// Plex: bare filmene eller seriene i sjangeren [genre] (nil: alle).
-    func setPlexGenre(_ genre: String?, for category: String) {
-        guard genre != plexGenres[category] else { return }
-        plexGenres[category] = genre
-        restart(category)
-    }
-
     private func restart(_ category: String) {
         requests[category, default: 0] += 1
         items[category] = nil
@@ -334,14 +323,6 @@ final class VODModel {
         loadingItems.remove(category)
         loadingMore.remove(category)
         Task { await load(category) }
-    }
-
-    /// Plex: sjangrene i biblioteket (første gang det vises; ingen valg når de ikke kan hentes).
-    func loadGenres(_ category: String) async {
-        guard case .plex(let client) = backend, genres[category] == nil else { return }
-        let gen = generation
-        guard let found = try? await client.genres(library: category), gen == generation else { return }
-        genres[category] = found
     }
 
     /// Plex: det er flere i biblioteket enn de som er hentet.
@@ -358,7 +339,7 @@ final class VODModel {
         loadingMore.insert(category)
         defer { if gen == generation, request == requests[category] ?? 0 { loadingMore.remove(category) } }
         guard let page = try? await client.page(kind(of: category), library: category, sort: plexSort(category),
-                                                genre: plexGenres[category], start: have.count),
+                                                genre: nil, start: have.count),
               gen == generation, request == requests[category] ?? 0, let now = items[category] else { return }
         var seen = Set(now.map(\.id))
         let more = page.items.filter { seen.insert($0.id).inserted }
@@ -406,7 +387,7 @@ final class VODModel {
                 }
             case .plex(let client):
                 let page = try? await client.page(kind(of: shown), library: shown, sort: plexSort(shown),
-                                                  genre: plexGenres[shown], start: 0)
+                                                  genre: nil, start: 0)
                 found = page?.items
                 total = page?.total
             default:

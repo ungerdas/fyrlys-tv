@@ -346,7 +346,6 @@ private struct PosterGrid: View {
         .task(id: category) {
             guard let category else { return }
             await model.load(category)
-            await model.loadGenres(category)
         }
         // IPTV: sortert i rekkefølgen som er valgt (utenfor hovedtråden)
         .task(id: "\(model.sort.rawValue)-\(category.flatMap { model.items[$0]?.count } ?? -1)") {
@@ -355,7 +354,7 @@ private struct PosterGrid: View {
         .id(category)
     }
 
-    /// Tittelen (Apple TV og iPad), rekkefølgen (og sjangeren hos Plex) og hvor mange.
+    /// Tittelen (Apple TV og iPad), rekkefølgen og hvor mange.
     private func header(_ items: [VODItem]?) -> some View {
         HStack(alignment: .center, spacing: 20) {
             if showsTitle {
@@ -433,8 +432,8 @@ private struct PosterGrid: View {
     }
 }
 
-/// Rekkefølgen i en kategori («Leverandørens rekkefølge», «Nyeste først», «A–Å»), og hos Plex sjangeren og
-/// rekkefølgen i biblioteket («Nylig lagt til», «A–Å», «Nyeste utgivelser», «Best vurdert», «Sist sett»).
+/// Rekkefølgen i en kategori («Leverandørens rekkefølge», «Nyeste først», «A–Å»), og hos Plex rekkefølgen i
+/// biblioteket («Nylig lagt til», «A–Å», «Nyeste utgivelser», «Best vurdert», «Sist sett»).
 private struct VODSortMenu: View {
     let model: VODModel
     let category: String
@@ -442,13 +441,6 @@ private struct VODSortMenu: View {
     var body: some View {
         HStack(spacing: Metrics.posterGap * 0.5) {
             if model.isPlex {
-                if let genres = model.genres[category], !genres.isEmpty {
-                    ChoiceMenu(title: L("Sjanger"), options: genreOptions(genres),
-                               selected: model.plexGenres[category] ?? "", icon: "line.3.horizontal.decrease",
-                               id: "vod-sjanger") {
-                        model.setPlexGenre($0.isEmpty ? nil : $0, for: category)
-                    }
-                }
                 ChoiceMenu(title: L("Sortering"),
                            options: PlexSort.allCases.map { MenuOption(value: $0, name: $0.title) },
                            selected: model.plexSort(category), icon: "arrow.up.arrow.down", id: "vod-sortering") {
@@ -462,11 +454,6 @@ private struct VODSortMenu: View {
             }
         }
     }
-}
-
-/// «Alle sjangre» og sjangrene i biblioteket («» er alle).
-private func genreOptions(_ genres: [ChannelCategory]) -> [MenuOption<String>] {
-    [MenuOption(value: "", name: L("Alle sjangre"))] + genres.map { MenuOption(value: $0.id, name: $0.name) }
 }
 
 /// Et valg i en meny.
