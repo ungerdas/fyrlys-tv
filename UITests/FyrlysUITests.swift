@@ -542,13 +542,33 @@ final class FyrlysUITests: XCTestCase {
         return false
     }
 
-    /// Velger [label] i menyen som er åpen (ned til den, så velg).
+    /// Velger [label] i menyen som er åpen (ned til den, så velg). Går det ikke, står skjermen i loggen.
     func choose(_ app: XCUIApplication, _ label: String) -> Bool {
         let option = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
-        guard option.waitForExistence(timeout: 5) else { return false }
-        guard focusDown(app, option, label: label, tries: 8) else { return false }
+        guard option.waitForExistence(timeout: 5) else {
+            dumpScreen(app, "menyen viser ikke «\(label)» (\(focusText(app)))", shotName: "59-meny-uten-valg")
+            return false
+        }
+        guard focusDown(app, option, label: label, tries: 8) else {
+            dumpScreen(app, "fikk ikke fokus på «\(label)» i menyen (\(focusText(app)))", shotName: "59-meny-uten-fokus")
+            return false
+        }
         remote.press(.select)
         return true
+    }
+
+    /// Skriver det som er på skjermen (typen, id-en og teksten til elementene) i loggen («SKJERM:», kommer med i
+    /// merknaden når bygget feiler), sammen med et skjermbilde [shotName].
+    func dumpScreen(_ app: XCUIApplication, _ why: String, shotName: String) {
+        shot(shotName)
+        print("SKJERM: \(why)")
+        for line in app.debugDescription.split(separator: "\n") where line.contains("identifier:") || line.contains("label:") {
+            let text = line.trimmingCharacters(in: .whitespaces)
+            let kind = text.split(separator: ",").first.map(String.init) ?? ""
+            let detail = text.range(of: "identifier:").map { String(text[$0.lowerBound...]) }
+                ?? text.range(of: "label:").map { String(text[$0.lowerBound...]) } ?? ""
+            print("SKJERM: \(kind) \(detail)".prefix(300))
+        }
     }
 
     /// Filmer hos leverandøren: «Nylig lagt til» på Hjem, rekkefølgen i en kategori («A–Å»), merkene fra navnet og

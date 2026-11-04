@@ -312,6 +312,7 @@ struct VODTab: View {
 }
 
 /// «Søk i filmer», «Søk i serier» eller «Søk i Plex».
+@MainActor
 func searchPrompt(_ model: VODModel) -> String {
     model.mixed ? L("Søk i Plex") : (model.kind == .movies ? L("Søk i filmer") : L("Søk i serier"))
 }
@@ -442,47 +443,73 @@ private struct VODSortMenu: View {
         HStack(spacing: Metrics.posterGap * 0.5) {
             if model.isPlex {
                 if let genres = model.genres[category], !genres.isEmpty {
-                    let chosen = model.plexGenres[category] ?? ""
-                    Menu {
-                        Picker(L("Sjanger"), selection: Binding(get: { chosen }, set: {
-                            model.setPlexGenre($0.isEmpty ? nil : $0, for: category)
-                        })) {
-                            Text(L("Alle sjangre")).tag("")
-                            ForEach(genres) { genre in
-                                Text(verbatim: genre.name).tag(genre.id)
-                            }
-                        }
-                    } label: {
-                        SortLabel(title: genres.first { $0.id == chosen }?.name ?? L("Alle sjangre"),
-                                  icon: "line.3.horizontal.decrease")
+                    ChoiceMenu(title: L("Sjanger"), options: genreOptions(genres),
+                               selected: model.plexGenres[category] ?? "", icon: "line.3.horizontal.decrease",
+                               id: "vod-sjanger") {
+                        model.setPlexGenre($0.isEmpty ? nil : $0, for: category)
                     }
-                    .accessibilityIdentifier("vod-sjanger")
                 }
-                Menu {
-                    Picker(L("Sortering"), selection: Binding(get: { model.plexSort(category) }, set: {
-                        model.setPlexSort($0, for: category)
-                    })) {
-                        ForEach(PlexSort.allCases, id: \.self) { sort in
-                            Text(sort.title).tag(sort)
-                        }
-                    }
-                } label: {
-                    SortLabel(title: model.plexSort(category).title, icon: "arrow.up.arrow.down")
+                ChoiceMenu(title: L("Sortering"),
+                           options: PlexSort.allCases.map { MenuOption(value: $0, name: $0.title) },
+                           selected: model.plexSort(category), icon: "arrow.up.arrow.down", id: "vod-sortering") {
+                    model.setPlexSort($0, for: category)
                 }
-                .accessibilityIdentifier("vod-sortering")
             } else {
-                Menu {
-                    Picker(L("Sortering"), selection: Binding(get: { model.sort }, set: { model.setSort($0) })) {
-                        ForEach(VODSort.allCases, id: \.self) { sort in
-                            Text(sort.title).tag(sort)
-                        }
-                    }
-                } label: {
-                    SortLabel(title: model.sort.title, icon: "arrow.up.arrow.down")
+                ChoiceMenu(title: L("Sortering"), options: VODSort.allCases.map { MenuOption(value: $0, name: $0.title) },
+                           selected: model.sort, icon: "arrow.up.arrow.down", id: "vod-sortering") {
+                    model.setSort($0)
                 }
-                .accessibilityIdentifier("vod-sortering")
             }
         }
+    }
+}
+
+/// «Alle sjangre» og sjangrene i biblioteket («» er alle).
+private func genreOptions(_ genres: [ChannelCategory]) -> [MenuOption<String>] {
+    [MenuOption(value: "", name: L("Alle sjangre"))] + genres.map { MenuOption(value: $0.id, name: $0.name) }
+}
+
+/// Et valg i en meny.
+private struct MenuOption<Value: Hashable>: Hashable {
+    let value: Value
+    let name: String
+}
+
+/// En meny over plakatene med det som er valgt på knappen. Apple TV: en knapp per valg, med hake ved det som er valgt,
+/// så valgene står rett i menyen; iPhone og iPad: en Picker (hakene er systemets).
+private struct ChoiceMenu<Value: Hashable>: View {
+    let title: String
+    let options: [MenuOption<Value>]
+    let selected: Value
+    let icon: String
+    let id: String
+    let choose: (Value) -> Void
+
+    var body: some View {
+        Menu {
+            #if os(tvOS)
+            ForEach(options, id: \.value) { option in
+                Button {
+                    choose(option.value)
+                } label: {
+                    if option.value == selected {
+                        Label(option.name, systemImage: "checkmark")
+                    } else {
+                        Text(verbatim: option.name)
+                    }
+                }
+            }
+            #else
+            Picker(title, selection: Binding(get: { selected }, set: { choose($0) })) {
+                ForEach(options, id: \.value) { option in
+                    Text(verbatim: option.name).tag(option.value)
+                }
+            }
+            #endif
+        } label: {
+            SortLabel(title: options.first { $0.value == selected }?.name ?? options.first?.name ?? "", icon: icon)
+        }
+        .accessibilityIdentifier(id)
     }
 }
 
