@@ -138,17 +138,22 @@ final class FyrlysUITests: XCTestCase {
         wait(2)
         let rest = bar.frame.minY
 
-        // ned tre rader og tilbake
+        // ned tre rader og opp igjen (kortene øverst er ikke i elementtreet mens lista er rullet ned)
         XCTAssertTrue(focus(app, card), "fikk ikke fokus på det første kortet")
         for _ in 0..<3 {
             remote.press(.down)
             wait(0.8)
         }
         wait(1)
-        let away = bar.frame.minY
-        XCTAssertTrue(focus(app, card), "fikk ikke fokus på det første kortet igjen")
+        let away = bar.exists ? bar.frame.minY : .nan
+        for _ in 0..<3 {
+            remote.press(.up)
+            wait(0.8)
+        }
+        XCTAssertTrue(focused(card, timeout: 5), "fokus kom ikke tilbake til det første kortet")
         wait(2)
         shot("39-fanelinja-tilbake")
+        XCTAssertTrue(bar.exists, "fanelinja kom ikke tilbake (i ro \(rest), rullet \(away))")
         XCTAssertEqual(bar.frame.minY, rest, accuracy: 2,
                        "fanelinja kom ikke helt fram igjen (i ro \(rest), rullet \(away), nå \(bar.frame.minY))")
 
@@ -168,11 +173,26 @@ final class FyrlysUITests: XCTestCase {
             wait(0.8)
         }
         wait(1)
-        XCTAssertTrue(focus(app, favorite), "fikk ikke fokus på favoritten igjen")
+        for _ in 0..<3 {
+            remote.press(.up)
+            wait(0.8)
+        }
+        XCTAssertTrue(focused(favorite, timeout: 5), "fokus kom ikke tilbake til favoritten")
         wait(2)
         shot("40-fanelinja-favoritter")
+        XCTAssertTrue(bar.exists, "fanelinja kom ikke tilbake over «Nå på favorittene»")
         XCTAssertEqual(bar.frame.minY, rest, accuracy: 2,
                        "fanelinja kom ikke helt fram over «Nå på favorittene» (i ro \(rest), nå \(bar.frame.minY))")
+    }
+
+    /// Venter til [element] finnes og har fokus.
+    func focused(_ element: XCUIElement, timeout: TimeInterval) -> Bool {
+        let end = Date().addingTimeInterval(timeout)
+        repeat {
+            if element.exists && element.hasFocus { return true }
+            wait(0.5)
+        } while Date() < end
+        return false
     }
 
     /// «Dine kategorier»: hold inne på Sport i sidemenyen, «Legg øverst»; da står den øverst med stjerne, og «Alle
