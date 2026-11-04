@@ -59,6 +59,7 @@ private struct PhoneTopBar: View {
     @State private var account = TestSupport.screen == "settings"
     @State private var plex = TestSupport.screen == "plex-link"
     @State private var streams = TestSupport.screen == "strommer"
+    @State private var report = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -111,6 +112,12 @@ private struct PhoneTopBar: View {
                         try? await Task.sleep(for: .milliseconds(450))
                         streams = true
                     }
+                } openReport: {
+                    account = false
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(450))
+                        report = true
+                    }
                 }
                 .environment(model)
                 .presentationCompactAdaptation(.popover)
@@ -122,6 +129,10 @@ private struct PhoneTopBar: View {
             }
             .sheet(isPresented: $streams) {
                 StreamSheet()
+                    .environment(model)
+            }
+            .sheet(isPresented: $report) {
+                ErrorReportView()
                     .environment(model)
             }
         }
@@ -142,9 +153,12 @@ private struct PhoneTopBar: View {
 private struct AccountMenu: View {
     @Environment(AppModel.self) private var model
     @State private var confirmSignOut = false
+    /// innloggingen som får et nytt navn
+    @State private var renaming: Login?
     let done: () -> Void
     let openPlex: () -> Void
     let openStreams: () -> Void
+    let openReport: () -> Void
 
     var body: some View {
         // på tvers på iPhone er det ikke alltid plass til alt; da kan menyen rulles
@@ -160,14 +174,30 @@ private struct AccountMenu: View {
             }
             Button(L("Avbryt"), role: .cancel) {}
         }
+        .renameLogin($renaming)
     }
 
     private var menu: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let login = model.login {
-                Text(login.label)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Theme.ink)
+                HStack(spacing: 8) {
+                    Text(login.label)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                        .accessibilityIdentifier("innlogget-som")
+                    Spacer(minLength: 0)
+                    Button {
+                        renaming = login
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PressStyle())
+                    .accessibilityLabel(L("Gi nytt navn"))
+                    .accessibilityIdentifier("gi-nytt-navn")
+                }
             }
             if let account = model.account {
                 if let expires = account.expires {
@@ -215,6 +245,14 @@ private struct AccountMenu: View {
                     menuButton(L("Bytt til {name}", ["name": other.label]))
                 }
                 .buttonStyle(PressStyle())
+                .contextMenu {
+                    Button { renaming = other } label: {
+                        Label(L("Gi nytt navn"), systemImage: "pencil")
+                    }
+                    Button(role: .destructive) { model.remove(other) } label: {
+                        Label(L("Fjern {name}", ["name": other.label]), systemImage: "trash")
+                    }
+                }
             }
             Button {
                 model.addingLogin = true
@@ -236,6 +274,11 @@ private struct AccountMenu: View {
             }
             .buttonStyle(PressStyle())
             .accessibilityIdentifier("egne-strommer")
+            Button(action: openReport) {
+                menuButton(L("Feilrapport"))
+            }
+            .buttonStyle(PressStyle())
+            .accessibilityIdentifier("feilrapport-knapp")
             Text(L("Fyrlys {version}", ["version": appVersion]))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Theme.muted)

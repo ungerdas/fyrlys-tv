@@ -576,6 +576,26 @@ final class FyrlysUITests: XCTestCase {
         shot("50-plex-skjult")
     }
 
+    /// Feilrapporten nederst i innstillingene: hele teksten på skjermen, og «Send til iPhone».
+    func test28Feilrapport() {
+        let app = launch("settings")
+        XCTAssertTrue(find(app, "innstillinger").waitForExistence(timeout: 30))
+        let button = find(app, "feilrapport-knapp")
+        XCTAssertTrue(button.waitForExistence(timeout: 10), "«Feilrapport» mangler")
+        for _ in 0..<40 where !button.hasFocus {
+            remote.press(.down)
+            wait(0.4)
+        }
+        XCTAssertTrue(button.hasFocus, "fikk ikke fokus på «Feilrapport»")
+        remote.press(.select)
+        XCTAssertTrue(find(app, "send-rapport").waitForExistence(timeout: 10), "feilrapporten kom ikke")
+        let text = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Fyrlys – feilrapport")).firstMatch
+        XCTAssertTrue(text.exists, "teksten i rapporten mangler")
+        wait(1)
+        shot("51-feilrapport")
+        remote.press(.menu)
+    }
+
     /// Søket i filmene på Apple TV (øverst i sidemenyen).
     func test26FilmSok() {
         let app = launch("movies")

@@ -552,6 +552,36 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("41-plex-sjanger")
     }
 
+    /// «Gi nytt navn» på innloggingen, og feilrapporten med «Kopier» (Konto på iPhone, innstillingene på iPad).
+    func test27NavnOgFeilrapport() {
+        let app = launch("settings")
+        XCTAssertTrue(find(app, "innstillinger").waitForExistence(timeout: 30))
+        let rename = find(app, "gi-nytt-navn")
+        XCTAssertTrue(rename.waitForExistence(timeout: 10), "«Gi nytt navn» mangler")
+        rename.tap()
+        let field = app.alerts.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "feltet for navnet kom ikke")
+        field.tap()
+        field.typeText("Hjemme")
+        app.alerts.buttons["Lagre"].tap()
+        let name = find(app, "innlogget-som")
+        XCTAssertTrue(until(10) { name.exists && name.label.contains("Hjemme") }, "navnet ble ikke brukt")
+        shot("44-nytt-navn")
+        let report = find(app, "feilrapport-knapp")
+        // innstillingene på iPad er en lat liste: rull fram
+        for _ in 0..<6 where !report.exists || !report.isHittable {
+            app.swipeUp()
+            wait(0.5)
+        }
+        XCTAssertTrue(report.exists, "«Feilrapport» mangler")
+        report.tap()
+        XCTAssertTrue(find(app, "kopier-rapport").waitForExistence(timeout: 10), "feilrapporten kom ikke")
+        let text = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Fyrlys – feilrapport")).firstMatch
+        XCTAssertTrue(text.exists, "teksten i rapporten mangler")
+        wait(1)
+        shot("45-feilrapport")
+    }
+
     /// Plex: «Velg biblioteker» (sidemenyen på iPad, menyen øverst på iPhone); et bibliotek som slås av, er borte.
     func test26PlexBiblioteker() {
         let app = launch("plex")

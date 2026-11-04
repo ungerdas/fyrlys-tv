@@ -22,7 +22,7 @@ final class CloudStore: KeyValueStore {
     /// deles.
     static func shared(_ key: String) -> Bool {
         key.hasPrefix("favorites@") || key.hasPrefix("favoriteCategories@") || key.hasPrefix("vodFavorites@")
-            || key == "egne-strommer" || key == "plex-skjulte"
+            || key == "egne-strommer" || key == "plex-skjulte" || key == "feilrapport-tv"
     }
 
     private static func mergedKey(_ key: String) -> String { "icloud-flettet@" + key }

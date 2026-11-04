@@ -330,6 +330,20 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `VODSearchResults` på begge plattformene nå, `sok-<id>`). Falsk leverandør: 505 «Fjordlys [PRE] [2026]» med 4K, HDR,
   5.1, 12 og Norge; falsk Plex: sjangrene, sidene og kvaliteten på 1001. Testene `test24Sortering`, `test25PlexSjanger`
   (Apple TV, iPhone; iPad bare `test24`) og `test26FilmSok` (Apple TV).
+- **Egne navn og feilrapport fra 0.1.27** (fra «Resten» i Windows-lista; hvordan Windows gjør det:
+  `lib/core/app_log.dart`, `lib/core/report.dart`, `lib/ui/report_page.dart`, `lib/ui/settings_page.dart`): `Login.name`
+  (Codable, valgfri, så lagrede innlogginger uten navn leses), `label` (navnet, ellers `defaultLabel` «bruker på
+  server»), `named(_:)` (tomt: tilbake, høyst 40 tegn); `AppModel.rename` (lagres i nøkkelringen; samme konto på nytt
+  beholder navnet). `App/RenameLogin.swift` (`.renameLogin($login)`: varsel med felt, «Lagre»): `gi-nytt-navn` ved
+  «Innlogget som» (`innlogget-som`) og i hurtigmenyen på de andre (Apple TV og iPad), blyanten i Konto på iPhone.
+  Feilrapporten: Core `AppLog` (de siste 400 linjene, «HH:MM:SS», renset før lagring) og `scrub` (reglene fra Windows,
+  pluss X-Plex-Token), logglinjer i `AppModel` (listene, innloggingen), `PlayerModel` (kanalen, feilen og
+  forklaringen), `VODPlayerModel` (forsøkene og feilene) og `PlexModel` (koblet til hjemme/utenfra/relé, uten adresse);
+  `App/ErrorReport.swift` (`ErrorReport.build`, `ErrorReportView`: «Kopier» `kopier-rapport` og `ShareLink`
+  `del-rapport` på iPhone og iPad; Apple TV teksten i biter som får fokus, og «Send til iPhone» `send-rapport` →
+  `AppModel.sendReport`, iCloud-nøkkelen `feilrapport-tv`, vist som «Fra Apple TV» (`rapport-fra-tv`) på iPhone og
+  iPad). `feilrapport-knapp` nederst i innstillingene (Apple TV, iPad «Hjelp») og i Konto (iPhone). Testene
+  `test28Feilrapport` (Apple TV) og `test27NavnOgFeilrapport` (iPhone og iPad).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og

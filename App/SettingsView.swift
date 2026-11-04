@@ -6,6 +6,9 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var confirmSignOut = false
+    /// innloggingen som får et nytt navn
+    @State private var renaming: Login?
+    @State private var report = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 70) {
@@ -28,6 +31,14 @@ struct SettingsView: View {
                             .foregroundStyle(Theme.muted)
                         if let login = model.login {
                             row(L("Innlogget som {user}", ["user": login.label]))
+                                .accessibilityIdentifier("innlogget-som")
+                            Button {
+                                renaming = login
+                            } label: {
+                                Label(L("Gi nytt navn"), systemImage: "pencil")
+                                    .frame(minWidth: 520, alignment: .leading)
+                            }
+                            .accessibilityIdentifier("gi-nytt-navn")
                         }
                         if let account = model.account {
                             if let expires = account.expires {
@@ -53,7 +64,13 @@ struct SettingsView: View {
                                     .frame(minWidth: 520, alignment: .leading)
                             }
                             .contextMenu {
-                                Button(role: .destructive) {
+                                Button {
+                                    renaming = other
+                                } label: {
+                                    Label(L("Gi nytt navn"), systemImage: "pencil")
+                                }
+                                // uten rolle på Apple TV (rød tekst på rødt var nesten ikke til å lese)
+                                Button {
                                     model.remove(other)
                                 } label: {
                                     Label(L("Fjern {name}", ["name": other.label]), systemImage: "trash")
@@ -93,6 +110,13 @@ struct SettingsView: View {
                                 .frame(minWidth: 520, alignment: .leading)
                         }
                         .accessibilityIdentifier("logg-ut")
+                        Button {
+                            report = true
+                        } label: {
+                            Label(L("Feilrapport"), systemImage: "ladybug")
+                                .frame(minWidth: 520, alignment: .leading)
+                        }
+                        .accessibilityIdentifier("feilrapport-knapp")
                     }
                 }
                 // plass til knappene som vokser når de har fokus (rullelista klipper)
@@ -114,6 +138,11 @@ struct SettingsView: View {
         .alert(L("Logg ut av {name}?", ["name": model.login?.label ?? ""]), isPresented: $confirmSignOut) {
             Button(L("Logg ut"), role: .destructive) { model.signOut() }
             Button(L("Avbryt"), role: .cancel) {}
+        }
+        .renameLogin($renaming)
+        .fullScreenCover(isPresented: $report) {
+            ErrorReportView()
+                .environment(model)
         }
     }
 

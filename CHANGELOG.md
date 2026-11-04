@@ -1,5 +1,13 @@
 # Endringer
 
+## v0.1.27
+
+- Innloggingene kan få egne navn («Gi nytt navn»: «Hjemme», «Sport»). Under Innstillinger på Apple TV og iPad, og
+  under Konto på iPhone; hold inne på en annen innlogging for å gi den et navn. Tomt gir «bruker på server» igjen.
+- Feilrapport (Innstillinger, eller Konto på iPhone): versjonen, enheten, innstillingene og det siste appen har gjort,
+  uten passord, brukernavn, adresser og navnet på leverandøren. «Kopier» og «Del» på iPhone og iPad; på Apple TV vises
+  den på skjermen, og «Send til iPhone» legger den i iCloud, så den kan deles derfra.
+
 ## v0.1.26
 
 - Serier: når en episode er ferdig, begynner den neste av seg selv («Neste: S1 E3 · …»), også i neste sesong. I

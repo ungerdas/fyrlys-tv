@@ -8,6 +8,9 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(Appearance.key, store: TestSupport.defaults) private var appearance = ""
     @State private var confirmSignOut = false
+    /// innloggingen som får et nytt navn
+    @State private var renaming: Login?
+    @State private var report = false
 
     var body: some View {
         NavigationStack {
@@ -15,6 +18,13 @@ struct SettingsView: View {
                 Section(L("Abonnement")) {
                     if let login = model.login {
                         Text(L("Innlogget som {user}", ["user": login.label]))
+                            .accessibilityIdentifier("innlogget-som")
+                        Button {
+                            renaming = login
+                        } label: {
+                            Label(L("Gi nytt navn"), systemImage: "pencil")
+                        }
+                        .accessibilityIdentifier("gi-nytt-navn")
                     }
                     if let account = model.account {
                         if let expires = account.expires {
@@ -34,6 +44,17 @@ struct SettingsView: View {
                             .swipeActions {
                                 Button(role: .destructive) { model.remove(other) } label: {
                                     Label(L("Fjern"), systemImage: "trash")
+                                }
+                                Button { renaming = other } label: {
+                                    Label(L("Gi nytt navn"), systemImage: "pencil")
+                                }
+                            }
+                            .contextMenu {
+                                Button { renaming = other } label: {
+                                    Label(L("Gi nytt navn"), systemImage: "pencil")
+                                }
+                                Button(role: .destructive) { model.remove(other) } label: {
+                                    Label(L("Fjern {name}", ["name": other.label]), systemImage: "trash")
                                 }
                             }
                     }
@@ -74,6 +95,19 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Theme.surface)
                 Section {
+                    Button {
+                        report = true
+                    } label: {
+                        Label(L("Feilrapport"), systemImage: "ladybug")
+                    }
+                    .accessibilityIdentifier("feilrapport-knapp")
+                } header: {
+                    Text(L("Hjelp"))
+                } footer: {
+                    Text(L("Versjonen, innstillingene og loggen, uten passord og leverandør. Legg den ved når du melder fra om en feil."))
+                }
+                .listRowBackground(Theme.surface)
+                Section {
                     HStack(spacing: 14) {
                         FyrlysMark()
                             .frame(width: 44, height: 44)
@@ -95,6 +129,11 @@ struct SettingsView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("innstillinger")
+        .renameLogin($renaming)
+        .sheet(isPresented: $report) {
+            ErrorReportView()
+                .environment(model)
+        }
         .alert(L("Logg ut av {name}?", ["name": model.login?.label ?? ""]), isPresented: $confirmSignOut) {
             Button(L("Logg ut"), role: .destructive) { model.signOut() }
             Button(L("Avbryt"), role: .cancel) {}

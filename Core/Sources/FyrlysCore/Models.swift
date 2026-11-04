@@ -120,11 +120,14 @@ public struct Login: Codable, Hashable, Sendable {
     public let server: String
     public let username: String
     public let password: String
+    /// navnet du har gitt innloggingen («Hjemme», «Sport»); nil: «bruker på server»
+    public var name: String?
 
-    public init(server: String, username: String, password: String) {
+    public init(server: String, username: String, password: String, name: String? = nil) {
         self.server = Login.normalize(server)
         self.username = username.trimmingCharacters(in: .whitespacesAndNewlines)
         self.password = password.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.name = name
     }
 
     /// «iptv.example:8080/» → «http://iptv.example:8080»
@@ -147,10 +150,24 @@ public struct Login: Codable, Hashable, Sendable {
     /// Den samme kontoen får samme id (favorittene følger den), uten passordet.
     public var id: String { stableHash("\(server.lowercased())|\(username)") }
 
-    /// «bruker på iptv.example»
+    /// Navnet du har gitt den, ellers «bruker på iptv.example».
     public var label: String {
+        if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty { return name }
+        return defaultLabel
+    }
+
+    /// «bruker på iptv.example» (serveren uten port)
+    public var defaultLabel: String {
         let host = URL(string: server)?.host ?? server
         return L("{user} på {host}", ["user": username, "host": host])
+    }
+
+    /// Med navnet [name] (tomt: tilbake til «bruker på server»), høyst 40 tegn.
+    public func named(_ name: String) -> Login {
+        var copy = self
+        let trimmed = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
+        copy.name = trimmed.isEmpty ? nil : trimmed
+        return copy
     }
 }
 

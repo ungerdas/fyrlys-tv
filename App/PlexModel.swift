@@ -212,6 +212,7 @@ final class PlexModel {
         guard gen == connectGeneration else { return }
         self.server = server
         guard let uri else {
+            AppLog.shared.add("Plex: får ikke kontakt med serveren (\(server.connections.count) adresser)")
             client = nil
             phase = .failed(L("Får ikke kontakt med {name}.", ["name": server.name]))
             save(nil)
@@ -220,6 +221,7 @@ final class PlexModel {
         }
         client = PlexClient(base: uri, token: server.accessToken, device: device)
         phase = .connected
+        AppLog.shared.add("Plex: koblet til (\(Self.kind(of: uri, in: server)))")
         save(uri)
         // første gang: filmer og serier fra Plex (kan byttes tilbake i innstillingene)
         if defaults.object(forKey: Self.useKey) == nil || TestSupport.isActive {
@@ -256,6 +258,14 @@ final class PlexModel {
             save(uri)
             onChange?()
         }
+    }
+
+    /// «hjemme», «hjemme, http», «utenfra» eller «relé» (til loggen; adressen selv står ikke der).
+    static func kind(of uri: String, in server: PlexServer) -> String {
+        if let c = server.connections.first(where: { $0.uri == uri }) {
+            return c.relay ? "relé" : (c.local ? "hjemme" : "utenfra")
+        }
+        return uri.hasPrefix("http://") ? "hjemme, http" : "annen adresse"
     }
 
     private func save(_ uri: String?) {

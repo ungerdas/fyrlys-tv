@@ -5,6 +5,41 @@ import XCTest
 final class XtreamTests: XCTestCase {
     let login = Login(server: "iptv.example:8080/", username: "kari", password: "hemmelig")
 
+    /// Feilrapporten: loggen renses for vertsnavn, brukernavn og passord, e-post og IP-adresser, og holder de siste 400
+    /// linjene.
+    func testScrubAndLog() {
+        XCTAssertEqual(scrub("http://iptv.example.com:8080/live/kari/hemmelig/123.ts"), "http://***/live/***/***/123.ts")
+        XCTAssertEqual(scrub("GET /player_api.php?username=kari&password=hemmelig&action=get_live_streams"),
+                       "GET /player_api.php?username=***&password=***&action=get_live_streams")
+        XCTAssertEqual(scrub("https://192-168-1-10.abc.plex.direct:32400/library?X-Plex-Token=abc123"),
+                       "https://***/library?X-Plex-Token=***")
+        XCTAssertEqual(scrub("Skriv til kari.nordmann@example.com fra 10.0.0.5"), "Skriv til ***@*** fra ***")
+        XCTAssertEqual(scrub("Kanalen kunne ikke spilles (HTTP 404)"), "Kanalen kunne ikke spilles (HTTP 404)")
+        let log = AppLog(clock: { Date(timeIntervalSince1970: 0) })
+        log.add("Spiller http://iptv.example.com/live/kari/x/1.m3u8\n\n  andre linje ")
+        XCTAssertEqual(log.lines.count, 2)
+        XCTAssertTrue(log.lines[0].hasSuffix(" Spiller http://***/live/***/***/1.m3u8"), log.lines[0])
+        XCTAssertTrue(log.lines[1].hasSuffix(" andre linje"))
+        for i in 0..<500 { log.add("linje \(i)") }
+        XCTAssertEqual(log.lines.count, AppLog.limit)
+        XCTAssertTrue(log.lines.last?.hasSuffix("linje 499") == true)
+    }
+
+    /// Egne navn på innloggingene: «Hjemme» i stedet for «kari på iptv.example»; tomt gir det vanlige igjen, og navnet
+    /// er med når innloggingene lagres (de gamle uten navn leses fortsatt).
+    func testLoginNames() throws {
+        XCTAssertEqual(login.label, "kari på iptv.example")
+        let home = login.named("  Hjemme ")
+        XCTAssertEqual(home.label, "Hjemme")
+        XCTAssertEqual(home.id, login.id, "samme konto, samme id")
+        XCTAssertNil(home.named("   ").name)
+        XCTAssertEqual(login.named(String(repeating: "x", count: 50)).name?.count, 40)
+        let saved = try JSONEncoder().encode([home])
+        XCTAssertEqual(try JSONDecoder().decode([Login].self, from: saved).first?.label, "Hjemme")
+        let old = Data(#"[{"server": "http://iptv.example:8080", "username": "kari", "password": "x"}]"#.utf8)
+        XCTAssertEqual(try JSONDecoder().decode([Login].self, from: old).first?.label, "kari på iptv.example")
+    }
+
     func testLoginNormalizesServer() {
         XCTAssertEqual(login.server, "http://iptv.example:8080")
         XCTAssertEqual(Login.normalize("https://iptv.example/player_api.php"), "https://iptv.example")

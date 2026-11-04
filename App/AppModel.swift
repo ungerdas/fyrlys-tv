@@ -112,7 +112,9 @@ final class AppModel {
 
     /// Logger inn (sjekker innloggingen hos leverandøren først).
     func signIn(server: String, username: String, password: String) async throws {
-        let login = Login(server: server, username: username, password: password)
+        var login = Login(server: server, username: username, password: password)
+        // samme konto på nytt: navnet du ga den, står
+        login.name = logins.first { $0.id == login.id }?.name
         let client = XtreamClient(login: login)
         let account = try await client.account()
         if !account.status.isEmpty && account.status.lowercased() != "active" {
@@ -133,6 +135,14 @@ final class AppModel {
         if !TestSupport.isActive { Keychain.saveAll(logins) }
         account = nil
         use(other)
+    }
+
+    /// Gir innloggingen [target] et eget navn («Hjemme», «Sport»); tomt gir «bruker på server» igjen.
+    func rename(_ target: Login, to name: String) {
+        let renamed = target.named(name)
+        logins = logins.map { $0.id == target.id ? renamed : $0 }
+        if login?.id == target.id { login = renamed }
+        if !TestSupport.isActive { Keychain.saveAll(logins) }
     }
 
     /// Fjerner en lagret innlogging som ikke er i bruk.
@@ -191,6 +201,7 @@ final class AppModel {
     }
 
     private func use(_ login: Login) {
+        AppLog.shared.add("Innlogging: Xtream Codes (\(logins.count) lagret)")
         generation += 1
         let gen = generation
         self.login = login
@@ -248,8 +259,10 @@ final class AppModel {
             // den på disken skrives ikke over med en tom
             if lists.channels.isEmpty && !current.lists.channels.isEmpty {
                 error = L("IPTV-serveren sendte ingen kanaler. Viser lista fra sist.")
+                AppLog.shared.add("Listene: ingen kanaler i svaret, viser lista fra sist")
                 return
             }
+            AppLog.shared.add("Listene: \(lists.channels.count) kanaler i \(lists.categories.count) kategorier")
             listsFetchedAt = Date()
             let keys = mergeKeys
             // oppslagene lages i bakgrunnen, og bare når lista er endret: ellers tegnes alt på nytt for ingenting
@@ -268,6 +281,7 @@ final class AppModel {
         } catch {
             guard gen == generation else { return }
             self.error = (error as? SourceError)?.message ?? error.localizedDescription
+            AppLog.shared.add("Listene feilet: \(self.error ?? "")")
         }
     }
 
@@ -324,6 +338,25 @@ final class AppModel {
         let hidden = hiddenSections
         movies.reset(backend, hidden: hidden)
         series.reset(backend, hidden: hidden)
+    }
+
+    // ── feilrapporten fra Apple TV til iPhone og iPad (i iCloud) ──
+
+    static let reportKey = "feilrapport-tv"
+
+    /// Apple TV: legger rapporten i iCloud (med tidspunktet), så den kan kopieres eller deles fra iPhone eller iPad.
+    func sendReport(_ text: String) {
+        let format = DateFormatter()
+        format.locale = Locale(identifier: "en_US_POSIX")
+        format.dateFormat = "yyyy-MM-dd HH:mm"
+        store.set([format.string(from: Date()), text], for: Self.reportKey)
+    }
+
+    /// iPhone og iPad: rapporten som sist ble sendt fra Apple TV.
+    var reportFromTV: (date: String, text: String)? {
+        let saved = store.strings(Self.reportKey)
+        guard saved.count == 2, !saved[1].isEmpty else { return nil }
+        return (saved[0], saved[1])
     }
 
     // ── Plex: bibliotekene som ikke vises i Filmer og Serier (i iCloud, delt mellom enhetene) ──

@@ -149,6 +149,8 @@ final class VODPlayerModel {
         started = false
         let attempt = attempts[i]
         stopObserving()
+        AppLog.shared.add("Spiller \(play.progressKey) med \(attempt.engine == .vlc ? "VLC" : "Apples avspiller") "
+                          + "(\(attempt.url.pathExtension), fra \(Int(resumeAt)) s)")
         switch attempt.engine {
         case .native:
             let asset = AVURLAsset(url: attempt.url, options: [AVURLAssetHTTPUserAgentKey: xtreamUserAgent])
@@ -307,6 +309,7 @@ final class VODPlayerModel {
         // samme brudd kan meldes to ganger (status og varsel): bare én gang
         stopObserving()
         vlc?.stop()
+        AppLog.shared.add("Spiller \(play.progressKey): feil ved \(Int(reached)) s (forsøk \(i + 1) av \(attempts.count))")
         if reached > 5 {
             resumeAt = reached
             breaks += 1

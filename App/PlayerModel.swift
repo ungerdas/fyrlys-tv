@@ -67,6 +67,7 @@ final class PlayerModel {
         guard let url else { return }
         playingProvider = url == provider
         if TestSupport.isActive { tried.append(url.path) }
+        AppLog.shared.add("TV: kanal \(channel.id) fra \(playingProvider ? "leverandøren" : "egen strøm") \(url.pathExtension)")
         self.channel = channel
         error = nil
         stopped = false
@@ -252,6 +253,7 @@ final class PlayerModel {
             // feilen med en gang (med knappene), og forklaringen når den er funnet; overskriften over sier alt at
             // kanalen ikke kunne spilles, så her står bare hvorfor (før sto «Kanalen kunne ikke spilles» to ganger)
             error = message.map { app.client?.redact($0) ?? $0 } ?? L("Sendingen stoppet opp")
+            AppLog.shared.add("TV: kanal \(channel.id) kunne ikke spilles: \(error ?? "")")
             let code = Self.httpCode(player.currentItem)
             Task { await explain(next, code) }
         }
@@ -278,6 +280,7 @@ final class PlayerModel {
         }
         guard gen == generation, error != nil, let text else { return }
         error = text
+        AppLog.shared.add("TV: \(text)")
     }
 
     /// HTTP-koden i feilloggen til AVPlayer («HTTP 404: File Not Found»), uten en ny forespørsel mot strømmen.
