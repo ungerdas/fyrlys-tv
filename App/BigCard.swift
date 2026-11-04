@@ -10,6 +10,8 @@ struct BigChannelCard: View {
     @Environment(AppModel.self) private var model
     let channel: Channel
     let action: () -> Void
+    /// Apple TV: kortet fikk fokus (den øverste raden ruller da siden helt opp, så fanelinja kommer helt fram)
+    var onFocus: (() -> Void)?
     #if os(tvOS)
     @FocusState private var focused: Bool
     #endif
@@ -71,6 +73,9 @@ struct BigChannelCard: View {
         }
         .buttonStyle(BigCardStyle())
         .focused($focused)
+        .onChange(of: focused) { _, now in
+            if now { onFocus?() }
+        }
         // over naboene, så skyggen og kanten ikke havner under dem
         .zIndex(focused ? 1 : 0)
     }

@@ -127,6 +127,54 @@ final class FyrlysUITests: XCTestCase {
         shot("04-favoritt")
     }
 
+    /// Fanelinja kommer helt fram igjen når du går tilbake til den øverste raden (eieren 4.11: den sto halvveis ute
+    /// over kanten, fordi lista ble stående litt nede): først med kortene øverst, så med «Nå på favorittene».
+    func test21Fanelinja() {
+        let app = launch("tv")
+        let card = find(app, "kanal-1")
+        XCTAssertTrue(card.waitForExistence(timeout: 30))
+        let bar = app.tabBars.firstMatch
+        XCTAssertTrue(bar.waitForExistence(timeout: 5), "fanelinja mangler")
+        wait(2)
+        let rest = bar.frame.minY
+
+        // ned tre rader og tilbake
+        XCTAssertTrue(focus(app, card), "fikk ikke fokus på det første kortet")
+        for _ in 0..<3 {
+            remote.press(.down)
+            wait(0.8)
+        }
+        wait(1)
+        let away = bar.frame.minY
+        XCTAssertTrue(focus(app, card), "fikk ikke fokus på det første kortet igjen")
+        wait(2)
+        shot("39-fanelinja-tilbake")
+        XCTAssertEqual(bar.frame.minY, rest, accuracy: 2,
+                       "fanelinja kom ikke helt fram igjen (i ro \(rest), rullet \(away), nå \(bar.frame.minY))")
+
+        // med «Nå på favorittene» øverst
+        remote.press(.select, forDuration: 2)
+        let add = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", "Legg til i favoritter")).firstMatch
+        XCTAssertTrue(add.waitForExistence(timeout: 8), "hurtigmenyen kom ikke")
+        remote.press(.select)
+        XCTAssertTrue(find(app, "seksjon-favoritter").waitForExistence(timeout: 10), "«Nå på favorittene» kom ikke")
+        wait(2)
+        // kanal-1 står nå både i raden øverst og blant kortene; den første er den i raden
+        let favorite = find(app, "kanal-1")
+        XCTAssertTrue(focus(app, favorite), "fikk ikke fokus på favoritten")
+        for _ in 0..<3 {
+            remote.press(.down)
+            wait(0.8)
+        }
+        wait(1)
+        XCTAssertTrue(focus(app, favorite), "fikk ikke fokus på favoritten igjen")
+        wait(2)
+        shot("40-fanelinja-favoritter")
+        XCTAssertEqual(bar.frame.minY, rest, accuracy: 2,
+                       "fanelinja kom ikke helt fram over «Nå på favorittene» (i ro \(rest), nå \(bar.frame.minY))")
+    }
+
     /// «Dine kategorier»: hold inne på Sport i sidemenyen, «Legg øverst»; da står den øverst med stjerne, og «Alle
     /// kanaler» begynner med kanalene i Sport.
     func test10DineKategorier() {

@@ -186,9 +186,40 @@ private struct PosterGrid: View {
     let category: String?
     var showsTitle = true
 
+    /// toppen av lista (den øverste raden ruller dit, så fanelinja på Apple TV kommer helt fram)
+    static let top = "toppen"
+
+    /// Apple TV: et fast antall kolonner (det samme som det var plass til), så den øverste raden er kjent; ellers så
+    /// mange det er plass til
+    private var columns: [GridItem] {
+        #if os(tvOS)
+        Array(repeating: GridItem(.flexible(), spacing: Metrics.posterGap, alignment: .top),
+              count: Metrics.posterColumns)
+        #else
+        [GridItem(.adaptive(minimum: Metrics.posterMin), spacing: Metrics.posterGap, alignment: .top)]
+        #endif
+    }
+
     var body: some View {
+        ScrollViewReader { proxy in
+            grid {
+                withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo(Self.top, anchor: .top) }
+            }
+        }
+        .task(id: category) {
+            if let category { await model.load(category) }
+        }
+        .id(category)
+    }
+
+    private func grid(_ toTop: @escaping () -> Void) -> some View {
         let items = category.flatMap { model.items[$0] }
-        ScrollView {
+        #if os(tvOS)
+        let firstRow = Set((items ?? []).prefix(Metrics.posterColumns).map(\.id))
+        #else
+        let firstRow = Set<String>()
+        #endif
+        return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 if showsTitle {
                     HStack(alignment: .firstTextBaseline, spacing: 20) {
@@ -210,11 +241,10 @@ private struct PosterGrid: View {
                             .font(.system(size: Metrics.pageCount + 4))
                             .foregroundStyle(Theme.muted)
                     } else {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: Metrics.posterMin), spacing: Metrics.posterGap,
-                                                     alignment: .top)],
-                                  alignment: .leading, spacing: Metrics.posterGap + 8) {
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: Metrics.posterGap + 8) {
                             ForEach(items) { item in
-                                VODPosterLink(item: item, id: "vod-\(item.id)")
+                                VODPosterLink(item: item, id: "vod-\(item.id)",
+                                              onFocus: firstRow.contains(item.id) ? toTop : nil)
                             }
                         }
                     }
@@ -233,15 +263,12 @@ private struct PosterGrid: View {
             .hidesScrollIndex()
             .movesTabBar()
             #endif
+            .id(Self.top)
         }
         .scrollIndicators(.never)
         #if os(tvOS)
         .safeAreaPadding(.bottom, Theme.bottomFocus)
         #endif
-        .task(id: category) {
-            if let category { await model.load(category) }
-        }
-        .id(category)
     }
 }
 

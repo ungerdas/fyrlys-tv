@@ -1,5 +1,11 @@
 # Endringer
 
+## v0.1.25
+
+- Apple TV: fanelinja øverst kommer helt fram igjen når du går tilbake til den øverste raden. Før ble lista stående
+  litt nede, så fanelinja sto halvveis ute over kanten av skjermen. Det gjelder TV, Filmer og Serier; ellers ser
+  TV-siden ut som før.
+
 ## v0.1.24
 
 - Filmer og Serier har fått en ny «Hjem» øverst, i stilen fra IPTV-appene:

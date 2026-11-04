@@ -5,7 +5,9 @@ import SwiftUI
 /// Til høyre for sidemenyen på Apple TV, som Fyrlys-nettsiden på en stor skjerm: i «Alle kanaler» står «Nå på
 /// favorittene» og «Sist sett» som rader øverst, så kommer kanalene, fire i bredden. Fanelinja følger denne lista
 /// (`movesTabBar`) og glir bort når kortene rulles, og lista klippes ikke under den, så kortene ruller helt opp (de ble
-/// før kuttet under en tom stripe der fanelinja hadde vært).
+/// før kuttet under en tom stripe der fanelinja hadde vært). Når den øverste raden får fokus, rulles lista helt opp:
+/// ellers ble den stående litt nede når man gikk tilbake dit (overskriften over raden kan ikke få fokus), og
+/// fanelinja sto halvveis ute over kanten (eieren 4.11: «litt for høy»).
 struct TVChannelPanel: View {
     @Environment(AppModel.self) private var model
     let shelf: Shelf
@@ -14,11 +16,24 @@ struct TVChannelPanel: View {
     let emptyText: String
     let play: (Channel, [Channel]) -> Void
 
+    /// toppen av lista (dit den øverste raden ruller)
+    static let top = "toppen"
+
     var body: some View {
-        ScrollView {
+        ScrollViewReader { proxy in
+            let toTop = {
+                withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo(Self.top, anchor: .top) }
+            }
+            list(toTop)
+        }
+    }
+
+    private func list(_ toTop: @escaping () -> Void) -> some View {
+        let strips = shelf == .all && (!model.favorites.isEmpty || !model.recent.isEmpty)
+        return ScrollView {
             VStack(alignment: .leading, spacing: 30) {
                 if shelf == .all {
-                    rows
+                    rows(toTop)
                 }
                 HStack(alignment: .firstTextBaseline, spacing: 20) {
                     Text(title)
@@ -35,7 +50,9 @@ struct TVChannelPanel: View {
                         .font(.system(size: Metrics.pageCount + 4))
                         .foregroundStyle(Theme.muted)
                 }
-                BigCardGrid(channels: channels, columns: Metrics.bigColumns, play: play)
+                // den øverste raden med kort (over den står bare tipset, som ikke kan få fokus)
+                BigCardGrid(channels: channels, columns: Metrics.bigColumns, play: play,
+                            onTopFocus: strips ? nil : toTop)
                     .focusSection()
             }
             .padding(.horizontal, Metrics.pagePadding)
@@ -43,24 +60,28 @@ struct TVChannelPanel: View {
             .padding(.bottom, 24)
             .hidesScrollIndex()
             .movesTabBar()
+            .id(Self.top)
         }
         .scrollIndicators(.never)
         .safeAreaPadding(.bottom, Theme.bottomFocus)
     }
 
-    /// Favorittene og det du har sett sist (som ikke er favoritter), eller hvordan favorittene samles her.
+    /// Favorittene og det du har sett sist (som ikke er favoritter), eller hvordan favorittene samles her. Den første
+    /// raden ruller lista helt opp når den får fokus.
     @ViewBuilder
-    private var rows: some View {
+    private func rows(_ toTop: @escaping () -> Void) -> some View {
         let favorites = model.favorites
         let recent = model.recent.filter { !model.isFavorite($0) }
         if favorites.isEmpty && recent.isEmpty {
             TVTip()
         }
         if !favorites.isEmpty {
-            TVStrip(title: L("Nå på favorittene"), id: "seksjon-favoritter", clock: true, channels: favorites, play: play)
+            TVStrip(title: L("Nå på favorittene"), id: "seksjon-favoritter", clock: true, channels: favorites, play: play,
+                    onFocus: toTop)
         }
         if !recent.isEmpty {
-            TVStrip(title: L("Sist sett"), id: "seksjon-sist", clock: favorites.isEmpty, channels: recent, play: play)
+            TVStrip(title: L("Sist sett"), id: "seksjon-sist", clock: favorites.isEmpty, channels: recent, play: play,
+                    onFocus: favorites.isEmpty ? toTop : nil)
         }
     }
 }
@@ -72,6 +93,8 @@ private struct TVStrip: View {
     let clock: Bool
     let channels: [Channel]
     let play: (Channel, [Channel]) -> Void
+    /// den øverste raden: et kort fikk fokus
+    var onFocus: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -80,7 +103,7 @@ private struct TVStrip: View {
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: Metrics.bigGap) {
                     ForEach(channels) { channel in
-                        BigChannelCard(channel: channel) { play(channel, channels) }
+                        BigChannelCard(channel: channel, action: { play(channel, channels) }, onFocus: onFocus)
                             .containerRelativeFrame(.horizontal, count: Metrics.bigColumns, spacing: Metrics.bigGap)
                     }
                 }
@@ -109,6 +132,8 @@ struct BigCardGrid: View {
     let channels: [Channel]
     var columns: Int?
     let play: (Channel, [Channel]) -> Void
+    /// et kort i den øverste raden fikk fokus (bare med et fast antall kolonner)
+    var onTopFocus: (() -> Void)?
 
     private var items: [GridItem] {
         if let columns {
@@ -118,9 +143,11 @@ struct BigCardGrid: View {
     }
 
     var body: some View {
+        let top: Set<String> = onTopFocus == nil || columns == nil ? [] : Set(channels.prefix(columns ?? 0).map(\.id))
         LazyVGrid(columns: items, alignment: .leading, spacing: Metrics.bigGap + 6) {
             ForEach(channels) { channel in
-                BigChannelCard(channel: channel) { play(channel, channels) }
+                BigChannelCard(channel: channel, action: { play(channel, channels) },
+                               onFocus: top.contains(channel.id) ? onTopFocus : nil)
             }
         }
     }

@@ -153,7 +153,12 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (`bigColumns`, `big…`, `row…`). 0.1.7 hadde en forside med fliser og egne sider per kategori (`TVChannels`,
   `TVTiles`, `TVShelfPage`); de er tatt bort. UI-testene for Apple TV flytter fokus mot målet med rammene (`focus`);
   `test11StorListe` måler kortene og sidemenyen og tar bilder av toppen (`17-…-sidemeny`, `18-…-rullet`,
-  `19-…-fanelinja` etter Menu).
+  `19-…-fanelinja` etter Menu). Fra 0.1.25 ruller lista helt opp når den øverste raden får fokus (`onFocusGained` i
+  `ScrollIndex.swift`, `BigChannelCard.onFocus`, `ScrollViewReader` med id-en `toppen` i `TVChannelPanel`,
+  `VODHomeView` og `PosterGrid`): fokusmotoren rullet bare så langt at kortet syntes, så overskriften over (som ikke
+  kan få fokus) og fanelinja ble stående halvveis ute over kanten (eieren 4.11 med bilde: «litt for høy»).
+  `PosterGrid` har fem faste kolonner på Apple TV (`Metrics.posterColumns`, det det var plass til), så den øverste
+  raden er kjent. `test21Fanelinja` (bildene `39-…`, `40-…`) sjekker at fanelinja står der den sto ved start.
 - **iCloud fra 0.1.12**: `CloudStore` (`App/CloudStore.swift`) er lagringen til `Library` utenom testene: favorittene
   og favorittkategoriene (nøklene `favorites@…`/`favoriteCategories@…`, per innlogging) i `NSUbiquitousKeyValueStore`
   og UserDefaults, «sist sett» bare lokalt. Første gang per nøkkel og ved `InitialSyncChange` flettes det enheten hadde
@@ -492,3 +497,16 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   profil med samme navn som et forsøk kan ha laget likevel. 0.1.24 (bygg 45) er i TestFlight, VALID for TV_OS og IOS;
   alle UI-testene grønne. Ikke prøvd på hans enheter: bakgrunnsbildene fra Plex i «Fortsett å se», «Se alle» på
   radene hans, søket mot hans Plex og leverandøren (alle seriene i ett svar), favorittene via iCloud.
+- 3.11.2026: fra Windows/Android-økta kom lista over det Fyrlys for Windows og Android (2.1.35) kan som Apple-appen
+  ikke kan (hvordan står i `ungerdas/fyrlys`, `.claude/CLAUDE.md`). Eieren valgte alt, i denne rekkefølgen: «Plex og
+  episoder» (neste episode av seg selv og neste/forrige i spilleren, hopp over intro/rulletekst fra markørene,
+  undertekstfiler fra Plex inn i VLC, merk sett/usett og «Mer som dette», http til en lokal adresse når ruteren stenger
+  plex.direct), «Filmer og serier» (sortering og «Nylig lagt til» hos leverandøren, merker som 4K/HDR/5.1/alder/land,
+  «[PRE]»/«[2026]» i navnet, «Mer fra <kategori>», søk på Apple TV, sjanger/sortering/sider i Plex), «Resten»
+  (flere kanaler samtidig, M3U og XMLTV, feilrapport, egne navn på innloggingene) og «TV-spilleren» (pause og spol
+  tilbake i direktesending med «DIREKTE», strøminfo, bildeformat per kanal). Ikke på Apple: Chromecast, minispiller,
+  «Fjern striper», egen oppdatering, kanalnummer med tall.
+- 4.11.2026: eieren (bilder av Apple TV-en): «Liker veldig godt visningen på tv-siden, så vil ikke du skal røre den
+  noe særlig mer. Men se menyen på toppen, den er nok litt for høy?» Fanelinja sto halvveis ute over kanten fordi
+  lista var rullet litt (merket over sidemenyen sto der det står i simulatoren) → 0.1.25 (se Arkitektur). Pakkene over
+  kommer etter det.

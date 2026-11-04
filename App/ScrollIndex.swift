@@ -14,6 +14,19 @@ extension View {
         #endif
     }
 
+    /// Apple TV: kaller [action] når visningen (en knapp eller lenke) får fokus. Den øverste raden på sidene med
+    /// fanelinja bruker det til å rulle helt opp, så fanelinja kommer helt fram igjen (se `TVChannelPanel`). Alltid
+    /// med, også uten [action], så visningen er den samme når raden den står i, blir eller slutter å være den øverste
+    /// (ellers kunne fokuset forsvinne). Ingenting på iPhone og iPad.
+    @ViewBuilder
+    func onFocusGained(_ action: (() -> Void)?) -> some View {
+        #if os(tvOS)
+        modifier(FocusGained(action: action))
+        #else
+        self
+        #endif
+    }
+
     #if os(tvOS)
     /// Legges på innholdet i rullelista med kortene ved siden av sidemenyen: fanelinja følger den lista, så den glir
     /// bort når kortene rulles nedover og kommer tilbake øverst. Med to rullelister ved siden av hverandre fulgte Apple
@@ -25,6 +38,19 @@ extension View {
 }
 
 #if os(tvOS)
+private struct FocusGained: ViewModifier {
+    let action: (() -> Void)?
+    @FocusState private var focused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .focused($focused)
+            .onChange(of: focused) { _, now in
+                if now { action?() }
+            }
+    }
+}
+
 /// Finner UIScrollView-en rundt seg og skrur av hurtigrullingen og rullefeltet.
 private struct ScrollIndexHider: UIViewRepresentable {
     func makeUIView(context: Context) -> HiderView { HiderView() }

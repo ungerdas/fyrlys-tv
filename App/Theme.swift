@@ -104,7 +104,8 @@ enum Metrics {
     static let bigStarBox: CGFloat = 46
     static let bigGridMin: CGFloat = 320
     static let bigGap: CGFloat = 24
-    // filmer og serier
+    // filmer og serier (fem plakater i bredden ved siden av sidemenyen: det det var plass til med minst 230)
+    static let posterColumns = 5
     static let posterMin: CGFloat = 230
     static let posterGap: CGFloat = 40
     static let posterTitle: CGFloat = 22

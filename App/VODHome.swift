@@ -11,72 +11,22 @@ struct VODHomeView: View {
     let open: (VODItem) -> Void
     @State private var playing: VODPlay?
 
+    /// toppen av lista: dit den øverste raden ruller når den får fokus, så fanelinja på Apple TV kommer helt fram igjen
+    /// (ellers ble lista stående litt nede når man gikk tilbake dit, og fanelinja halvveis ute over kanten)
+    static let top = "toppen"
+
     var body: some View {
-        let resume = model.isPlex ? model.continueRow : app.continueEntries(model.kind)
-        let favorites = model.isPlex ? model.favoriteRow : app.vodFavorites(model.kind, fromPlex: false)
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: Metrics.homeGap) {
-                if !resume.isEmpty {
-                    VODShelf(title: L("Fortsett å se")) {
-                        ForEach(resume) { entry in
-                            resumeCard(entry)
-                        }
-                    }
-                }
-                if !favorites.isEmpty {
-                    VODShelf(title: L("Favoritter")) {
-                        ForEach(favorites) { item in
-                            VODPosterLink(item: item, id: "vodfav-\(item.id)")
-                                .frame(width: Metrics.rowPoster)
-                        }
-                    }
-                }
-                if model.isPlex {
-                    ForEach(model.rows) { row in
-                        VODShelf(title: row.title) {
-                            if row.more, row.key != nil {
-                                NavigationLink(value: row) {
-                                    SeeAllLabel()
-                                }
-                                .seeAllStyle()
-                                .accessibilityIdentifier("se-alle-\(row.id)")
-                            }
-                        } content: {
-                            ForEach(row.items) { entry in
-                                rowCard(entry)
-                                    .frame(width: Metrics.rowPoster)
-                            }
-                        }
-                    }
-                } else {
-                    ForEach(model.categories.filter { $0.id != VODModel.home }) { category in
-                        CategoryShelf(model: model, category: category)
-                    }
-                }
-                if resume.isEmpty && favorites.isEmpty && model.isPlex && model.rows.isEmpty {
-                    Text(L("Her kommer det du har begynt på, og favorittene dine (hold inne på en plakat)."))
-                        .font(.system(size: Metrics.pageCount + 2))
-                        .foregroundStyle(Theme.muted)
-                        .padding(.top, 20)
-                }
+        ScrollViewReader { proxy in
+            shelves {
+                withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo(Self.top, anchor: .top) }
             }
-            .padding(.horizontal, Metrics.pagePadding)
-            .padding(.top, 6)
-            .padding(.bottom, 24)
-            #if os(tvOS)
-            .hidesScrollIndex()
-            .movesTabBar()
-            #endif
         }
-        .scrollIndicators(.never)
         #if os(tvOS)
-        .safeAreaPadding(.bottom, Theme.bottomFocus)
         .fullScreenCover(item: $playing, onDismiss: closed) { play in
             VODPlayerView(play: play)
                 .environment(app)
         }
         #else
-        .scrollDismissesKeyboard(.immediately)
         .sheet(item: $playing, onDismiss: closed) { play in
             VODPlayerView(play: play)
                 .environment(app)
@@ -93,9 +43,89 @@ struct VODHomeView: View {
         .accessibilityIdentifier("vod-hjem")
     }
 
+    private func shelves(_ toTop: @escaping () -> Void) -> some View {
+        let resume = model.isPlex ? model.continueRow : app.continueEntries(model.kind)
+        let favorites = model.isPlex ? model.favoriteRow : app.vodFavorites(model.kind, fromPlex: false)
+        let rows = model.isPlex ? model.rows : []
+        let categories = model.isPlex ? [] : model.categories.filter { $0.id != VODModel.home }
+        // den øverste raden (den ruller lista helt opp); en tom kategori vises ikke
+        let first: String
+        if !resume.isEmpty {
+            first = "fortsett"
+        } else if !favorites.isEmpty {
+            first = "favoritter"
+        } else if let row = rows.first {
+            first = "rad:\(row.id)"
+        } else if let category = categories.first(where: { model.items[$0.id]?.isEmpty != true }) {
+            first = "kat:\(category.id)"
+        } else {
+            first = ""
+        }
+        return ScrollView {
+            LazyVStack(alignment: .leading, spacing: Metrics.homeGap) {
+                if !resume.isEmpty {
+                    VODShelf(title: L("Fortsett å se")) {
+                        ForEach(resume) { entry in
+                            resumeCard(entry, top: first == "fortsett" ? toTop : nil)
+                        }
+                    }
+                }
+                if !favorites.isEmpty {
+                    VODShelf(title: L("Favoritter")) {
+                        ForEach(favorites) { item in
+                            VODPosterLink(item: item, id: "vodfav-\(item.id)",
+                                          onFocus: first == "favoritter" ? toTop : nil)
+                                .frame(width: Metrics.rowPoster)
+                        }
+                    }
+                }
+                ForEach(rows) { row in
+                    VODShelf(title: row.title) {
+                        if row.more, row.key != nil {
+                            NavigationLink(value: row) {
+                                SeeAllLabel()
+                            }
+                            .seeAllStyle()
+                            .accessibilityIdentifier("se-alle-\(row.id)")
+                        }
+                    } content: {
+                        ForEach(row.items) { entry in
+                            rowCard(entry, top: first == "rad:\(row.id)" ? toTop : nil)
+                                .frame(width: Metrics.rowPoster)
+                        }
+                    }
+                }
+                ForEach(categories) { category in
+                    CategoryShelf(model: model, category: category,
+                                  onTopFocus: first == "kat:\(category.id)" ? toTop : nil)
+                }
+                if resume.isEmpty && favorites.isEmpty && model.isPlex && rows.isEmpty {
+                    Text(L("Her kommer det du har begynt på, og favorittene dine (hold inne på en plakat)."))
+                        .font(.system(size: Metrics.pageCount + 2))
+                        .foregroundStyle(Theme.muted)
+                        .padding(.top, 20)
+                }
+            }
+            .padding(.horizontal, Metrics.pagePadding)
+            .padding(.top, 6)
+            .padding(.bottom, 24)
+            #if os(tvOS)
+            .hidesScrollIndex()
+            .movesTabBar()
+            #endif
+            .id(Self.top)
+        }
+        .scrollIndicators(.never)
+        #if os(tvOS)
+        .safeAreaPadding(.bottom, Theme.bottomFocus)
+        #else
+        .scrollDismissesKeyboard(.immediately)
+        #endif
+    }
+
     /// Et kort i «Fortsett å se»: en episode spilles med en gang (hold inne for serien), en film åpnes som egen side.
     @ViewBuilder
-    private func resumeCard(_ entry: VODResume) -> some View {
+    private func resumeCard(_ entry: VODResume, top: (() -> Void)?) -> some View {
         if let episode = entry.episode {
             Button {
                 Task { await play(episode, show: entry.item, image: entry.image) }
@@ -103,6 +133,7 @@ struct VODHomeView: View {
                 ResumeCard(entry: entry)
             }
             .posterButtonStyle()
+            .onFocusGained(top)
             .frame(width: Metrics.resumeWidth)
             .accessibilityIdentifier("fortsett-\(entry.id)")
             .contextMenu {
@@ -119,6 +150,7 @@ struct VODHomeView: View {
                 ResumeCard(entry: entry)
             }
             .posterButtonStyle()
+            .onFocusGained(top)
             .frame(width: Metrics.resumeWidth)
             .accessibilityIdentifier("fortsett-\(entry.id)")
             .contextMenu {
@@ -142,7 +174,7 @@ struct VODHomeView: View {
 
     /// En film eller serie i en rad fra Plex; en episode spilles med en gang (hold inne for serien).
     @ViewBuilder
-    private func rowCard(_ entry: VODRowItem) -> some View {
+    private func rowCard(_ entry: VODRowItem, top: (() -> Void)?) -> some View {
         if let episode = entry.episode {
             // id-en på knappen før hurtigmenyen (etter den ble id-en borte av og til på iPhone og iPad)
             Button {
@@ -151,6 +183,7 @@ struct VODHomeView: View {
                 PosterCard(item: entry.item, episode: episode)
             }
             .posterButtonStyle()
+            .onFocusGained(top)
             .accessibilityIdentifier("rad-\(entry.id)")
             .contextMenu {
                 Button {
@@ -161,7 +194,7 @@ struct VODHomeView: View {
                 FavoriteToggle(item: entry.item)
             }
         } else {
-            VODPosterLink(item: entry.item, id: "rad-\(entry.id)")
+            VODPosterLink(item: entry.item, id: "rad-\(entry.id)", onFocus: top)
         }
     }
 
@@ -258,6 +291,8 @@ extension View {
 private struct CategoryShelf: View {
     let model: VODModel
     let category: ChannelCategory
+    /// den øverste raden: en plakat fikk fokus
+    var onTopFocus: (() -> Void)?
     /// så mange i raden; resten under «Se alle»
     static let shown = 20
 
@@ -275,7 +310,7 @@ private struct CategoryShelf: View {
             } content: {
                 if let items {
                     ForEach(items.prefix(Self.shown)) { item in
-                        VODPosterLink(item: item, id: "vod-\(item.id)")
+                        VODPosterLink(item: item, id: "vod-\(item.id)", onFocus: onTopFocus)
                             .frame(width: Metrics.rowPoster)
                     }
                 } else {
@@ -294,12 +329,15 @@ struct VODPosterLink: View {
     let id: String
     /// i en rad med episoder: episoden på kortet (siden for serien åpnes)
     var episode: Episode?
+    /// Apple TV: plakaten fikk fokus (den øverste raden ruller lista helt opp)
+    var onFocus: (() -> Void)?
 
     var body: some View {
         NavigationLink(value: item) {
             PosterCard(item: item, episode: episode)
         }
         .posterButtonStyle()
+        .onFocusGained(onFocus)
         .accessibilityIdentifier(id)
         .contextMenu {
             FavoriteToggle(item: item)
