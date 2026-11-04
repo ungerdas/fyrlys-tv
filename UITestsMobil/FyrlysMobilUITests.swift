@@ -514,8 +514,15 @@ final class FyrlysMobilUITests: XCTestCase {
             find(app, "vodkat-\(id)").tap()
         } else {
             find(app, "vod-kategori").tap()
-            let item = app.buttons[name]
-            if item.waitForExistence(timeout: 5) { item.tap() }
+            // ikke fanen med samme navn («Filmer» er både en fane og et Plex-bibliotek)
+            let item = app.buttons.matching(NSPredicate(format: "label == %@", name))
+            _ = item.firstMatch.waitForExistence(timeout: 5)
+            let bar = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame : .zero
+            if let choice = item.allElementsBoundByIndex.first(where: {
+                !bar.contains(CGPoint(x: $0.frame.midX, y: $0.frame.midY))
+            }) {
+                choice.tap()
+            }
         }
     }
 
@@ -683,7 +690,7 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5), "feltet for navnet kom ikke")
         field.tap()
         field.typeText("Hjemme")
-        app.alerts.buttons["Lagre"].tap()
+        app.alerts.buttons["Lagre"].firstMatch.tap()
         let name = find(app, "innlogget-som")
         XCTAssertTrue(until(10) { name.exists && name.label.contains("Hjemme") }, "navnet ble ikke brukt")
         shot("44-nytt-navn")

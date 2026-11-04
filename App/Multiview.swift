@@ -533,7 +533,8 @@ struct MultiviewView: View {
             Text(L("Dobbelttrykk for stort bilde, hold inne for å bytte kanal"))
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.6))
-                .lineLimit(1)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
                 .minimumScaleFactor(0.8)
             Button {
                 model.toggleMute()
