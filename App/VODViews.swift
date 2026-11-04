@@ -400,6 +400,9 @@ private struct PosterGrid: View {
                                               onFocus: firstRow.contains(item.id) ? toTop : nil)
                             }
                         }
+                        // Apple TV: ned fra menyene til høyre går til plakatene, også når ingen står rett under
+                        // (en kategori med to eller tre filmer)
+                        .tvFocusSection()
                         // Plex: neste side når de nederste vises
                         if let category, model.hasMore(category) {
                             ProgressView()

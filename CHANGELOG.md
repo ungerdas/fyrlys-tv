@@ -9,7 +9,7 @@
 - Bibliotekene står i sidemenyen på Apple TV og iPad (med «Søk» øverst på Apple TV og «Velg biblioteker» nederst),
   og som knapper på en rad øverst på iPhone. Søket i Plex-fanen finner både filmer og serier.
 - Valget av sjanger over plakatene i Plex er tatt bort; rekkefølgen står igjen. På Apple TV står valgene i menyen for
-  rekkefølge rett i menyen.
+  rekkefølge rett i menyen, og ned fra menyen går til plakatene også når det bare er noen få.
 
 ## v0.1.30
 
