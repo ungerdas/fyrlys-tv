@@ -198,17 +198,15 @@ struct VODHomeView: View {
         }
     }
 
-    /// En episode der du slapp (hos Plex eller på enheten).
+    /// En episode der du slapp (hos Plex eller på enheten); forrige og neste episode hentes av spilleren.
     private func play(_ episode: Episode, show: VODItem, image: String?) async {
-        let full = await model.withFile(episode)
-        let urls = model.episodeURLs(full)
-        guard !urls.isEmpty else { return }
-        // Plex vet hvor langt du har sett (også i de andre Plex-appene); sett ferdig der: fra start
-        let start = full.resume > 0 ? full.resume : (full.watched ? 0 : app.progress(full.progressKey))
-        let subtitle = L("Sesong {s}, episode {e}", ["s": full.season, "e": full.number]) + ": " + full.title
-        playing = VODPlay(id: full.progressKey, urls: urls, title: show.name, subtitle: subtitle,
-                          progressKey: full.progressKey, start: start, item: show,
-                          plex: full.source == "plex" ? full.id : nil, episode: full, image: image)
+        // Plex vet hvor langt du har sett (også i de andre Plex-appene), og raden er hentet nettopp
+        if episode.source == "plex" {
+            app.setProgress(episode.progressKey, episode.resume > 0 ? episode.resume : nil)
+        }
+        if let play = await model.play(episode, show: show, app: app, image: image, seasons: nil) {
+            playing = play
+        }
     }
 
     /// Spilleren er lukket: med Plex «Fortsett å se» og radene på nytt (litt etter, så Plex har fått med seg det

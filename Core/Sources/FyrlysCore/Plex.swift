@@ -70,11 +70,43 @@ public struct PlexServer: Codable, Hashable, Identifiable, Sendable {
         self.connections = connections
     }
 
-    /// I den rekkefølgen de prøves: på hjemmenettet, så utenfra, så gjennom Plex sin relé (treg).
+    /// I den rekkefølgen de prøves: på hjemmenettet, så utenfra, så gjennom Plex sin relé (treg). På hjemmenettet også
+    /// rett til adressen med http (etter https-adressen): noen rutere stopper navnene …plex.direct (de peker inn i
+    /// hjemmenettet), og da svarte bare reléet. Bare til private adresser, så det aldri går over nettet uten https.
     public var ordered: [PlexConnection] {
-        connections.filter { $0.local && !$0.relay } + connections.filter { !$0.local && !$0.relay }
-            + connections.filter(\.relay)
+        let home = connections.filter { $0.local && !$0.relay }
+        let direct = home.compactMap { c in lanHTTP(c.uri).map { PlexConnection(uri: $0, local: true, relay: false) } }
+        var seen = Set<String>()
+        return (home + direct + connections.filter { !$0.local && !$0.relay } + connections.filter(\.relay))
+            .filter { seen.insert($0.uri).inserted }
     }
+}
+
+/// http://192.168.1.10:32400 for https://192-168-1-10.<id>.plex.direct:32400 (navnet har adressen i seg), når
+/// adressen er i et privat nett (10.x, 172.16–31.x, 192.168.x); ellers nil.
+public func lanHTTP(_ uri: String) -> String? {
+    guard let c = URLComponents(string: uri), c.scheme?.lowercased() == "https",
+          let host = c.host?.lowercased(), host.hasSuffix(".plex.direct"),
+          let label = host.split(separator: ".").first else { return nil }
+    let address = label.replacingOccurrences(of: "-", with: ".")
+    guard isPrivateIPv4(address) else { return nil }
+    return "http://\(address):\(c.port ?? 32400)"
+}
+
+/// 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 og 169.254.0.0/16 (som Fyrlys for Windows; ikke 127.x, det er
+/// enheten selv).
+public func isPrivateIPv4(_ address: String) -> Bool {
+    let parts = address.split(separator: ".", omittingEmptySubsequences: false)
+    guard parts.count == 4 else { return false }
+    let n = parts.compactMap { part -> Int? in
+        guard !part.isEmpty, part.count <= 3, part.allSatisfy(\.isNumber), let v = Int(part), v <= 255 else {
+            return nil
+        }
+        return v
+    }
+    guard n.count == 4 else { return false }
+    return n[0] == 10 || (n[0] == 172 && (16...31).contains(n[1])) || (n[0] == 192 && n[1] == 168)
+        || (n[0] == 169 && n[1] == 254)
 }
 
 /// Feil fra Plex som kan vises.
@@ -161,10 +193,10 @@ public struct PlexClient: Sendable {
         return request
     }
 
-    func json(_ path: String) async throws -> [String: Any] {
+    func json(_ path: String, timeout: TimeInterval = 30) async throws -> [String: Any] {
         let data: Data, status: Int
         do {
-            (data, status) = try await fetch(request(path))
+            (data, status) = try await fetch(request(path, timeout: timeout))
         } catch {
             throw SourceError(L("Får ikke kontakt med Plex-serveren"))
         }
@@ -262,6 +294,12 @@ public struct PlexClient: Sendable {
         return parseSearch(try await json("/hubs/search?query=\(encoded)&limit=50"), kind: kind, client: self)
     }
 
+    /// «Mer som dette»: den første raden Plex har for filmen eller serien med noe i (uten den selv), høyst 24.
+    public func related(_ item: VODItem) async throws -> [VODItem] {
+        parseRelated(try await json("/hubs/metadata/\(item.id)/related?count=24"), kind: item.kind, exclude: item.id,
+                     client: self)
+    }
+
     /// Alt i en rad på Hjem («Se alle»), når Plex sier det er flere enn de som vises.
     public func rowItems(_ row: VODRow, kind: VODKind) async throws -> [VODRowItem] {
         guard let key = row.key, key.hasPrefix("/") else { return row.items }
@@ -317,10 +355,149 @@ public struct PlexClient: Sendable {
         _ = try? await fetch(request(path, timeout: 15))
     }
 
+    /// Merker en film, serie, sesong eller episode som sett eller ikke sett (en serie eller sesong: alle episodene i
+    /// den). Kaster når serveren ikke svarte ja.
+    public func setWatched(_ ratingKey: String, _ watched: Bool) async throws {
+        let path = "/:/\(watched ? "scrobble" : "unscrobble")?identifier=com.plexapp.plugins.library&key=\(ratingKey)"
+        let status: Int
+        do {
+            (_, status) = try await fetch(request(path, timeout: 15))
+        } catch {
+            throw SourceError(L("Får ikke kontakt med Plex-serveren"))
+        }
+        guard (200..<300).contains(status) else { throw plexError(status) }
+    }
+
+    /// Markørene (introen og rulleteksten) og undertekstfilene ved siden av fila for en film eller episode (spilleren
+    /// venter på dette, så ikke lenge).
+    public func playInfo(_ ratingKey: String) async throws -> PlexPlayInfo {
+        let container = try await json("/library/metadata/\(ratingKey)?includeMarkers=1", timeout: 6)
+        guard let meta = (container["Metadata"] as? [[String: Any]])?.first else { return PlexPlayInfo() }
+        return parsePlayInfo(meta, client: self)
+    }
+
+    /// En undertekstfil på serveren (/library/streams/<id>) som fil med riktig filtype, i UTF-8 (Plex gjør om
+    /// tegnsettet, så æ, ø og å kommer riktig), med nøkkelen i adressen (VLC henter den).
+    public func subtitleURL(_ key: String, ext: String) -> URL? {
+        let last = key.split(separator: "/").last ?? ""
+        var c = URLComponents(string: base + key + (last.contains(".") ? "" : "." + ext))
+        c?.queryItems = [URLQueryItem(name: "encoding", value: "utf-8"), URLQueryItem(name: "X-Plex-Token", value: token)]
+        return c?.url
+    }
+
     /// Tekst som kan vises eller logges: uten nøkkelen.
     public func redact(_ text: String) -> String {
         token.count >= 4 ? text.replacingOccurrences(of: token, with: "***") : text
     }
+}
+
+/// Et merke Plex har funnet i en film eller episode: introen eller rulleteksten, i sekunder.
+public struct PlexMarker: Hashable, Sendable {
+    public enum Kind: String, Sendable {
+        case intro, credits
+    }
+
+    public let kind: Kind
+    public let start: Double
+    public let end: Double
+    /// rulleteksten til slutt (etter den kommer ingenting mer av episoden)
+    public let final: Bool
+
+    public init(kind: Kind, start: Double, end: Double, final: Bool = false) {
+        self.kind = kind
+        self.start = start
+        self.end = end
+        self.final = final
+    }
+
+    /// [time] er inne i merket (de siste to sekundene teller ikke: da er det for sent å hoppe)
+    public func covers(_ time: Double) -> Bool { time >= start && time < end - 2 }
+}
+
+/// En undertekstfil ved siden av filmen eller episoden på serveren (ikke inni fila).
+public struct PlexSubtitle: Hashable, Sendable {
+    public let url: URL
+    /// språkkoden fra Plex («nor», «eng»), tom når den ikke er kjent
+    public let language: String
+    /// navnet Plex viser («Norsk (SRT External)»)
+    public let name: String
+    public let forced: Bool
+    /// valgt i Plex (i en av Plex-appene)
+    public let selected: Bool
+}
+
+/// Det som trengs når en film eller episode fra Plex spilles: markørene og undertekstfilene, og språkene til
+/// undertekstene inni fila.
+public struct PlexPlayInfo: Sendable {
+    public var markers: [PlexMarker] = []
+    public var subtitles: [PlexSubtitle] = []
+    public var embeddedSubtitleLanguages: [String] = []
+    /// en undertekst inni fila er valgt i Plex
+    public var embeddedSubtitleSelected = false
+
+    public init() {}
+
+    /// Undertekstfila som skal vises fra start: den som er valgt i Plex, ellers en på [preferred] (norsk) når fila
+    /// ikke har undertekster på det språket selv (og ingen andre er valgt i Plex). Tvungne (bare det som sies på andre
+    /// språk) velges ikke av seg selv.
+    public func chosenSubtitle(preferred: Set<String>) -> PlexSubtitle? {
+        if let selected = subtitles.first(where: \.selected) { return selected }
+        guard !embeddedSubtitleSelected, !preferred.isEmpty,
+              !embeddedSubtitleLanguages.contains(where: { preferred.contains($0.lowercased()) }) else { return nil }
+        return subtitles.first { !$0.forced && preferred.contains($0.language.lowercased()) }
+    }
+}
+
+/// Språkkodene for norsk slik Plex og filene skriver dem.
+public let norwegianLanguageCodes: Set<String> = ["nor", "nob", "nno", "no", "nb", "nn", "norwegian"]
+
+/// Filtypen for en undertekstfil fra Plex (codec): srt, vtt, sup (PGS) eller det Plex kaller den (ass …); nil når den
+/// mangler, og for VobSub (to filer).
+func subtitleExtension(_ codec: String) -> String? {
+    switch codec.lowercased() {
+    case "srt", "subrip": return "srt"
+    case "vtt", "webvtt": return "vtt"
+    case "pgs", "hdmv_pgs_subtitle": return "sup"
+    case "", "vobsub": return nil
+    case let other: return other.allSatisfy { $0.isLetter || $0.isNumber } ? other : nil
+    }
+}
+
+/// /library/metadata/<id>?includeMarkers=1: markørene, og undertekstene i den første fila (de med key er filer ved
+/// siden av).
+public func parsePlayInfo(_ m: [String: Any], client: PlexClient) -> PlexPlayInfo {
+    var info = PlexPlayInfo()
+    let raw = m["Marker"] as? [[String: Any]] ?? []
+    var markers: [PlexMarker] = raw.compactMap { marker in
+        guard let kind = PlexMarker.Kind(rawValue: text(marker["type"]).lowercased()),
+              let start = int(marker["startTimeOffset"]), let end = int(marker["endTimeOffset"]), end > start
+        else { return nil }
+        return PlexMarker(kind: kind, start: Double(start) / 1000, end: Double(end) / 1000,
+                          final: flag(marker["final"]))
+    }.sorted { $0.start < $1.start }
+    // eldre servere merker ikke rulleteksten til slutt: da er det den siste
+    if !markers.contains(where: \.final), let last = markers.lastIndex(where: { $0.kind == .credits }) {
+        let credits = markers[last]
+        markers[last] = PlexMarker(kind: .credits, start: credits.start, end: credits.end, final: true)
+    }
+    info.markers = markers
+    let media = (m["Media"] as? [[String: Any]])?.first
+    let part = (media?["Part"] as? [[String: Any]])?.first
+    for stream in part?["Stream"] as? [[String: Any]] ?? [] where int(stream["streamType"]) == 3 {
+        let language = text(stream["languageCode"])
+        if let key = nonEmpty(stream["key"]) {
+            guard let ext = subtitleExtension(text(stream["codec"])), let url = client.subtitleURL(key, ext: ext)
+            else { continue }
+            let name = nonEmpty(stream["displayTitle"]) ?? nonEmpty(stream["title"]) ?? nonEmpty(stream["language"])
+                ?? L("Undertekster")
+            info.subtitles.append(PlexSubtitle(url: url, language: language, name: name,
+                                               forced: flag(stream["forced"]), selected: flag(stream["selected"])))
+        } else {
+            if !language.isEmpty { info.embeddedSubtitleLanguages.append(language) }
+            if flag(stream["selected"]) { info.embeddedSubtitleSelected = true }
+        }
+    }
+    return info
 }
 
 // ── tolking ──
@@ -507,6 +684,23 @@ func wideImage(_ m: [String: Any], _ keys: [String], client: PlexClient) -> Stri
         if let path = nonEmpty(m[key]) { return client.imageURL(path, width: 640, height: 360) }
     }
     return nil
+}
+
+/// /hubs/metadata/<id>/related: filmene eller seriene i den første raden som har noen (uten [exclude]), høyst 24.
+public func parseRelated(_ container: [String: Any], kind: VODKind, exclude: String,
+                         client: PlexClient) -> [VODItem] {
+    let type = kind == .movies ? "movie" : "show"
+    for hub in container["Hub"] as? [[String: Any]] ?? [] {
+        var seen: Set<String> = [exclude]
+        let items = (hub["Metadata"] as? [[String: Any]] ?? []).compactMap { m -> VODItem? in
+            guard text(m["type"]) == type,
+                  let item = plexItem(m, kind: kind, client: client, library: text(m["librarySectionID"])),
+                  seen.insert(item.id).inserted else { return nil }
+            return item
+        }
+        if !items.isEmpty { return Array(items.prefix(24)) }
+    }
+    return []
 }
 
 /// /hubs/search: filmene eller seriene i treffene (ikke episoder, skuespillere og annet).

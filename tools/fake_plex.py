@@ -11,6 +11,11 @@ oppdiktede filmer og serier, på samme port. Nøkkelen er «test-token».
   «Nylig lagt til» med filmer og en sesong, og hele raden under /hubs/home/recentlyAdded, «Se alle»), søket
   (/hubs/search), flere på en gang (/library/metadata/1001,2001: favorittene), plakatene (ensfargede PNG) og filene
   (tools/testdata/stormnatt.mkv, med Range), og /:/timeline og /:/scrobble (skrives i loggen).
+- Episodene 2102 og 2103 har markører (introen og rulleteksten til slutt, på sekundene i testfilmen på 30 s) og en
+  engelsk undertekstfil ved siden av (/library/streams/77.srt; fila har norske undertekster inni selv).
+- «Mer som dette» (/hubs/metadata/<id>/related) for filmene: de andre filmene.
+- /:/scrobble og /:/unscrobble merker filmen 1002 som sett og ikke sett (de andre står som de er, så testene som
+  spiller dem, ikke endrer det de andre testene venter).
 
 Bruk: python3 tools/fake_plex.py [--port 8897]
 """
@@ -78,6 +83,22 @@ for e in EPISODES:
     e.update({"summary": f"Oppdiktet episode: {e['title']}.", "duration": 30000, "grandparentRatingKey": "2001",
               "grandparentTitle": "Fyrvokterne", "grandparentThumb": "/library/metadata/2001/thumb/1",
               "grandparentArt": "/library/metadata/2001/art/1", "Media": media(e["ratingKey"])})
+# markørene (millisekunder) og undertekstene: de norske inni fila, og en engelsk fil ved siden av
+MARKERS = {
+    "2102": [{"type": "credits", "startTimeOffset": 20000, "endTimeOffset": 30000, "final": True}],
+    "2103": [{"type": "intro", "startTimeOffset": 2000, "endTimeOffset": 9000},
+             {"type": "credits", "startTimeOffset": 22000, "endTimeOffset": 30000, "final": True}],
+}
+SUBTITLE = b"1\n00:00:01,000 --> 00:00:29,000\nOppdiktet engelsk undertekst\n"
+for e in EPISODES:
+    if e["ratingKey"] in MARKERS:
+        e["Marker"] = MARKERS[e["ratingKey"]]
+        e["Media"][0]["Part"][0]["Stream"] = [
+            {"id": 1, "streamType": 1, "codec": "h264"},
+            {"id": 2, "streamType": 3, "codec": "srt", "index": 3, "languageCode": "nor", "displayTitle": "Norsk"},
+            {"id": 77, "streamType": 3, "codec": "srt", "key": "/library/streams/77", "languageCode": "eng",
+             "displayTitle": "English (SRT External)"},
+        ]
 for i, m in enumerate(MOVIES + [SHOW]):
     m["thumb"] = f"/library/metadata/{m['ratingKey']}/thumb/1"
     m["art"] = f"/library/metadata/{m['ratingKey']}/art/1"
@@ -193,6 +214,14 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/hubs/home/recentlyAdded":
             # hele raden («Se alle»): også filmen som ikke står i raden på Hjem
             return self.container(Metadata=MOVIES + [SHOW])
+        m = re.fullmatch(r"/hubs/metadata/(\d+)/related", path)
+        if m:
+            if m.group(1) not in METADATA or METADATA[m.group(1)]["type"] != "movie":
+                return self.container(Hub=[])
+            return self.container(Hub=[{"title": "Mer som dette", "hubIdentifier": "movie.similar", "type": "movie",
+                                        "Metadata": [x for x in MOVIES if x["ratingKey"] != m.group(1)]}])
+        if path == "/library/streams/77.srt":
+            return self.send(200, SUBTITLE, "text/plain; charset=utf-8")
         if path == "/hubs/search":
             words = q.get("query", "").lower().split()
             hits = [m for m in MOVIES + [SHOW] + EPISODES if words and all(w in m["title"].lower() for w in words)]
@@ -212,8 +241,16 @@ class Handler(BaseHTTPRequestHandler):
             if m.group(2) == "mkv":
                 return self.file(MKV, "video/x-matroska")
             return self.send(404)
-        if path in ("/:/timeline", "/:/scrobble"):
+        if path in ("/:/timeline", "/:/scrobble", "/:/unscrobble"):
             print("[plex] rapport:", path, json.dumps(q, ensure_ascii=False), flush=True)
+            item = METADATA.get(q.get("key", ""))
+            # bare filmen 1002 (testene av «Merk som sett»), så det de andre testene venter, står
+            if path != "/:/timeline" and item and item["ratingKey"] == "1002":
+                if path == "/:/scrobble":
+                    item["viewCount"] = 1
+                    item.pop("viewOffset", None)
+                else:
+                    item.pop("viewCount", None)
             return self.send(200, b"", "text/plain")
         self.send(404)
 

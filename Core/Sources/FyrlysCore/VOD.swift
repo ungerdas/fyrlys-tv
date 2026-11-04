@@ -308,6 +308,20 @@ public func parseSeriesInfo(_ json: Any) -> VODDetails {
 /// Rekkefølgen på sesongene: 1, 2, 3 … og spesialene (sesong 0) til slutt, som i Plex.
 public func seasonOrder(_ number: Int) -> Int { number == 0 ? Int.max : number }
 
+/// Episodene før og etter [current] i den rekkefølgen de ses: sesong for sesong, uten spesialene (sesong 0); ser du
+/// en spesial, de andre spesialene. Neste etter den siste i en sesong er den første i neste sesong.
+public func neighbours(of current: Episode, in seasons: [Season]) -> (previous: Episode?, next: Episode?) {
+    let sorted = seasons.sorted { seasonOrder($0.number) < seasonOrder($1.number) }
+    let special = current.season == 0
+    let list = sorted.filter { special ? $0.number == 0 : $0.number != 0 }
+        .flatMap { $0.episodes.sorted { $0.number < $1.number } }
+    guard let i = list.firstIndex(where: { $0.id == current.id })
+            ?? list.firstIndex(where: { $0.season == current.season && $0.number == current.number }) else {
+        return (nil, nil)
+    }
+    return (i > 0 ? list[i - 1] : nil, i + 1 < list.count ? list[i + 1] : nil)
+}
+
 /// «1 t 32 min» eller «44 min».
 public func minutesText(_ minutes: Int) -> String {
     let m = max(1, minutes)

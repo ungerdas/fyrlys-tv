@@ -53,6 +53,9 @@ final class VODModel {
     @ObservationIgnored private var loadedAt: Date?
     /// IPTV-leverandøren: alle filmene eller seriene, hentet første gang det søkes
     @ObservationIgnored private var allItems: [VODItem]?
+    /// sett ferdig mens appen har vært åpen (nøklene for hvor langt): begynner fra start neste gang, selv om Plex ikke
+    /// har fått med seg det ennå
+    @ObservationIgnored var finishedHere: Set<String> = []
 
     init(kind: VODKind) {
         self.kind = kind
@@ -271,6 +274,40 @@ final class VODModel {
         guard episode.fileKey == nil, case .plex(let client) = backend,
               let full = try? await client.episode(episode.id) else { return episode }
         return full
+    }
+
+    /// Det som spilles for en episode av [show]: fila (hos Plex hentes den når den mangler), adressene og hvor den
+    /// begynner: der du slapp (det enheten vet; ellers det Plex vet, også fra de andre Plex-appene), og fra start når
+    /// den er sett ferdig her. nil: ingen fil.
+    func play(_ episode: Episode, show: VODItem, app: AppModel, image: String?, seasons: [Season]?) async -> VODPlay? {
+        let full = await withFile(episode)
+        let urls = episodeURLs(full)
+        guard !urls.isEmpty else { return nil }
+        let key = full.progressKey
+        let saved = app.progress(key)
+        let start = saved > 0 ? saved : (finishedHere.contains(key) ? 0 : full.resume)
+        let subtitle = L("Sesong {s}, episode {e}", ["s": full.season, "e": full.number]) + ": " + full.title
+        return VODPlay(id: key, urls: urls, title: show.name, subtitle: subtitle, progressKey: key, start: start,
+                       item: show, plex: full.source == "plex" ? full.id : nil, episode: full, image: image,
+                       seasons: seasons)
+    }
+
+    /// Plex: markørene og undertekstfilene for en film eller episode (nil: ikke Plex, eller serveren svarte ikke).
+    func playInfo(_ ratingKey: String) async -> PlexPlayInfo? {
+        guard case .plex(let client) = backend else { return nil }
+        return try? await client.playInfo(ratingKey)
+    }
+
+    /// Plex: merk en film, serie eller episode som sett eller ikke sett på serveren.
+    func setWatched(_ ratingKey: String, _ watched: Bool) async throws {
+        guard case .plex(let client) = backend else { return }
+        try await client.setWatched(ratingKey, watched)
+    }
+
+    /// Plex: «Mer som dette» (tom når det ikke er noe, eller serveren ikke svarte).
+    func related(_ item: VODItem) async -> [VODItem] {
+        guard item.isPlex, case .plex(let client) = backend else { return [] }
+        return (try? await client.related(item)) ?? []
     }
 
     /// Adressene til en film, i den rekkefølgen de prøves.

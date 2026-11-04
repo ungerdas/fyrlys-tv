@@ -390,6 +390,100 @@ final class FyrlysUITests: XCTestCase {
         return false
     }
 
+    /// Venter til [condition] er sann (hvert halve sekund).
+    func until(_ timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
+        let end = Date().addingTimeInterval(timeout)
+        while Date() < end {
+            if condition() { return true }
+            wait(0.5)
+        }
+        return condition()
+    }
+
+    /// Spilleren spiller [key] (filmen eller episoden, «plex:2103»; verdien på `vod-spiller` i testene).
+    func playing(_ player: XCUIElement, _ key: String, timeout: TimeInterval) -> Bool {
+        until(timeout) { player.exists && (player.value as? String) == key }
+    }
+
+    /// Sekundene i «1:05» (tiden i VLC-spilleren).
+    func seconds(_ label: String) -> Int {
+        label.split(separator: ":").reduce(0) { $0 * 60 + (Int($1) ?? 0) }
+    }
+
+    /// Trykker til høyre til [target] har fokus (knappene på en rad).
+    func focusRight(_ target: XCUIElement, tries: Int = 6) -> Bool {
+        for _ in 0..<tries {
+            if target.hasFocus { return true }
+            remote.press(.right)
+            wait(0.8)
+        }
+        return target.hasFocus
+    }
+
+    /// Episoder fra Plex: «Neste episode» i rulleteksten til slutt går til den neste (markørene fra Plex), «Hopp over
+    /// introen» hopper over introen, forrige og neste episode står i kontrollene, og når en episode er ferdig, spilles
+    /// den neste («Neste: …»), også i neste sesong.
+    func test22PlexEpisoder() {
+        let app = launch("plex-series")
+        let series = find(app, "rad-2001")
+        XCTAssertTrue(series.waitForExistence(timeout: 40), "serien mangler i radene")
+        XCTAssertTrue(focus(app, series), "fikk ikke fokus på serien")
+        remote.press(.select)
+        let resume = find(app, "fortsett-serie")
+        XCTAssertTrue(resume.waitForExistence(timeout: 15), "knappen til episoden du skal se, mangler")
+        wait(1)
+        if !resume.hasFocus { _ = focusRight(resume) }
+        remote.press(.select)
+        let player = find(app, "vod-spiller")
+        XCTAssertTrue(player.waitForExistence(timeout: 20), "spilleren kom ikke")
+        XCTAssertTrue(playing(player, "plex:2102", timeout: 20), "episoden kom ikke: \(player.value ?? "")")
+        // rulleteksten til slutt (fra 20 s; episoden begynner på 9 s): «Neste episode», med fokus
+        let skip = find(app, "hopp-over")
+        XCTAssertTrue(skip.waitForExistence(timeout: 30), "knappen i rulleteksten kom ikke")
+        XCTAssertEqual(skip.label, "Neste episode")
+        wait(1)
+        shot("41-plex-rulletekst")
+        remote.press(.select)
+        XCTAssertTrue(playing(player, "plex:2103", timeout: 20), "den neste episoden kom ikke: \(player.value ?? "")")
+        // introen (2–9 s): hopp over den
+        XCTAssertTrue(until(25) { skip.exists && skip.label == "Hopp over introen" }, "«Hopp over introen» kom ikke")
+        wait(0.5)
+        shot("42-plex-intro")
+        remote.press(.select)
+        let time = find(app, "vod-tid")
+        XCTAssertTrue(until(10) { time.exists && seconds(time.label) >= 9 }, "hoppet ikke over introen: \(time.label)")
+        XCTAssertTrue(find(app, "forrige-episode").exists, "«Forrige episode» mangler")
+        XCTAssertTrue(find(app, "neste-episode").exists, "«Neste episode» mangler")
+        // ferdig (30 s): «Neste: …», og så første episode i sesong 2
+        XCTAssertTrue(find(app, "neste-om").waitForExistence(timeout: 40), "«Neste: …» kom ikke")
+        shot("43-plex-neste")
+        XCTAssertTrue(playing(player, "plex:2201", timeout: 20), "neste sesong kom ikke: \(player.value ?? "")")
+        for _ in 0..<3 where player.exists {
+            remote.press(.menu)
+            wait(2)
+        }
+        XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
+    }
+
+    /// Plex: «Merk som sett» eller «Merk som ikke sett» på siden for en film (merkes på serveren), og «Mer som dette».
+    func test23PlexSett() {
+        let app = launch("plex")
+        let movie = find(app, "rad-1002")
+        XCTAssertTrue(movie.waitForExistence(timeout: 40), "filmen mangler i radene")
+        XCTAssertTrue(focus(app, movie), "fikk ikke fokus på filmen")
+        remote.press(.select)
+        let mark = find(app, "merk-sett")
+        XCTAssertTrue(mark.waitForExistence(timeout: 15), "«Merk som sett» mangler")
+        wait(1)
+        let before = mark.label
+        XCTAssertTrue(focusRight(mark), "fikk ikke fokus på «\(before)»")
+        remote.press(.select)
+        XCTAssertTrue(until(15) { mark.exists && mark.label != before }, "knappen byttet ikke (\(before))")
+        XCTAssertTrue(find(app, "lik-1001").waitForExistence(timeout: 10), "«Mer som dette» mangler")
+        wait(1)
+        shot("44-plex-sett")
+    }
+
     /// Plex (koblet til fra før): «Hjem» med radene fra Plex og «Fortsett å se», bibliotekene som kategorier, siden
     /// for en film med «Fortsett» der Plex sier du slapp, og filmen (mkv) spilles rett fra serveren med VLC.
     func test17Plex() {

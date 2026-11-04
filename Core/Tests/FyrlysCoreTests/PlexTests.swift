@@ -208,6 +208,116 @@ final class PlexTests: XCTestCase {
         XCTAssertNil(nothing)
     }
 
+    /// Ruteren stopper …plex.direct: på hjemmenettet prøves også adressen rett med http (etter https), bare for private
+    /// adresser.
+    func testLanHTTP() {
+        XCTAssertEqual(lanHTTP("https://192-168-1-10.abcdef0123.plex.direct:32400"), "http://192.168.1.10:32400")
+        XCTAssertEqual(lanHTTP("https://10-0-0-5.abcdef0123.plex.direct:32401/"), "http://10.0.0.5:32401")
+        XCTAssertEqual(lanHTTP("https://172-20-1-2.abcdef0123.plex.direct"), "http://172.20.1.2:32400")
+        XCTAssertNil(lanHTTP("https://172-32-1-2.abcdef0123.plex.direct:32400"), "ikke privat")
+        XCTAssertNil(lanHTTP("https://203-0-113-7.abcdef0123.plex.direct:32400"), "offentlig adresse")
+        XCTAssertNil(lanHTTP("http://192-168-1-10.abcdef0123.plex.direct:32400"), "allerede http")
+        XCTAssertNil(lanHTTP("https://192-168-1-10.example.com:32400"), "ikke plex.direct")
+        XCTAssertNil(lanHTTP("https://2001-db8--1.abcdef0123.plex.direct:32400"), "IPv6")
+        XCTAssertFalse(isPrivateIPv4("192.168.1"))
+        XCTAssertFalse(isPrivateIPv4("192.168.1.256"))
+        let server = PlexServer(id: "s1", name: "Hjemme", accessToken: "t1", owned: true, connections: [
+            PlexConnection(uri: "https://ute.plex.direct:32400", local: false, relay: false),
+            PlexConnection(uri: "https://192-168-1-10.abcdef0123.plex.direct:32400", local: true, relay: false),
+            // utenfra (ikke local): aldri http
+            PlexConnection(uri: "https://10-1-1-1.abcdef0123.plex.direct:32400", local: false, relay: false),
+        ])
+        XCTAssertEqual(server.ordered.map(\.uri), ["https://192-168-1-10.abcdef0123.plex.direct:32400",
+                                                   "http://192.168.1.10:32400", "https://ute.plex.direct:32400",
+                                                   "https://10-1-1-1.abcdef0123.plex.direct:32400"])
+    }
+
+    /// Markørene (introen og rulleteksten) og undertekstfilene ved siden av fila, og hvilken som velges.
+    func testPlayInfo() {
+        let meta = (container("""
+        {"MediaContainer": {"Metadata": [{"ratingKey": "2102", "type": "episode",
+          "Marker": [{"type": "credits", "startTimeOffset": 2400000, "endTimeOffset": 2580000, "final": true},
+                     {"type": "intro", "startTimeOffset": 60000, "endTimeOffset": 95000},
+                     {"type": "commercial", "startTimeOffset": 1000, "endTimeOffset": 2000},
+                     {"type": "intro", "startTimeOffset": 5000, "endTimeOffset": 5000}],
+          "Media": [{"Part": [{"key": "/library/parts/9/1/file.mkv", "Stream": [
+            {"id": 1, "streamType": 1, "codec": "hevc"},
+            {"id": 2, "streamType": 3, "codec": "subrip", "languageCode": "eng", "index": 3},
+            {"id": 3, "streamType": 3, "codec": "srt", "key": "/library/streams/3", "languageCode": "nor",
+             "displayTitle": "Norsk (SRT External)"},
+            {"id": 4, "streamType": 3, "codec": "srt", "key": "/library/streams/4", "languageCode": "nor",
+             "forced": true, "displayTitle": "Norsk Forced (SRT External)"},
+            {"id": 5, "streamType": 3, "codec": "vobsub", "key": "/library/streams/5", "languageCode": "swe"}]}]}]}]}}
+        """)["Metadata"] as! [[String: Any]])[0]
+        let info = parsePlayInfo(meta, client: client)
+        XCTAssertEqual(info.markers, [PlexMarker(kind: .intro, start: 60, end: 95),
+                                      PlexMarker(kind: .credits, start: 2400, end: 2580, final: true)])
+        XCTAssertTrue(info.markers[0].covers(60) && info.markers[0].covers(92))
+        XCTAssertFalse(info.markers[0].covers(93.5), "for sent å hoppe")
+        XCTAssertEqual(info.subtitles.map(\.name), ["Norsk (SRT External)", "Norsk Forced (SRT External)"])
+        XCTAssertEqual(info.subtitles[0].url.absoluteString,
+                       "http://192.168.1.10:32400/library/streams/3.srt?encoding=utf-8&X-Plex-Token=hemmelig")
+        XCTAssertEqual(info.embeddedSubtitleLanguages, ["eng"])
+        // norsk fra fila ved siden av (fila selv har bare engelsk), ikke den tvungne
+        XCTAssertEqual(info.chosenSubtitle(preferred: norwegianLanguageCodes)?.name, "Norsk (SRT External)")
+        XCTAssertNil(info.chosenSubtitle(preferred: []), "engelsk app: ingenting av seg selv")
+        var embedded = info
+        embedded.embeddedSubtitleLanguages = ["nor"]
+        XCTAssertNil(embedded.chosenSubtitle(preferred: norwegianLanguageCodes), "fila har norsk selv")
+        var chosenInPlex = info
+        chosenInPlex.embeddedSubtitleSelected = true
+        XCTAssertNil(chosenInPlex.chosenSubtitle(preferred: norwegianLanguageCodes), "en inni fila er valgt i Plex")
+        let empty = parsePlayInfo([:], client: client)
+        XCTAssertTrue(empty.markers.isEmpty && empty.subtitles.isEmpty)
+        // ingen rulletekst merket «final»: den siste er det
+        let old = parsePlayInfo(["Marker": [["type": "credits", "startTimeOffset": 600000, "endTimeOffset": 620000],
+                                            ["type": "credits", "startTimeOffset": 2400000, "endTimeOffset": 2500000]],
+                                 "Media": [["Part": [["Stream": [["streamType": 3, "codec": "ass",
+                                                                  "key": "/library/streams/8"]]]]]]],
+                                client: client)
+        XCTAssertEqual(old.markers.map(\.final), [false, true])
+        XCTAssertEqual(old.subtitles.first?.url.path, "/library/streams/8.ass")
+        XCTAssertEqual(old.subtitles.first?.name, "Undertekster")
+    }
+
+    /// «Mer som dette»: den første raden med filmer (eller serier), uten filmen selv.
+    func testRelated() {
+        let related = parseRelated(container("""
+        {"MediaContainer": {"Hub": [
+          {"title": "Tom", "Metadata": []},
+          {"title": "Mer som dette", "Metadata": [
+            {"ratingKey": "1001", "type": "movie", "title": "Seg selv"},
+            {"ratingKey": "1002", "type": "movie", "title": "Fjordbyen", "librarySectionID": 1},
+            {"ratingKey": "2001", "type": "show", "title": "En serie"},
+            {"ratingKey": "1002", "type": "movie", "title": "Fjordbyen"}]},
+          {"title": "Med samme skuespiller", "Metadata": [{"ratingKey": "1003", "type": "movie", "title": "Kyst"}]}]}}
+        """), kind: .movies, exclude: "1001", client: client)
+        XCTAssertEqual(related.map(\.id), ["1002"])
+        XCTAssertEqual(related.first?.source, "plex")
+        XCTAssertTrue(parseRelated([:], kind: .series, exclude: "1", client: client).isEmpty)
+    }
+
+    /// Sett og ikke sett: /:/scrobble og /:/unscrobble, og en feil når serveren ikke svarer ja.
+    func testSetWatched() async throws {
+        let calls = Calls()
+        let fetch: RequestFetch = { request in
+            await calls.add(request)
+            return (Data(), request.url?.query?.contains("key=9") == true ? 401 : 200)
+        }
+        let client = PlexClient(base: "http://192.168.1.10:32400", token: "hemmelig", device: device, fetch: fetch)
+        try await client.setWatched("2001", true)
+        try await client.setWatched("2102", false)
+        do {
+            try await client.setWatched("9", true)
+            XCTFail("401 skulle gitt en feil")
+        } catch {}
+        let urls = await calls.urls
+        XCTAssertEqual(urls.prefix(2), [
+            "http://192.168.1.10:32400/:/scrobble?identifier=com.plexapp.plugins.library&key=2001",
+            "http://192.168.1.10:32400/:/unscrobble?identifier=com.plexapp.plugins.library&key=2102",
+        ])
+    }
+
     /// Koden, nøkkelen når den er skrevet inn, og hodene Plex vil ha.
     func testAccountClient() async throws {
         let calls = Calls()

@@ -212,6 +212,17 @@ public let english: [String: String] = [
     "10 sekunder tilbake": "Back 10 seconds",
     "10 sekunder fram": "Forward 10 seconds",
     "Pause": "Pause",
+    "◀ ▶ spol  ·  ned: forrige og neste episode": "◀ ▶ skip  ·  down: previous and next episode",
+    // episodene og Plex i spilleren
+    "Forrige episode": "Previous episode",
+    "Neste episode": "Next episode",
+    "Hopp over introen": "Skip intro",
+    "Hopp over rulleteksten": "Skip credits",
+    // siden for en film eller serie
+    "Merk som sett": "Mark as watched",
+    "Merk som ikke sett": "Mark as unwatched",
+    "Mer som dette": "More like this",
+    "Mer": "More",
     // guiden
     "Velg hva guiden viser oppe til høyre: favorittene, alle kanaler eller en kategori.":
         "Choose what the guide shows at the top right: your favorites, all channels or a category.",

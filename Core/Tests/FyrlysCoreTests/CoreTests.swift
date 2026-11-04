@@ -423,6 +423,25 @@ final class VODTests: XCTestCase {
         XCTAssertEqual(list.seasons.first?.episodes.count, 2)
     }
 
+    /// Forrige og neste episode: videre til neste sesong, uten spesialene (sesong 0), og spesialene for seg.
+    func testNeighbours() {
+        func ep(_ s: Int, _ n: Int) -> Episode { Episode(id: "\(s)-\(n)", season: s, number: n, title: "") }
+        let seasons = [Season(number: 0, episodes: [ep(0, 1), ep(0, 2)]),
+                       Season(number: 2, episodes: [ep(2, 1)]),
+                       Season(number: 1, episodes: [ep(1, 2), ep(1, 1)])]
+        XCTAssertEqual(neighbours(of: ep(1, 1), in: seasons).previous, nil)
+        XCTAssertEqual(neighbours(of: ep(1, 1), in: seasons).next?.id, "1-2")
+        XCTAssertEqual(neighbours(of: ep(1, 2), in: seasons).next?.id, "2-1", "neste sesong")
+        XCTAssertEqual(neighbours(of: ep(2, 1), in: seasons).previous?.id, "1-2")
+        XCTAssertNil(neighbours(of: ep(2, 1), in: seasons).next, "den siste")
+        XCTAssertEqual(neighbours(of: ep(0, 1), in: seasons).next?.id, "0-2", "spesialene for seg")
+        XCTAssertNil(neighbours(of: ep(0, 2), in: seasons).next)
+        // en episode som ikke står i lista (en annen id), finnes på sesong og nummer
+        let other = Episode(id: "x", season: 1, number: 2, title: "")
+        XCTAssertEqual(neighbours(of: other, in: seasons).next?.id, "2-1")
+        XCTAssertNil(neighbours(of: ep(5, 5), in: seasons).next)
+    }
+
     func testAddressesAndPlayableExtensions() {
         let client = XtreamClient(login: Login(server: "http://iptv.example.com", username: "u", password: "p"))
         XCTAssertEqual(client.movieURL("501", ext: "mp4").absoluteString, "http://iptv.example.com/movie/u/p/501.mp4")

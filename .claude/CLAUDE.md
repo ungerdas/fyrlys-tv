@@ -277,6 +277,33 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   TV). Søket (iPhone og iPad): `SearchField` (fra `PhoneTV.swift`, nå med `prompt`/`id`) `vod-sok` under menyen
   (iPad over siden), `VODSearchResults` (`sok-<id>`). Plakatene på iPhone/iPad: teksten under bildet (`PosterCard`;
   på Apple TV som før). Mål: `Metrics.rowPoster`, `resumeWidth`, `shelfTitle` …
+- **Episoder og Plex i spilleren fra 0.1.26** (pakken «Plex og episoder» fra Windows-lista; hvordan Windows gjør det,
+  står i `ungerdas/fyrlys`: `lib/ui/vod_player_page.dart`, `lib/core/plex/`): spilleren ligger i `App/VODPlayer.swift`
+  (`VODPlay` med `seasons`, `VODPlayerModel`, `VODPlayerView`, `NativePlayer`, `SkipButton`, `UpNextCard`,
+  `VODPlayerController` med `PlayerButtons`). Forrige og neste: `neighbours(of:in:)` (Core, `VOD.swift`: sesong for
+  sesong uten sesong 0, spesialene for seg); sesongene følger med fra siden, ellers henter spilleren dem
+  (`details(show)`). En annen episode får en ny `VODPlayerModel` i samme `VODPlayerView` (`switchTo` → `begin`;
+  `.id(ObjectIdentifier(vlc))` på VLC-visningen og `.id(ObjectIdentifier(model))` på Apples, ellers sto det gamle
+  bildet); `VODModel.play(_:show:app:image:seasons:)` lager det som spilles (hvor langt: det enheten vet, ellers det
+  Plex vet, fra start når den er sett ferdig her: `finishedHere`; Hjem setter det Plex vet først). Ferdig (VLC `onEnd`,
+  Apples `didPlayToEndTime`): «Neste: S1 E3 · …» (`neste-om`) i 3 s, så den neste, ellers lukkes spilleren (også med
+  Apples avspiller nå). Knappene: Apple TV VLC `forrige-episode`/`neste-episode` under streken (ned), Apples avspiller
+  i `transportBarCustomMenuItems`; iPhone/iPad VLC ved ±10 s; ikke i Apples avspiller på iPhone/iPad. Plex:
+  `playInfo` (`/library/metadata/<id>?includeMarkers=1`, 6 s, før avspillingen begynner): markørene (`PlexMarker`,
+  intro/credits, den siste rulleteksten er `final` når ingen er merket) og undertekstfilene (`PlexSubtitle`:
+  `streamType` 3 med `key`, ikke vobsub, `<key>.<srt|vtt|sup|codec>?encoding=utf-8&X-Plex-Token=`). Knappen
+  `hopp-over` («Hopp over introen», «Hopp over rulleteksten», «Neste episode» for rulleteksten til slutt med en etter:
+  episoden meldes sett, `save(final:finished:)`): Apple TV VLC med fokus (`PillStyle`), Apples avspiller på Apple TV
+  `contextualActions`, ellers nede til høyre. Undertekstfilene legges til i VLC når filmen er i gang
+  (`addPlaybackSlave`), og `chosenSubtitle` (valgt i Plex, ellers norsk når fila ikke har norsk) velges når VLC ikke
+  har valgt noen; VLC spiller da også mp4 (Apples avspiller kan ikke legge til undertekstfiler). Sett/ikke sett:
+  `PlexClient.setWatched` (`/:/scrobble`, `/:/unscrobble`), på enheten `setFinished(_:_:)`; `merk-sett` (Apple TV ved
+  knappene, iPhone/iPad i menyen `vod-mer`), hurtigmeny på episodene. «Mer som dette»: `related`
+  (`/hubs/metadata/<id>/related?count=24`, den første raden med noe), `lik-<id>`. Hjemmenettet: `PlexServer.ordered`
+  prøver `lanHTTP` (http://<adresse>:<port> fra navnet `a-b-c-d.<id>.plex.direct`, bare private adresser og
+  `local`) etter https-adressen hjemme. Falsk Plex: markører og en engelsk undertekstfil på 2102/2103, «Mer som dette»
+  for filmene, sett/ikke sett for 1002. Testene `test22PlexEpisoder`/`test23PlexSett` (Apple TV, iPhone; iPad bare
+  `test23`).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -510,3 +537,5 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   noe særlig mer. Men se menyen på toppen, den er nok litt for høy?» Fanelinja sto halvveis ute over kanten fordi
   lista var rullet litt (merket over sidemenyen sto der det står i simulatoren) → 0.1.25 (se Arkitektur). Pakkene over
   kommer etter det.
+- 4.11.2026: 0.1.26 = pakken «Plex og episoder» (se Arkitektur). Ikke prøvd mot hans Plex: markørene (krever at Plex
+  har funnet dem: «Intro/Credits detection»), undertekstfilene i VLC over nettet, adressen rett i hjemmenettet.

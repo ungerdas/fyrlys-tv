@@ -1,5 +1,20 @@
 # Endringer
 
+## v0.1.26
+
+- Serier: når en episode er ferdig, begynner den neste av seg selv («Neste: S1 E3 · …»), også i neste sesong. I
+  spilleren er det knapper for forrige og neste episode (på Apple TV under streken: trykk ned).
+- Plex: «Hopp over introen» og «Hopp over rulleteksten» der Plex har merket dem. I rulleteksten til slutt står
+  «Neste episode» i stedet.
+- Plex: undertekstfiler som ligger ved siden av filmen eller episoden (for eksempel en .no.srt), kan velges i
+  spilleren, og den norske vises av seg selv når fila ikke har norske undertekster inni seg.
+- «Merk som sett» og «Merk som ikke sett» på siden for en film eller serie (på iPhone og iPad i menyen oppe til høyre),
+  og på hver episode (hold inne). Med Plex merkes det på serveren, så det stemmer i de andre Plex-appene.
+- Plex: «Mer som dette» nederst på siden for en film eller serie.
+- Plex: stopper ruteren adressene som slutter på plex.direct (de peker inn i hjemmenettet), kobles det til serveren
+  rett på hjemmenettet i stedet.
+- Spilles en film med Apples egen avspiller, lukkes spilleren når filmen er ferdig (som med VLC).
+
 ## v0.1.25
 
 - Apple TV: fanelinja øverst kommer helt fram igjen når du går tilbake til den øverste raden. Før ble lista stående

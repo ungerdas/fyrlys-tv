@@ -36,12 +36,22 @@ final class VLCEngine {
     @ObservationIgnored var onFail: (() -> Void)?
     /// filmen er ferdig
     @ObservationIgnored var onEnd: (() -> Void)?
+    /// tiden har gått (sekunder)
+    @ObservationIgnored var onTime: ((Double) -> Void)?
 
     private let player: VLCMediaPlayer
     private let events = VLCEvents()
     @ObservationIgnored private var done = false
     @ObservationIgnored private var watchdog: Task<Void, Never>?
     @ObservationIgnored private var background: NSObjectProtocol?
+    /// Plex: undertekstfilene ved siden av fila (legges til når filmen har kommet i gang), og den som velges når fila
+    /// selv ikke har valgt noen (eller den er valgt i Plex)
+    @ObservationIgnored private var sidecars: [PlexSubtitle] = []
+    @ObservationIgnored private var sidecarChoice: PlexSubtitle?
+    /// navnene på undertekstfilene som er lagt til (VLC kaller dem bare «Spor 3»), i den rekkefølgen de kom, og hvor
+    /// mange undertekster fila hadde selv før de ble lagt til
+    @ObservationIgnored private var sidecarNames: [String] = []
+    @ObservationIgnored private var sidecarBase = 0
 
     init() {
         player = VLCMediaPlayer(options: Self.subtitleStyle())
@@ -62,8 +72,11 @@ final class VLCEngine {
         }
     }
 
-    /// Spiller [url] fra [start] sekunder inn. Kommer ikke bildet i gang innen 45 sekunder, regnes det som feil.
-    func open(_ url: URL, start: Double) {
+    /// Spiller [url] fra [start] sekunder inn, med undertekstfilene [subtitles] (Plex) i tillegg og [choose] valgt når
+    /// fila ikke har valgt noen selv. Kommer ikke bildet i gang innen 45 sekunder, regnes det som feil.
+    func open(_ url: URL, start: Double, subtitles: [PlexSubtitle] = [], choose: PlexSubtitle? = nil) {
+        sidecars = subtitles
+        sidecarChoice = choose
         let media = VLCMedia(url: url)
         media.addOption(":http-user-agent=\(xtreamUserAgent)")
         // leverandørene er ofte trege: litt mer i bufferen enn VLC sitt sekund
@@ -165,17 +178,41 @@ final class VLCEngine {
         if t > 0, !started {
             started = true
             watchdog?.cancel()
+            addSidecars()
             refreshTracks()
         }
         if abs(t - time) >= 0.25 { time = t }
         let l = Double(player.media?.length.intValue ?? 0) / 1000
         if l != length { length = l }
         if player.isPlaying != isPlaying { isPlaying = player.isPlaying }
+        onTime?(t)
+    }
+
+    /// Undertekstfilene fra Plex, når filmen har kommet i gang (da vet VLC om fila har valgt en selv). Den som skal
+    /// vises, velges når fila ikke har valgt noen (norsk inni fila går foran), eller når den er valgt i Plex.
+    private func addSidecars() {
+        guard !sidecars.isEmpty else { return }
+        let none = player.currentVideoSubTitleIndex < 0
+        let pick = sidecarChoice.flatMap { $0.selected || none ? $0 : nil }
+        for subtitle in sidecars {
+            player.addPlaybackSlave(subtitle.url, type: .subtitle, enforce: subtitle == pick)
+        }
+        sidecarBase = Self.tracks(player.videoSubTitlesNames, player.videoSubTitlesIndexes).filter { $0.id >= 0 }.count
+        sidecarNames = sidecars.map(\.name)
+        sidecars = []
     }
 
     private func refreshTracks() {
         let audio = Self.tracks(player.audioTrackNames, player.audioTrackIndexes)
-        let subtitles = Self.tracks(player.videoSubTitlesNames, player.videoSubTitlesIndexes)
+        var subtitles = Self.tracks(player.videoSubTitlesNames, player.videoSubTitlesIndexes)
+        // undertekstfilene kommer sist, når VLC har lest dem: med navnet fra Plex («Norsk (SRT External)»)
+        let real = subtitles.filter { $0.id >= 0 }.count
+        if !sidecarNames.isEmpty, real >= sidecarBase + sidecarNames.count, subtitles.count >= sidecarNames.count {
+            let first = subtitles.count - sidecarNames.count
+            for (i, name) in sidecarNames.enumerated() {
+                subtitles[first + i] = Track(id: subtitles[first + i].id, name: name)
+            }
+        }
         if audio != audioTracks { audioTracks = audio }
         if subtitles != subtitleTracks { subtitleTracks = subtitles }
         audioTrack = player.currentAudioTrackIndex
@@ -362,14 +399,14 @@ extension VLCEngine {
 
 #if os(tvOS)
 /// Apple TV: bildet over hele skjermen. Velg eller spill/pause = pause, venstre og høyre = spol (10 sekunder, mer når
-/// du trykker flere ganger etter hverandre), ned = lyd og undertekster, Menu = skjul kontrollene, så lukk.
+/// du trykker flere ganger etter hverandre), ned = lyd, undertekster og forrige og neste episode, Menu = skjul
+/// kontrollene, så lukk. Under introen og rulleteksten (Plex) står knappen for å hoppe over nede til høyre, med fokus.
 struct VLCPlayerScreen: View {
     let engine: VLCEngine
-    let title: String
-    let subtitle: String
+    let model: VODPlayerModel
     let close: () -> Void
 
-    private enum Field: Hashable { case screen, audio, subtitles }
+    private enum Field: Hashable { case screen, audio, subtitles, previous, next, skip }
 
     @State private var controls = true
     @State private var hideTask: Task<Void, Never>?
@@ -403,6 +440,12 @@ struct VLCPlayerScreen: View {
                 panel
                     .transition(.opacity)
             }
+            if let marker = model.marker {
+                skipButton(marker)
+            }
+            if let next = model.upNext {
+                UpNextCard(episode: next)
+            }
         }
         .background(Color.black.ignoresSafeArea())
         .defaultFocus($focus, .screen)
@@ -410,23 +453,27 @@ struct VLCPlayerScreen: View {
             focus = .screen
             show()
         }
+        // knappen for introen eller rulleteksten får fokus når den kommer, og fokus går tilbake når den går
+        .onChange(of: model.marker) { old, new in
+            if new != nil, old == nil {
+                focus = .skip
+            } else if new == nil, focus == .skip {
+                focus = .screen
+            }
+        }
         .onPlayPauseCommand {
             engine.togglePause()
             show()
         }
         .onMoveCommand { direction in
             switch direction {
-            case .left where focus == .screen: skip(-1)
-            case .right where focus == .screen: skip(1)
-            case .down where focus == .screen:
+            case .left where focus == .screen: jump(-1)
+            case .right where focus == .screen: jump(1)
+            case .down where focus == .screen || focus == .skip:
                 show()
-                if engine.hasAudioChoice {
-                    focus = .audio
-                } else if engine.hasSubtitles {
-                    focus = .subtitles
-                }
-            case .up where focus != .screen:
-                focus = .screen
+                if let first = panelFields.first { focus = first }
+            case .up where focus != .screen && focus != .skip:
+                focus = model.marker != nil ? .skip : .screen
                 show()
             default: show()
             }
@@ -449,13 +496,13 @@ struct VLCPlayerScreen: View {
             HStack(alignment: .firstTextBaseline, spacing: 16) {
                 Image(systemName: engine.isPlaying || !engine.started ? "play.fill" : "pause.fill")
                     .font(.system(size: 30, weight: .bold))
-                Text(title)
+                Text(model.play.title)
                     .font(.system(size: 40, weight: .bold))
                     .lineLimit(1)
             }
             .foregroundStyle(Color.white)
-            if !subtitle.isEmpty {
-                Text(subtitle)
+            if !model.play.subtitle.isEmpty {
+                Text(model.play.subtitle)
                     .font(.system(size: 26))
                     .foregroundStyle(Color.white.opacity(0.75))
                     .lineLimit(1)
@@ -471,9 +518,9 @@ struct VLCPlayerScreen: View {
                     VLCSubtitleMenu(engine: engine)
                         .focused($focus, equals: .subtitles)
                 }
+                episodeButtons
                 Spacer(minLength: 0)
-                Text(engine.hasAudioChoice || engine.hasSubtitles
-                     ? L("◀ ▶ spol  ·  ned: lyd og undertekster") : L("◀ ▶ spol"))
+                Text(hint)
                     .font(.system(size: 20))
                     .foregroundStyle(Color.white.opacity(0.55))
             }
@@ -489,6 +536,67 @@ struct VLCPlayerScreen: View {
         )
     }
 
+    /// Forrige og neste episode (når det spilles en episode, og sesongene er hentet).
+    @ViewBuilder
+    private var episodeButtons: some View {
+        let around = model.around
+        if let previous = around.previous {
+            Button {
+                model.go(previous)
+            } label: {
+                Label(L("Forrige episode"), systemImage: "backward.end.fill")
+                    .font(.system(size: 24, weight: .semibold))
+            }
+            .focused($focus, equals: .previous)
+            .accessibilityIdentifier("forrige-episode")
+        }
+        if let next = around.next {
+            Button {
+                model.go(next)
+            } label: {
+                Label(L("Neste episode"), systemImage: "forward.end.fill")
+                    .font(.system(size: 24, weight: .semibold))
+            }
+            .focused($focus, equals: .next)
+            .accessibilityIdentifier("neste-episode")
+        }
+    }
+
+    /// Knappene under streken, i rekkefølge (ned fra bildet går til den første).
+    private var panelFields: [Field] {
+        var fields: [Field] = []
+        if engine.hasAudioChoice { fields.append(.audio) }
+        if engine.hasSubtitles { fields.append(.subtitles) }
+        let around = model.around
+        if around.previous != nil { fields.append(.previous) }
+        if around.next != nil { fields.append(.next) }
+        return fields
+    }
+
+    private var hint: String {
+        if engine.hasAudioChoice || engine.hasSubtitles { return L("◀ ▶ spol  ·  ned: lyd og undertekster") }
+        let around = model.around
+        return around.previous != nil || around.next != nil ? L("◀ ▶ spol  ·  ned: forrige og neste episode")
+            : L("◀ ▶ spol")
+    }
+
+    /// «Hopp over introen», «Hopp over rulleteksten» eller «Neste episode» nede til høyre, over kontrollene.
+    private func skipButton(_ marker: PlexMarker) -> some View {
+        Button {
+            model.skip(marker)
+        } label: {
+            Label(model.skipTitle(marker), systemImage: "forward.end.fill")
+        }
+        .buttonStyle(PillStyle(selected: false))
+        .focused($focus, equals: .skip)
+        .accessibilityIdentifier("hopp-over")
+        // fokus når den er kommet fram (i samme øyeblikk som den kom, tok ikke fokusmotoren den alltid)
+        .onAppear { focus = .skip }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        .padding(.trailing, 90)
+        .padding(.bottom, controls || !engine.isPlaying ? 300 : 90)
+    }
+
     /// Kontrollene fram, og bort igjen etter fem sekunder når filmen går (ikke i testene: de leser tiden).
     private func show() {
         withAnimation { controls = true }
@@ -496,14 +604,14 @@ struct VLCPlayerScreen: View {
         guard !TestSupport.isActive else { return }
         hideTask = Task {
             try? await Task.sleep(for: .seconds(5))
-            guard !Task.isCancelled, engine.isPlaying, focus == .screen, pending == nil else { return }
+            guard !Task.isCancelled, engine.isPlaying, focus == .screen || focus == .skip, pending == nil else { return }
             withAnimation { controls = false }
         }
     }
 
     /// Spol fram eller tilbake: 10 sekunder, 30 etter tre trykk på rad og et minutt etter seks. Hoppet gjøres når du
     /// slutter å trykke.
-    private func skip(_ direction: Double) {
+    private func jump(_ direction: Double) {
         guard engine.started else { return }
         presses = seekTask == nil ? 1 : presses + 1
         let step: Double = presses > 6 ? 60 : (presses > 3 ? 30 : 10)
@@ -530,12 +638,12 @@ private struct BareButtonStyle: ButtonStyle {
     }
 }
 #else
-/// iPhone og iPad: trykk på bildet for kontrollene (lukk, lyd og undertekster, 10 sekunder tilbake og fram, pause og
-/// streken du kan dra i). De forsvinner etter noen sekunder når filmen går.
+/// iPhone og iPad: trykk på bildet for kontrollene (lukk, lyd og undertekster, forrige og neste episode, 10 sekunder
+/// tilbake og fram, pause og streken du kan dra i). De forsvinner etter noen sekunder når filmen går. Under introen og
+/// rulleteksten (Plex) står knappen for å hoppe over nede til høyre.
 struct VLCPlayerScreen: View {
     let engine: VLCEngine
-    let title: String
-    let subtitle: String
+    let model: VODPlayerModel
     let close: () -> Void
 
     @State private var controls = true
@@ -566,6 +674,15 @@ struct VLCPlayerScreen: View {
                 controlsLayer
                     .transition(.opacity)
             }
+            if let marker = model.marker {
+                SkipButton(title: model.skipTitle(marker)) { model.skip(marker) }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 16)
+                    .padding(.bottom, controls || !engine.isPlaying ? 84 : 24)
+            }
+            if let next = model.upNext {
+                UpNextCard(episode: next)
+            }
         }
         .background(Color.black.ignoresSafeArea())
         .onAppear(perform: show)
@@ -582,11 +699,11 @@ struct VLCPlayerScreen: View {
                 .accessibilityLabel(L("Lukk"))
                 .accessibilityIdentifier("lukk-vod")
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
+                    Text(model.play.title)
                         .font(.system(size: 16, weight: .bold))
                         .lineLimit(1)
-                    if !subtitle.isEmpty {
-                        Text(subtitle)
+                    if !model.play.subtitle.isEmpty {
+                        Text(model.play.subtitle)
                             .font(.system(size: 13))
                             .foregroundStyle(Color.white.opacity(0.75))
                             .lineLimit(1)
@@ -611,7 +728,16 @@ struct VLCPlayerScreen: View {
             .padding(.horizontal, 8)
             .padding(.top, 8)
             Spacer(minLength: 0)
-            HStack(spacing: 56) {
+            let around = model.around
+            let episodes = around.previous != nil || around.next != nil
+            HStack(spacing: episodes ? 26 : 56) {
+                if episodes {
+                    controlButton("backward.end.fill", L("Forrige episode"), size: 21) {
+                        if let previous = around.previous { model.go(previous) }
+                    }
+                    .disabled(around.previous == nil)
+                    .accessibilityIdentifier("forrige-episode")
+                }
                 controlButton("gobackward.10", L("10 sekunder tilbake"), size: 26) { jump(-10) }
                 controlButton(engine.isPlaying || !engine.started ? "pause.fill" : "play.fill",
                               engine.isPlaying ? L("Pause") : L("Spill av"), size: 40) {
@@ -620,6 +746,13 @@ struct VLCPlayerScreen: View {
                 }
                 .accessibilityIdentifier("vod-pause")
                 controlButton("goforward.10", L("10 sekunder fram"), size: 26) { jump(10) }
+                if episodes {
+                    controlButton("forward.end.fill", L("Neste episode"), size: 21) {
+                        if let next = around.next { model.go(next) }
+                    }
+                    .disabled(around.next == nil)
+                    .accessibilityIdentifier("neste-episode")
+                }
             }
             .disabled(!engine.started)
             Spacer(minLength: 0)

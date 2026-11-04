@@ -404,6 +404,12 @@ struct VODDetailView: View {
     @State private var playing: VODPlay?
     /// telles opp når spilleren lukkes, så «Fortsett» viser hvor langt du kom
     @State private var watched = 0
+    /// Plex: «Mer som dette»
+    @State private var related: [VODItem] = []
+    /// merker som sett eller ikke sett
+    @State private var busy = false
+    /// en feil som vises en liten stund (Plex svarte ikke da noe skulle merkes som sett)
+    @State private var notice: String?
 
     private var model: VODModel { item.kind == .movies ? app.movies : app.series }
 
@@ -414,6 +420,7 @@ struct VODDetailView: View {
                 if item.kind == .series {
                     episodes
                 }
+                relatedRow
             }
             .padding(.horizontal, Metrics.detailPadding)
             .padding(.vertical, Metrics.detailPadding * 0.6)
@@ -442,6 +449,17 @@ struct VODDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         // stjernen oppe til høyre (ved siden av «Spill av» var det ikke plass på iPhone)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if details != nil {
+                    Menu {
+                        watchedButton
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel(L("Mer"))
+                    .accessibilityIdentifier("vod-mer")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 favoriteButton
             }
@@ -516,6 +534,7 @@ struct VODDetailView: View {
                         seriesButton(next)
                     }
                     favoriteButton
+                    watchedButton
                 }
                 .padding(.top, 10)
                 #else
@@ -527,6 +546,110 @@ struct VODDetailView: View {
                         .padding(.top, 10)
                 }
                 #endif
+                noticeText
+            }
+        }
+    }
+
+    /// En feil en liten stund under knappene.
+    @ViewBuilder
+    private var noticeText: some View {
+        if let notice {
+            Text(notice)
+                .font(.system(size: Metrics.detailText - 3))
+                .foregroundStyle(Theme.muted)
+                .task(id: notice) {
+                    try? await Task.sleep(for: .seconds(4))
+                    self.notice = nil
+                }
+        }
+    }
+
+    /// «Merk som sett» eller «Merk som ikke sett»: filmen, eller hele serien (Plex på serveren, ellers på enheten).
+    @ViewBuilder
+    private var watchedButton: some View {
+        if let details {
+            let seen = isWatched(details)
+            Button {
+                Task { await markWatched(!seen, details) }
+            } label: {
+                Label(seen ? L("Merk som ikke sett") : L("Merk som sett"),
+                      systemImage: seen ? "eye.slash" : "checkmark.circle")
+            }
+            .disabled(busy)
+            .accessibilityIdentifier("merk-sett")
+        }
+    }
+
+    /// Filmen er sett (og ikke begynt på igjen), eller alle episodene i serien (uten spesialene).
+    private func isWatched(_ details: VODDetails) -> Bool {
+        let _ = watched
+        if item.kind == .movies {
+            let started = app.progress(item.progressKey) > 0
+            return item.isPlex ? details.watched && details.resume == 0 && !started
+                : app.isFinished(item.progressKey) && !started
+        }
+        let regular = details.seasons.filter { $0.number != 0 }.flatMap(\.episodes)
+        let all = regular.isEmpty ? details.seasons.flatMap(\.episodes) : regular
+        return !all.isEmpty && all.allSatisfy(finished)
+    }
+
+    private func markWatched(_ seen: Bool, _ details: VODDetails) async {
+        busy = true
+        defer { busy = false }
+        let keys = item.kind == .movies ? [item.progressKey] : details.seasons.flatMap(\.episodes).map(\.progressKey)
+        if item.isPlex {
+            do {
+                try await model.setWatched(item.id, seen)
+            } catch {
+                notice = error.localizedDescription
+                return
+            }
+        }
+        for key in keys {
+            if !item.isPlex { app.setFinished(key, seen) }
+            app.setProgress(key, nil)
+            if seen { model.finishedHere.insert(key) } else { model.finishedHere.remove(key) }
+        }
+        if !item.isPlex { app.forgetContinue(item) }
+        watched += 1
+        if item.isPlex { await reloadPlex() }
+    }
+
+    /// En episode som sett eller ikke sett (hold inne på den).
+    private func markEpisode(_ episode: Episode, _ seen: Bool) {
+        Task {
+            let plex = episode.source == "plex"
+            if plex {
+                do {
+                    try await model.setWatched(episode.id, seen)
+                } catch {
+                    notice = error.localizedDescription
+                    return
+                }
+            } else {
+                app.setFinished(episode.progressKey, seen)
+            }
+            app.setProgress(episode.progressKey, nil)
+            if seen {
+                model.finishedHere.insert(episode.progressKey)
+            } else {
+                model.finishedHere.remove(episode.progressKey)
+            }
+            watched += 1
+            if plex { await reloadPlex() }
+        }
+    }
+
+    /// Plex: «Mer som dette» under (filmer og serier som ligner).
+    @ViewBuilder
+    private var relatedRow: some View {
+        if !related.isEmpty {
+            VODShelf(title: L("Mer som dette")) {
+                ForEach(related) { other in
+                    VODPosterLink(item: other, id: "lik-\(other.id)")
+                        .frame(width: Metrics.rowPoster)
+                }
             }
         }
     }
@@ -645,7 +768,25 @@ struct VODDetailView: View {
                                            finished: finished(episode))
                             }
                             .posterButtonStyle()
+                            // id-en før hurtigmenyen (etter den ble id-en borte av og til på iPhone og iPad)
                             .accessibilityIdentifier("episode-\(episode.id)")
+                            .contextMenu {
+                                let done = finished(episode)
+                                if !done {
+                                    Button {
+                                        markEpisode(episode, true)
+                                    } label: {
+                                        Label(L("Merk som sett"), systemImage: "checkmark.circle")
+                                    }
+                                }
+                                if done || app.progress(episode.progressKey) > 0 {
+                                    Button {
+                                        markEpisode(episode, false)
+                                    } label: {
+                                        Label(L("Merk som ikke sett"), systemImage: "eye.slash")
+                                    }
+                                }
+                            }
                         }
                     }
                     #if os(tvOS)
@@ -667,7 +808,9 @@ struct VODDetailView: View {
             if season == nil, let next = nextEpisode(found) { season = next.episode.season }
         } catch {
             self.error = error.localizedDescription
+            return
         }
+        if item.isPlex { related = await model.related(item) }
     }
 
     /// Plex: hvor langt du har sett, slik Plex har det (også fra de andre Plex-appene).
@@ -688,13 +831,18 @@ struct VODDetailView: View {
         guard item.isPlex else { return }
         Task {
             try? await Task.sleep(for: .seconds(1.5))
-            if let found = try? await model.details(item) {
-                syncProgress(found)
-                details = found
-                watched += 1
-            }
-            await model.refreshContinue()
+            await reloadPlex()
         }
+    }
+
+    /// Plex: siden på nytt (hva som er sett, og hvor langt) og «Fortsett å se».
+    private func reloadPlex() async {
+        if let found = try? await model.details(item) {
+            syncProgress(found)
+            details = found
+            watched += 1
+        }
+        await model.refreshContinue()
     }
 
     private func startMovie(at seconds: Double) {
@@ -705,14 +853,14 @@ struct VODDetailView: View {
                           plex: item.isPlex ? item.id : nil, image: details?.backdrop)
     }
 
+    /// En episode der du slapp; spilleren har hele serien (forrige og neste episode).
     private func play(_ episode: Episode) {
-        let urls = model.episodeURLs(episode)
-        guard !urls.isEmpty else { return }
-        let subtitle = L("Sesong {s}, episode {e}", ["s": episode.season, "e": episode.number]) + ": " + episode.title
-        playing = VODPlay(id: episode.progressKey, urls: urls, title: item.name, subtitle: subtitle,
-                          progressKey: episode.progressKey, start: app.progress(episode.progressKey), item: item,
-                          plex: episode.source == "plex" ? episode.id : nil, episode: episode,
-                          image: details?.backdrop ?? episode.image)
+        Task {
+            if let play = await model.play(episode, show: item, app: app, image: details?.backdrop ?? episode.image,
+                                            seasons: details?.seasons) {
+                playing = play
+            }
+        }
     }
 }
 
@@ -824,391 +972,4 @@ func playTime(_ seconds: Double) -> String {
     let s = max(0, Int(seconds))
     return s >= 3600 ? String(format: "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60)
         : String(format: "%d:%02d", s / 60, s % 60)
-}
-
-// ── spilleren ──
-
-/// Det som spilles: adressene som prøves etter tur (filtypen hos leverandøren; se `playAttempts`), og hvor det skal
-/// begynne.
-struct VODPlay: Identifiable {
-    let id: String
-    let urls: [URL]
-    let title: String
-    let subtitle: String
-    let progressKey: String
-    let start: Double
-    /// filmen eller serien (for «Fortsett å se»); nil for TV-arkivet
-    var item: VODItem?
-    /// Plex: ratingKey for filmen eller episoden (hvor langt du har sett, sendes til Plex)
-    var plex: String?
-    /// episoden (til «Fortsett å se»)
-    var episode: Episode?
-    /// et bredt bilde til «Fortsett å se» (bakgrunnen til filmen eller serien)
-    var image: String?
-
-    /// Et program fra TV-arkivet, fra start.
-    static func archive(_ channel: Channel, _ program: Program, client: XtreamClient, clock: TimeInterval?) -> VODPlay {
-        let key = "arkiv:\(channel.id):\(Int(program.start.timeIntervalSince1970))"
-        return VODPlay(id: key, urls: client.archiveURLs(channel, program, serverClock: clock),
-                       title: nameParts(channel.name).main,
-                       subtitle: "\(hhmm(program.start))–\(hhmm(program.stop))  \(program.title)",
-                       progressKey: key, start: 0)
-    }
-}
-
-/// Spilleren for en film, episode eller et program i TV-arkivet: prøver adressene etter tur (Apples avspiller for
-/// filtypene den kan, ellers VLC, og VLC til slutt om Apples ikke fikk det til), begynner der du slapp, og husker hvor
-/// langt du har sett (hvert tiende sekund og når spilleren lukkes; nær slutten glemmes det, så neste gang begynner fra
-/// start).
-@MainActor
-@Observable
-final class VODPlayerModel {
-    let player = AVPlayer()
-    let play: VODPlay
-    private(set) var error: String?
-    /// VLC spiller (mkv, avi, MPEG-TS …); ellers Apples avspiller
-    private(set) var vlc: VLCEngine?
-    /// filmen er ferdig (VLC): spilleren lukkes
-    private(set) var finished = false
-    /// iPhone/iPad: AVKit sin egen fullskjerm er framme (siden under forsvinner da, men spilleren skal ikke stoppes)
-    @ObservationIgnored var inFullScreen = false
-
-    private let app: AppModel
-    private let attempts: [PlayAttempt]
-    @ObservationIgnored private var index = 0
-    /// forsøket som pågår, har kommet i gang (Apples avspiller)
-    @ObservationIgnored private var started = false
-    @ObservationIgnored private var observation: NSKeyValueObservation?
-    @ObservationIgnored private var notes: [NSObjectProtocol] = []
-    @ObservationIgnored private var saver: Task<Void, Never>?
-    /// Plex: merket som sett (én gang)
-    @ObservationIgnored private var scrobbled = false
-    /// «stoppet» er sendt til Plex (etter det sendes ingenting mer)
-    @ObservationIgnored private var reportedStop = false
-    /// der neste forsøk begynner (der du slapp, eller der forbindelsen ble brutt)
-    @ObservationIgnored private var resumeAt: Double
-    /// brudd midt i (forbindelsen falt): samme adresse prøves igjen der den slapp, to ganger
-    @ObservationIgnored private var breaks = 0
-
-    init(app: AppModel, play: VODPlay) {
-        self.app = app
-        self.play = play
-        attempts = playAttempts(play.urls)
-        resumeAt = play.start
-    }
-
-    func start() {
-        open(0)
-        saver = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(10))
-                guard let self, !Task.isCancelled else { return }
-                self.save()
-            }
-        }
-    }
-
-    private func open(_ i: Int) {
-        guard i < attempts.count else { return }
-        index = i
-        started = false
-        let attempt = attempts[i]
-        stopObserving()
-        switch attempt.engine {
-        case .native:
-            let asset = AVURLAsset(url: attempt.url, options: [AVURLAssetHTTPUserAgentKey: xtreamUserAgent])
-            let item = AVPlayerItem(asset: asset)
-            item.externalMetadata = [Self.meta(.commonIdentifierTitle, play.title),
-                                     Self.meta(.iTunesMetadataTrackSubTitle, play.subtitle)]
-            observation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
-                let status = item.status
-                Task { @MainActor in self?.changed(status, i) }
-            }
-            // brudd midt i filmen (ikke bare at den ikke kom i gang)
-            notes = [NotificationCenter.default.addObserver(
-                forName: AVPlayerItem.failedToPlayToEndTimeNotification, object: item, queue: .main
-            ) { [weak self] _ in
-                Task { @MainActor in self?.failed(i) }
-            }]
-            player.replaceCurrentItem(with: item)
-            player.play()
-        case .vlc:
-            player.replaceCurrentItem(with: nil)
-            let engine = VLCEngine()
-            engine.onFail = { [weak self] in self?.failed(i) }
-            engine.onEnd = { [weak self] in self?.ended() }
-            vlc = engine
-            engine.open(attempt.url, start: resumeAt)
-        }
-    }
-
-    private func stopObserving() {
-        observation?.invalidate()
-        observation = nil
-        for note in notes { NotificationCenter.default.removeObserver(note) }
-        notes = []
-    }
-
-    private func changed(_ status: AVPlayerItem.Status, _ i: Int) {
-        guard i == index else { return }
-        if status == .readyToPlay, !started {
-            started = true
-            if resumeAt > 5 {
-                player.seek(to: CMTime(seconds: resumeAt, preferredTimescale: 600))
-            }
-        } else if status == .failed {
-            failed(i)
-        }
-    }
-
-    /// Hvor langt den har kommet (0 når det som spilles nå, ikke har kommet i gang).
-    private var position: Double {
-        if let vlc { return vlc.started ? vlc.time : 0 }
-        let t = player.currentTime().seconds
-        return started && t.isFinite ? t : 0
-    }
-
-    /// Adressen kunne ikke spilles: den neste, eller forklaringen. Ble forbindelsen brutt midt i, prøves samme adresse
-    /// igjen der den slapp (to ganger), så kommer feilen med «Prøv igjen» (før begynte neste forsøk på nytt fra der
-    /// filmen ble åpnet, og hvor langt du hadde sett, ble skrevet over).
-    private func failed(_ i: Int) {
-        guard i == index, error == nil else { return }
-        let reached = position
-        // samme brudd kan meldes to ganger (status og varsel): bare én gang
-        stopObserving()
-        vlc?.stop()
-        if reached > 5 {
-            resumeAt = reached
-            breaks += 1
-            if breaks <= 2 {
-                vlc = nil
-                Task {
-                    try? await Task.sleep(for: .seconds(2))
-                    guard i == self.index, self.error == nil, !self.closed else { return }
-                    self.open(i)
-                }
-                return
-            }
-            player.pause()
-            error = L("Avspillingen stoppet ved {time}. Prøv igjen for å fortsette der.", ["time": playTime(reached)])
-            return
-        }
-        if i + 1 < attempts.count {
-            vlc = nil
-            open(i + 1)
-        } else {
-            player.pause()
-            error = L(
-                "Kunne ikke spilles: leverandøren svarte ikke med filen, eller alle tilkoblingene dine er i bruk.")
-        }
-    }
-
-    /// «Prøv igjen» etter en feil: fra der du slapp, med den første adressen.
-    func retry() {
-        guard error != nil else { return }
-        error = nil
-        breaks = 0
-        vlc?.stop()
-        vlc = nil
-        open(0)
-    }
-
-    /// lukket (stop er kalt)
-    @ObservationIgnored private var closed = false
-
-    private func ended() {
-        save(final: true)
-        saver?.cancel()
-        saver = nil
-        finished = true
-    }
-
-    /// Husker hvor langt du har sett (på enheten, og hos Plex for filmer og serier derfra). [final]: spilleren lukkes.
-    func save(final: Bool = false) {
-        let t: Double, duration: Double, paused: Bool
-        if let vlc {
-            guard vlc.started else { return }
-            t = vlc.time
-            duration = vlc.length
-            paused = !vlc.isPlaying
-        } else {
-            guard started else { return }
-            t = player.currentTime().seconds
-            duration = player.currentItem?.duration.seconds ?? 0
-            paused = player.rate == 0
-        }
-        guard t.isFinite, t > 30, !reportedStop else { return }
-        if final { reportedStop = true }
-        let done = duration.isFinite && duration > 0 && duration - t < 120
-        if done {
-            app.setProgress(play.progressKey, nil)
-            // Plex husker selv hva som er sett (og der kan det merkes som usett igjen)
-            if play.plex == nil { app.setFinished(play.progressKey) }
-            // en ferdig film tas ut av «Fortsett å se»; en serie står (uten episoden: siden viser den neste)
-            if let item = play.item, !item.isPlex {
-                if item.kind == .movies {
-                    app.forgetContinue(item)
-                } else {
-                    app.rememberContinue(VODResume(item: item, image: play.image))
-                }
-            }
-        } else {
-            app.setProgress(play.progressKey, t)
-            if let item = play.item, !item.isPlex {
-                let progress = duration.isFinite && duration > 0 ? min(1, t / duration) : 0
-                app.rememberContinue(VODResume(item: item, episode: play.episode, progress: progress,
-                                               image: play.image))
-            }
-        }
-        if let key = play.plex, !(scrobbled && final) {
-            let state: PlexClient.PlayState = final ? .stopped : (paused ? .paused : .playing)
-            let markWatched = final && done && !scrobbled
-            if markWatched { scrobbled = true }
-            app.plex.report(key, time: t, duration: duration.isFinite ? duration : 0, state: state,
-                            finished: markWatched)
-        }
-    }
-
-    func stop() {
-        closed = true
-        save(final: true)
-        saver?.cancel()
-        saver = nil
-        stopObserving()
-        player.pause()
-        player.replaceCurrentItem(with: nil)
-        vlc?.stop()
-    }
-
-    private static func meta(_ id: AVMetadataIdentifier, _ value: String) -> AVMetadataItem {
-        let item = AVMutableMetadataItem()
-        item.identifier = id
-        item.value = value as NSString
-        item.extendedLanguageTag = "und"
-        return item
-    }
-}
-
-/// Filmen eller episoden i fullskjerm (Apple TV: Menu lukker) eller i et ark (iPhone og iPad: dra ned for å lukke),
-/// med Apples avspiller eller VLC.
-struct VODPlayerView: View {
-    @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
-    let play: VODPlay
-    @State private var model: VODPlayerModel?
-    #if os(iOS)
-    /// telefonen sto liggende før spilleren ble åpnet (da står den slik etterpå også)
-    @State private var wasLandscape = false
-    /// legger telefonen ned når arket har kommet fram (avbrytes om spilleren lukkes før det)
-    @State private var turn: Task<Void, Never>?
-    #endif
-
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            if let model {
-                if let error = model.error {
-                    VStack(spacing: 24) {
-                        Text(play.title)
-                            .font(.system(size: Metrics.detailTitle, weight: .bold))
-                            .foregroundStyle(Theme.ink)
-                        Text(error)
-                            .font(.system(size: Metrics.detailText))
-                            .foregroundStyle(Theme.muted)
-                            .multilineTextAlignment(.center)
-                        HStack(spacing: 30) {
-                            Button(L("Prøv igjen")) { model.retry() }
-                                .accessibilityIdentifier("vod-igjen")
-                            Button(L("Lukk")) { dismiss() }
-                        }
-                    }
-                    .padding(40)
-                } else if let vlc = model.vlc {
-                    VLCPlayerScreen(engine: vlc, title: play.title, subtitle: play.subtitle) { dismiss() }
-                } else {
-                    VODPlayerController(player: model.player) { model.inFullScreen = $0 }
-                        .ignoresSafeArea()
-                }
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(model?.error == nil ? "vod-spiller" : "vod-feil")
-        .onAppear {
-            guard model == nil else { return }
-            #if os(iOS)
-            // iPhone: liggende, som i Apple TV-appen (også når skjermretningen er låst); når arket har kommet fram
-            // (mens det kommer inn, avvises det)
-            wasLandscape = Landscape.isLandscape
-            turn = Task {
-                try? await Task.sleep(for: .milliseconds(600))
-                guard !Task.isCancelled else { return }
-                Landscape.set(true)
-            }
-            #endif
-            let player = VODPlayerModel(app: app, play: play)
-            model = player
-            player.start()
-        }
-        .onChange(of: model?.finished ?? false) { _, done in
-            if done { dismiss() }
-        }
-        .onDisappear {
-            // ikke når AVKit sin egen fullskjerm legger seg over (da forsvinner siden under, men det spilles videre)
-            guard model?.inFullScreen != true else { return }
-            model?.stop()
-            #if os(iOS)
-            turn?.cancel()
-            if !wasLandscape {
-                Task {
-                    try? await Task.sleep(for: .milliseconds(400))
-                    Landscape.set(false)
-                }
-            }
-            #endif
-        }
-    }
-}
-
-struct VODPlayerController: UIViewControllerRepresentable {
-    let player: AVPlayer
-    /// AVKit sin fullskjerm kommer eller går (iPhone og iPad)
-    var fullScreen: (Bool) -> Void = { _ in }
-
-    func makeCoordinator() -> FullScreenWatcher { FullScreenWatcher() }
-
-    func makeUIViewController(context: Context) -> AVPlayerViewController {
-        let controller = AVPlayerViewController()
-        controller.player = player
-        #if os(iOS)
-        controller.allowsPictureInPicturePlayback = true
-        controller.delegate = context.coordinator
-        #endif
-        context.coordinator.changed = fullScreen
-        return controller
-    }
-
-    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
-        context.coordinator.changed = fullScreen
-    }
-}
-
-/// Sier fra når AVKit sin egen fullskjerm kommer og går.
-final class FullScreenWatcher: NSObject, AVPlayerViewControllerDelegate {
-    var changed: (Bool) -> Void = { _ in }
-
-    #if os(iOS)
-    func playerViewController(_ playerViewController: AVPlayerViewController,
-                              willBeginFullScreenPresentationWithAnimationCoordinator
-                              coordinator: UIViewControllerTransitionCoordinator) {
-        changed(true)
-    }
-
-    func playerViewController(_ playerViewController: AVPlayerViewController,
-                              willEndFullScreenPresentationWithAnimationCoordinator
-                              coordinator: UIViewControllerTransitionCoordinator) {
-        coordinator.animate(alongsideTransition: nil) { [weak self] context in
-            if !context.isCancelled { self?.changed(false) }
-        }
-    }
-    #endif
 }

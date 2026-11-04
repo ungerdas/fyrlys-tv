@@ -490,9 +490,10 @@ final class AppModel {
         return defaults.bool(forKey: "ferdig@\(login.id)@\(key)")
     }
 
-    func setFinished(_ key: String) {
+    func setFinished(_ key: String, _ finished: Bool = true) {
         guard let login else { return }
-        defaults.set(true, forKey: "ferdig@\(login.id)@\(key)")
+        let k = "ferdig@\(login.id)@\(key)"
+        if finished { defaults.set(true, forKey: k) } else { defaults.removeObject(forKey: k) }
     }
 
     /// nil: ferdig sett eller nesten ingenting sett (begynn fra start neste gang)

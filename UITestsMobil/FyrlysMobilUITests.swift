@@ -435,6 +435,93 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("30-plex-episode")
     }
 
+    /// Venter til [condition] er sann (hvert halve sekund).
+    func until(_ timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
+        let end = Date().addingTimeInterval(timeout)
+        while Date() < end {
+            if condition() { return true }
+            wait(0.5)
+        }
+        return condition()
+    }
+
+    /// Spilleren spiller [key] (filmen eller episoden, «plex:2103»; verdien på `vod-spiller` i testene).
+    func playing(_ player: XCUIElement, _ key: String, timeout: TimeInterval) -> Bool {
+        until(timeout) { player.exists && (player.value as? String) == key }
+    }
+
+    /// Sekundene i «1:05» (tiden i VLC-spilleren).
+    func seconds(_ label: String) -> Int {
+        label.split(separator: ":").reduce(0) { $0 * 60 + (Int($1) ?? 0) }
+    }
+
+    /// Episoder fra Plex, fra «Fortsett å se»: «Neste episode» i rulleteksten til slutt (markørene fra Plex), «Hopp
+    /// over introen», forrige og neste episode i kontrollene, og den neste spilles når en episode er ferdig, også i
+    /// neste sesong.
+    func test22PlexEpisoder() {
+        let app = launch("plex-series")
+        let resume = find(app, "fortsett-2001")
+        if !resume.waitForExistence(timeout: 40) {
+            dumpScreen(app, "«Fortsett å se» fra Plex kom ikke", shotName: "35-plex-fortsett-mangler")
+        }
+        XCTAssertTrue(resume.exists, "«Fortsett å se» fra Plex kom ikke")
+        resume.tap()
+        let player = find(app, "vod-spiller")
+        if !player.waitForExistence(timeout: 10), resume.exists { resume.tap() }
+        XCTAssertTrue(player.waitForExistence(timeout: 20), "spilleren kom ikke")
+        XCTAssertTrue(playing(player, "plex:2102", timeout: 20), "episoden kom ikke: \(player.value ?? "")")
+        let skip = find(app, "hopp-over")
+        XCTAssertTrue(skip.waitForExistence(timeout: 30), "knappen i rulleteksten kom ikke")
+        XCTAssertEqual(skip.label, "Neste episode")
+        shot("35-plex-rulletekst")
+        skip.tap()
+        XCTAssertTrue(playing(player, "plex:2103", timeout: 20), "den neste episoden kom ikke: \(player.value ?? "")")
+        XCTAssertTrue(until(25) { skip.exists && skip.label == "Hopp over introen" }, "«Hopp over introen» kom ikke")
+        shot("36-plex-intro")
+        skip.tap()
+        let time = find(app, "vod-tid")
+        XCTAssertTrue(until(10) { time.exists && seconds(time.label) >= 9 }, "hoppet ikke over introen: \(time.label)")
+        XCTAssertTrue(find(app, "forrige-episode").exists, "«Forrige episode» mangler")
+        XCTAssertTrue(find(app, "neste-episode").exists, "«Neste episode» mangler")
+        XCTAssertTrue(find(app, "neste-om").waitForExistence(timeout: 40), "«Neste: …» kom ikke")
+        shot("37-plex-neste")
+        XCTAssertTrue(playing(player, "plex:2201", timeout: 20), "neste sesong kom ikke: \(player.value ?? "")")
+        let close = find(app, "lukk-vod")
+        if close.waitForExistence(timeout: 10) { close.tap() }
+        XCTAssertTrue(gone(player, timeout: 10), "krysset lukket ikke spilleren")
+    }
+
+    /// Plex: «Merk som sett» eller «Merk som ikke sett» i menyen på siden for en film (merkes på serveren), og «Mer
+    /// som dette».
+    func test23PlexSett() {
+        let app = launch("plex")
+        if !find(app, "rad-1002").waitForExistence(timeout: 40) {
+            dumpScreen(app, "radene fra Plex kom ikke", shotName: "38-plex-mangler")
+        }
+        XCTAssertTrue(openPage(app, "rad-1002", then: "vod-mer", timeout: 15), "siden for filmen kom ikke")
+        XCTAssertTrue(find(app, "lik-1001").waitForExistence(timeout: 10), "«Mer som dette» mangler")
+        // valget i menyen (id-en kommer ikke alltid med inn i menyen: teksten)
+        let labels = ["Merk som sett", "Merk som ikke sett"]
+        let item = app.buttons.matching(NSPredicate(format: "label IN %@", labels)).firstMatch
+        find(app, "vod-mer").tap()
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "«Merk som sett» mangler i menyen")
+        let before = item.label
+        shot("38-plex-meny")
+        item.tap()
+        var after = before
+        for _ in 0..<4 where after == before {
+            wait(3)
+            find(app, "vod-mer").tap()
+            guard item.waitForExistence(timeout: 3) else { continue }
+            after = item.label
+            // lukk menyen (trykk på tittelen øverst)
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
+        }
+        XCTAssertNotEqual(after, before, "menyen byttet ikke")
+        wait(1)
+        shot("38-plex-sett")
+    }
+
     /// Egne strømmer (iPhone: arket fra Konto, iPad: Innstillinger): kanalene kjennes igjen ut fra navnet.
     func test21EgneStrommer() {
         let streams = "Fjordkanalen = http://127.0.0.1:8899/egen/finnes-ikke.m3u8\n"
