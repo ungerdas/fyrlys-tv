@@ -684,6 +684,27 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertFalse(multiview.exists, "Menu lukket ikke multiview")
     }
 
+    /// Pause og tilbakespoling i direktesending: en ekte direktesending i HLS hos den falske leverandøren (som egen strøm
+    /// for Fjordkanalen) spilles fra bufferet på Apple TV-en, også etter en pause.
+    func test31Tilbakespoling() {
+        let app = launch("player", extra: ["FYRLYS_TEST_STREAMS": "Fjordkanalen = \(server)/hls/1/index.m3u8"])
+        let player = find(app, "spiller")
+        XCTAssertTrue(player.waitForExistence(timeout: 30), "spilleren kom ikke")
+        let tried = { (player.value as? String) ?? "" }
+        for _ in 0..<20 where !tried().contains("/shift/") { wait(1) }
+        XCTAssertTrue(tried().contains("/hls/1/index.m3u8"), "den egne strømmen ble ikke brukt: \(tried())")
+        XCTAssertTrue(tried().contains("/shift/"), "direktesendingen ble ikke spilt fra bufferet: \(tried())")
+        wait(8)
+        XCTAssertFalse(find(app, "spiller-feil").exists, "direktesendingen fra bufferet kunne ikke spilles")
+        remote.press(.select) // pause: kontrollene med tidslinja
+        wait(8)
+        shot("57-tilbakespoling-pause")
+        remote.press(.select)
+        wait(6)
+        XCTAssertFalse(find(app, "spiller-feil").exists, "direktesendingen stoppet etter pausen")
+        XCTAssertTrue(player.exists, "spilleren ble borte etter pausen")
+    }
+
     /// Søket i filmene på Apple TV (øverst i sidemenyen).
     func test26FilmSok() {
         let app = launch("movies")

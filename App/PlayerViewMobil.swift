@@ -72,9 +72,11 @@ struct PlayerView: View {
         ZStack {
             Color.black
             VideoSurface(player: model.player,
+                         gravity: model.pictureFormat.gravity,
                          dragged: { drag = max(0, $0) },
                          released: { finishDrag($0, velocity: $1, full: full) },
                          fullScreen: { model.inFullScreen = $0 })
+                .modifier(ForcedAspect(ratio: model.pictureFormat.aspectRatio))
             if let error = model.error {
                 PlayerErrorMobil(model: model, message: error) { dismiss() }
             }
@@ -100,6 +102,8 @@ struct PlayerView: View {
 /// AVPlayerViewController i siden (ikke fullskjerm), med bilde-i-bilde, og dra ned for å lukke.
 private struct VideoSurface: UIViewControllerRepresentable {
     let player: AVPlayer
+    /// bildeformatet (fylt, strukket …)
+    var gravity: AVLayerVideoGravity = .resizeAspect
     /// mens du drar nedover: hvor langt (punkter)
     let dragged: (CGFloat) -> Void
     /// når du slipper: hvor langt og hvor fort (punkter per sekund)
@@ -116,7 +120,7 @@ private struct VideoSurface: UIViewControllerRepresentable {
         controller.canStartPictureInPictureAutomaticallyFromInline = true
         controller.entersFullScreenWhenPlaybackBegins = false
         controller.exitsFullScreenWhenPlaybackEnds = false
-        controller.videoGravity = .resizeAspect
+        controller.videoGravity = gravity
         let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(DragDown.pan(_:)))
         pan.delegate = context.coordinator
         pan.cancelsTouchesInView = false
@@ -130,6 +134,7 @@ private struct VideoSurface: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
         if controller.player !== player { controller.player = player }
+        if controller.videoGravity != gravity { controller.videoGravity = gravity }
         context.coordinator.dragged = dragged
         context.coordinator.released = released
         context.coordinator.fullScreen = fullScreen
@@ -189,6 +194,8 @@ private struct PlayerPanel: View {
     @Environment(AppModel.self) private var app
     let model: PlayerModel
     let close: () -> Void
+    /// strøminfoen under knappene
+    @State private var showInfo = false
 
     var body: some View {
         let channel = model.channel
@@ -257,9 +264,22 @@ private struct PlayerPanel: View {
                 if model.canMultiview {
                     panelButton(L("Multiview"), "rectangle.split.2x2", id: "multiview-knapp") { model.openMultiview() }
                 }
+                more
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
+            if showInfo {
+                TimelineView(.periodic(from: .now, by: 2)) { _ in
+                    let line = model.streamInfo().line
+                    Text(verbatim: line.isEmpty ? "…" : line)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(Theme.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 10)
+                        .accessibilityIdentifier("strominfo")
+                }
+            }
             Rectangle()
                 .fill(Theme.line)
                 .frame(height: 1)
@@ -268,6 +288,36 @@ private struct PlayerPanel: View {
         .background(Theme.bg)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spiller")
+        // UI-testene: adressene som er prøvd
+        .accessibilityValue(TestSupport.isActive ? Text(verbatim: model.tried.joined(separator: " ")) : Text(""))
+    }
+
+    /// «Mer»: bildeformatet for kanalen og strøminfoen.
+    private var more: some View {
+        Menu {
+            Picker(selection: Binding(get: { model.pictureFormat }, set: { model.setPictureFormat($0) })) {
+                ForEach(PictureFormat.allCases, id: \.self) { format in
+                    Text(format.title).tag(format)
+                }
+            } label: {
+                Label(L("Bildeformat"), systemImage: "aspectratio")
+            }
+            .pickerStyle(.menu)
+            Button {
+                showInfo.toggle()
+            } label: {
+                Label(showInfo ? L("Skjul strøminfo") : L("Vis strøminfo"), systemImage: "info.circle")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 44)
+                .padding(.vertical, 10)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.surface2))
+        }
+        .accessibilityIdentifier("spiller-mer")
+        .accessibilityLabel(L("Mer"))
     }
 
     private func panelButton(_ title: String, _ icon: String, id: String, highlighted: Bool = false,

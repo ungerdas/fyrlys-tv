@@ -25,6 +25,14 @@ struct StreamSettings: View {
                 .frame(maxWidth: 760, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
             Button {
+                model.liveShift.toggle()
+            } label: {
+                Label(model.liveShift ? L("Pause og spoling i direktesending: på")
+                      : L("Pause og spoling i direktesending: av"), systemImage: "gobackward")
+                    .frame(minWidth: 520, alignment: .leading)
+            }
+            .accessibilityIdentifier("tilbakespoling")
+            Button {
                 model.useBuiltInStreams.toggle()
             } label: {
                 Label(model.useBuiltInStreams ? L("NRK direkte: på") : L("NRK direkte: av"),
@@ -54,6 +62,16 @@ struct StreamSettings: View {
             }
         }
         #else
+        Section {
+            Toggle(L("Pause og spoling i direktesending"),
+                   isOn: Binding(get: { model.liveShift }, set: { model.liveShift = $0 }))
+                .accessibilityIdentifier("tilbakespoling")
+        } header: {
+            Text(L("Direktesending"))
+        } footer: {
+            Text(L("Fyrlys tar vare på den siste halvtimen av kanalen du ser på, så du kan pause og spole tilbake. Slå det av hvis en kanal ikke vil spille."))
+        }
+        .listRowBackground(Theme.surface)
         Section {
             Toggle(L("NRK1, NRK2, NRK3 og NRK Super direkte"),
                    isOn: Binding(get: { model.useBuiltInStreams }, set: { model.useBuiltInStreams = $0 }))

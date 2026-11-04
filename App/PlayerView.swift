@@ -18,8 +18,10 @@ struct PlayerView: View {
                 if let error = model.error {
                     PlayerError(model: model, message: error) { dismiss() }
                 } else {
+                    let format = model.pictureFormat
                     PlayerController(model: model, channelId: model.channel.id, favorite: model.isFavorite,
-                                     startOver: model.canStartOver)
+                                     startOver: model.canStartOver, format: format)
+                        .modifier(ForcedAspect(ratio: format.aspectRatio))
                         .ignoresSafeArea()
                 }
             }
@@ -87,6 +89,8 @@ struct PlayerController: UIViewControllerRepresentable {
     let favorite: Bool
     /// «Se fra start» i kontrollene (kanalen har arkiv, og det er kjent hva som går nå)
     let startOver: Bool
+    /// bildeformatet for kanalen
+    let format: PictureFormat
 
     func makeCoordinator() -> Coordinator { Coordinator(model: model) }
 
@@ -94,12 +98,14 @@ struct PlayerController: UIViewControllerRepresentable {
         let controller = AVPlayerViewController()
         controller.player = model.player
         controller.delegate = context.coordinator
-        controller.customInfoViewControllers = [context.coordinator.channels]
+        controller.customInfoViewControllers = [context.coordinator.channels, context.coordinator.info]
+        controller.videoGravity = format.gravity
         updateButtons(controller)
         return controller
     }
 
     func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
+        if controller.videoGravity != format.gravity { controller.videoGravity = format.gravity }
         updateButtons(controller)
     }
 
@@ -117,6 +123,14 @@ struct PlayerController: UIViewControllerRepresentable {
                 MainActor.assumeIsolated { model.openMultiview() }
             })
         }
+        // bildeformatet for kanalen (huskes)
+        let current = format
+        items.append(UIMenu(title: L("Bildeformat"), image: UIImage(systemName: "aspectratio"),
+                            children: PictureFormat.allCases.map { choice in
+            UIAction(title: choice.title, subtitle: choice.detail, state: choice == current ? .on : .off) { _ in
+                MainActor.assumeIsolated { model.setPictureFormat(choice) }
+            }
+        }))
         controller.transportBarCustomMenuItems = items + [
             UIAction(title: L("Forrige kanal"), image: UIImage(systemName: "chevron.down")) { _ in
                 MainActor.assumeIsolated { model.step(-1) }
@@ -135,12 +149,17 @@ struct PlayerController: UIViewControllerRepresentable {
     final class Coordinator: NSObject, AVPlayerViewControllerDelegate {
         let model: PlayerModel
         let channels: UIHostingController<ChannelStrip>
+        /// strøminfoen (feltet ved siden av «Kanaler»)
+        let info: UIHostingController<StreamInfoPanel>
 
         init(model: PlayerModel) {
             self.model = model
             channels = UIHostingController(rootView: ChannelStrip(model: model))
             channels.title = L("Kanaler")
             channels.preferredContentSize = CGSize(width: 1920, height: 330)
+            info = UIHostingController(rootView: StreamInfoPanel(model: model))
+            info.title = L("Strøminfo")
+            info.preferredContentSize = CGSize(width: 1920, height: 200)
             super.init()
         }
 
@@ -172,6 +191,30 @@ struct PlayerController: UIViewControllerRepresentable {
             let controller = UIHostingController(rootView: ChannelPreview(model: model, channel: model.neighbor(delta)))
             controller.view.backgroundColor = .black
             return controller
+        }
+    }
+}
+
+/// Strøminfoen i spilleren (sveip ned, «Strøminfo»): oppløsningen, kodekene, bilder i sekundet, bitraten og tapte
+/// bilder, og bildeformatet. Oppdateres hvert annet sekund.
+struct StreamInfoPanel: View {
+    let model: PlayerModel
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 2)) { _ in
+            let line = model.streamInfo().line
+            VStack(alignment: .leading, spacing: 14) {
+                Text(verbatim: line.isEmpty ? "…" : line)
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityIdentifier("strominfo")
+                Text(L("Bildeformat: {name}", ["name": model.pictureFormat.title]))
+                    .font(.system(size: 24))
+                    .foregroundStyle(Theme.muted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 80)
+            .padding(.vertical, 30)
         }
     }
 }

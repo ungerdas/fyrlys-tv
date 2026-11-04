@@ -625,6 +625,53 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertFalse(multiview.exists, "krysset lukket ikke multiview")
     }
 
+    /// «Mer» i spilleren: strøminfoen (oppløsningen og bilder i sekundet fra AVPlayer) og bildeformatet for kanalen.
+    func test30Strominfo() {
+        let app = launch("player")
+        XCTAssertTrue(find(app, "spiller").waitForExistence(timeout: 30), "spilleren kom ikke")
+        let more = find(app, "spiller-mer")
+        XCTAssertTrue(more.waitForExistence(timeout: 10), "«Mer» mangler i spilleren")
+        wait(8)
+        more.tap()
+        let show = app.buttons["Vis strøminfo"]
+        XCTAssertTrue(show.waitForExistence(timeout: 5), "«Vis strøminfo» mangler i menyen")
+        show.tap()
+        let info = find(app, "strominfo")
+        XCTAssertTrue(info.waitForExistence(timeout: 5), "strøminfoen kom ikke")
+        var known = false
+        for _ in 0..<15 {
+            if info.label.contains("×") || info.label.contains("fps") || info.label.contains("bit/s") {
+                known = true
+                break
+            }
+            wait(1)
+        }
+        XCTAssertTrue(known, "strøminfoen sier ingenting om strømmen: \(info.label)")
+        more.tap()
+        let formats = app.buttons["Bildeformat"]
+        XCTAssertTrue(formats.waitForExistence(timeout: 5), "«Bildeformat» mangler i menyen")
+        formats.tap()
+        let fill = app.buttons["Fyll skjermen"]
+        XCTAssertTrue(fill.waitForExistence(timeout: 5), "bildeformatene mangler")
+        fill.tap()
+        wait(2)
+        shot("51-strominfo")
+    }
+
+    /// Pause og tilbakespoling i direktesending: en ekte direktesending i HLS hos den falske leverandøren (som egen strøm
+    /// for Fjordkanalen) spilles fra bufferet på enheten.
+    func test31Tilbakespoling() {
+        let app = launch("player", extra: ["FYRLYS_TEST_STREAMS": "Fjordkanalen = \(server)/hls/1/index.m3u8"])
+        let player = find(app, "spiller")
+        XCTAssertTrue(player.waitForExistence(timeout: 30), "spilleren kom ikke")
+        let tried = { (player.value as? String) ?? "" }
+        for _ in 0..<20 where !tried().contains("/shift/") { wait(1) }
+        XCTAssertTrue(tried().contains("/shift/"), "direktesendingen ble ikke spilt fra bufferet: \(tried())")
+        wait(10)
+        XCTAssertFalse(find(app, "spiller-feil").exists, "direktesendingen fra bufferet kunne ikke spilles")
+        shot("52-tilbakespoling")
+    }
+
     func test27NavnOgFeilrapport() {
         let app = launch("settings")
         XCTAssertTrue(find(app, "innstillinger").waitForExistence(timeout: 30))

@@ -34,6 +34,9 @@ final class AppModel {
     private(set) var libraryVersion = 0
     /// telles opp når «sist sett» endres (for seg: et kanalbytte skal ikke tegne alle kortene og søket på nytt)
     private(set) var recentVersion = 0
+    /// bildeformatene per kanal, og en teller når de endres
+    @ObservationIgnored private var pictureFormats = PictureFormats()
+    private(set) var pictureVersion = 0
     /// da kanallista sist ble hentet (hentes igjen når appen kommer fram etter noen timer)
     @ObservationIgnored private var listsFetchedAt: Date?
     @ObservationIgnored private var library: Library?
@@ -101,6 +104,7 @@ final class AppModel {
             vod.reconnect = { [weak self] in self?.plex.retry() }
         }
         plex.start()
+        LiveShift.cleanUp()
         loadStreams()
         loadHiddenLibraries()
         if TestSupport.isActive {
@@ -270,6 +274,8 @@ final class AppModel {
         listsFetchedAt = nil
         library = Library(store: store, loginId: login.id)
         libraryVersion += 1
+        pictureFormats = PictureFormats(defaults.dictionary(forKey: Self.pictureKey(login)) as? [String: String] ?? [:])
+        pictureVersion += 1
         programs.reset(source: source)
         refreshVOD()
         clock = nil
@@ -515,6 +521,16 @@ final class AppModel {
     static let streamsKey = "egne-strommer"
     /// linjene som er lagt inn
     private(set) var streamLines: [String] = []
+    /// pause og tilbakespoling i direktesending (bufferet på enheten); på, men kan slås av i innstillingene
+    var liveShift: Bool {
+        get { liveShiftOn }
+        set {
+            liveShiftOn = newValue
+            defaults.set(!newValue, forKey: "tilbakespoling-av")
+        }
+    }
+    private var liveShiftOn = !TestSupport.defaults.bool(forKey: "tilbakespoling-av")
+
     /// de innebygde (NRK direkte) brukes (kan slås av i innstillingene)
     var useBuiltInStreams: Bool {
         get { builtInOn }
@@ -768,6 +784,23 @@ final class AppModel {
         guard library?.recent.first != channel.id else { return }
         library?.addRecent(channel.id)
         recentVersion += 1
+    }
+
+    // ── bildeformatet per kanal (på enheten, som i Fyrlys for Windows) ──
+
+    static func pictureKey(_ login: Login) -> String { "bildeformat@\(login.id)" }
+
+    func pictureFormat(for channel: Channel) -> PictureFormat {
+        _ = pictureVersion
+        return pictureFormats.format(for: channel.id)
+    }
+
+    func setPictureFormat(_ format: PictureFormat, for channel: Channel) {
+        guard let login, pictureFormats.format(for: channel.id) != format else { return }
+        pictureFormats.set(format, for: channel.id)
+        defaults.set(pictureFormats.stored, forKey: Self.pictureKey(login))
+        pictureVersion += 1
+        AppLog.shared.add("Bildeformat: \(format.rawValue) for kanal \(channel.id)")
     }
 
     // ── favorittkategorier («Dine kategorier») ──

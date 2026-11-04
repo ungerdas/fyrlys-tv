@@ -380,6 +380,28 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   lukkes først, `showPendingReplay` viser den), `multiview-knapp` på iPhone/iPad. Id-ene `multiview`,
   `multiview-bilde-<n>`. Testskjermen `multiview` (M3U-lista som innlogging nummer to, `TestSupport.extraLogins`);
   testene `test30Multiview` (Apple TV) og `test29Multiview` (iPhone og iPad).
+- **TV-spilleren fra 0.1.30** (pakken «TV-spilleren» fra Windows-lista; hvordan Windows gjør det: mpv tar vare på det
+  siste selv, `lib/ui/player_page.dart`, `lib/ui/playback.dart`, `lib/core/picture.dart`): pause og tilbakespoling i
+  direktesending med et buffer på enheten: `Core/.../LiveShift.swift` (`parseHLS`: hovedliste med varianter (lyden for
+  seg = `separateAudio`) eller medieliste med bitene, nøkler og MAP med hel adresse; `chooseVariant`; `ShiftBuffer`: de
+  tre siste bitene ved start, så de nye, brudd ved hull og når nummeret går tilbake, det eldste fjernes over 30 min
+  eller `maxBytes` (aldri under tre), `playlist()` med egne nummer og DISCONTINUITY-SEQUENCE). `App/LiveShift.swift`:
+  `LiveShiftSession` (actor: `start()` henter to biter før avspilleren får lista, `run()` henter lista hver halve
+  bitlengde, hver tredje feil fra begynnelsen, etter 30 feil slutt; bitene i Caches/tilbakespoling/<id>, tømt ved
+  start), `LiveShift` (én sending om gangen, `prepare(url)` gir adressen på enheten, eller nil = spill direkte; samme
+  adresse fortsetter etter et nytt forsøk), `ShiftServer` (NWListener bare på 127.0.0.1, GET/HEAD
+  `/shift/<id>/index.m3u8` og bitene, ett svar per tilkobling). `PlayerModel.open` bruker det for .m3u8 når
+  `AppModel.liveShift` (`tilbakespoling-av`; bryteren `tilbakespoling` i `StreamSettings`), `sourceURL` for
+  forklaringen. AVKit viser selv tidslinja og «direkte». Bildeformat per kanal: `PictureFormat` (original, zoom,
+  stretch, wide 16:9, classic 4:3) og `PictureFormats` (Core), `AppModel.pictureFormat(for:)`/`setPictureFormat`
+  (`bildeformat@<innlogging>`, bare på enheten), `PictureFormat.gravity` og `ForcedAspect` (`Theme.swift`); Apple TV:
+  UIMenu «Bildeformat» i `transportBarCustomMenuItems`, iOS: «Mer» (`spiller-mer`) med Picker. Strøminfo: `StreamInfo`
+  (Core: «1920×1080 · H.264 · 50 fps · 8,1 Mbit/s · AAC stereo · 3 tapte bilder», `codecName`, `bitrateText`,
+  `channelLayout`, `fourCCText`), `PlayerModel.streamInfo()` (presentationSize, accessLog, sporene); Apple TV: feltet
+  «Strøminfo» i `customInfoViewControllers` (`StreamInfoPanel`), iOS: «Vis strøminfo» (`strominfo`). Lydforsinkelse
+  finnes ikke (AVPlayer kan det ikke). Falsk leverandør: `/hls/<id>/index.m3u8` er en ekte direktesending (bitene i
+  `tools/testdata/direkte`, i ring med brudd); testene `test31Tilbakespoling` (Apple TV, iPhone; som egen strøm for
+  Fjordkanalen) og `test30Strominfo` (iPhone).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og

@@ -1,3 +1,4 @@
+import AVFoundation
 import FyrlysCore
 import SwiftUI
 #if os(iOS)
@@ -244,5 +245,31 @@ extension Color {
         }
         let m = lightness - c / 2
         self.init(red: r + m, green: g + m, blue: b + m)
+    }
+}
+
+/// Bildeformatet i spilleren (`PictureFormat` i kjernen): hvordan AVKit legger bildet i rammen.
+extension PictureFormat {
+    var gravity: AVLayerVideoGravity {
+        switch self {
+        case .original: return .resizeAspect
+        case .zoom: return .resizeAspectFill
+        case .stretch, .wide, .classic: return .resize
+        }
+    }
+}
+
+/// 16:9 eller 4:3 tvunget: bildet strekkes i en ramme med det forholdet (ellers som det er).
+struct ForcedAspect: ViewModifier {
+    let ratio: Double?
+
+    func body(content: Content) -> some View {
+        if let ratio {
+            content
+                .aspectRatio(CGFloat(ratio), contentMode: .fit)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            content
+        }
     }
 }

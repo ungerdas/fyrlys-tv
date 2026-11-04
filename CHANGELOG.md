@@ -1,5 +1,16 @@
 # Endringer
 
+## v0.1.30
+
+- Pause og spol tilbake i direktesending (som i Fyrlys for Windows): Fyrlys tar vare på den siste halvtimen av
+  kanalen du ser på, så du kan pause og spole tilbake med Apples vanlige kontroller, og «direkte» tar deg tilbake.
+  Kan slås av under «Direktesending» i innstillingene (på iPhone under Konto, Egne strømmer) hvis en kanal ikke vil
+  spille. Kanaler som ikke kan tas vare på (lyden for seg, ikke HLS), spilles som før.
+- Bildeformat per kanal: «Original», «Fyll skjermen», «Strekk», 16:9 og 4:3 (for kanaler som sender feil format). I
+  kontrollene på Apple TV, og under «Mer» (…) i spilleren på iPhone og iPad. Huskes for hver kanal.
+- Strøminfo: oppløsningen, kodekene, bilder i sekundet, bitraten og tapte bilder. På Apple TV ved siden av «Kanaler»
+  når du sveiper ned i spilleren, på iPhone og iPad under «Mer».
+
 ## v0.1.29
 
 - Multiview: opptil fire kanaler samtidig (som i Fyrlys for Windows), én tilkobling per bilde. Med to innlogginger

@@ -7,6 +7,9 @@
 Innlogging test/test. player_api.php svarer med abonnement, kategorier, kanaler og programinfo (base64, rundt nå);
 /live/test/test/<id>.m3u8 sendes videre til Apples eksempelstrøm, unntatt kanal 90, som svarer 404.
 
+Direktesending: /hls/<id>/index.m3u8 er en ekte direktesending i HLS (de fire siste bitene på to sekunder, fra
+tools/testdata/direkte, i ring med et brudd hver gang de begynner på nytt), for pause og tilbakespoling i appen.
+
 M3U: /liste.m3u er en M3U-liste (oppdiktede kanaler i egne grupper, en uten gruppe, en film som hoppes over) med
 TV-guiden /guide.xml.gz (XMLTV, gzip, programmene heter «… fra guiden»); /strom/<id>.m3u8 sendes videre til
 eksempelstrømmen. /get.php?username=test&password=test er Xtream-lista som M3U (en Xtream-lenke).
@@ -395,6 +398,13 @@ class Handler(BaseHTTPRequestHandler):
             if q.get("username") != USER or q.get("password") != PASSWORD:
                 return self.send(401, b"", "text/plain")
             return self.send(200, xtream_m3u(host), "audio/x-mpegurl")
+        if len(parts) == 3 and parts[0] == "hls":
+            if parts[2] == "index.m3u8":
+                return self.send(200, live_playlist(time.time()), "application/vnd.apple.mpegurl")
+            n = parts[2].split(".")[0]
+            if parts[2].endswith(".ts") and n.lstrip("-").isdigit():
+                return self.send(200, LIVE[int(n) % len(LIVE)], "video/mp2t")
+            return self.send(404, b"", "text/plain")
         if len(parts) == 2 and parts[0] == "strom":
             cid = parts[1].split(".")[0]
             if parts[1].endswith(".m3u8") and cid.isdigit() and int(cid) in CATEGORY_OF and cid != "90":
@@ -438,6 +448,25 @@ CATEGORY_OF = {}
 
 with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata", "stormnatt.mkv"), "rb") as f:
     MKV = f.read()
+
+LIVE = []
+for _i in range(6):
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata", "direkte", f"{_i}.ts"), "rb") as f:
+        LIVE.append(f.read())
+
+
+def live_playlist(now):
+    """Direktesendingen: de fire siste bitene (to sekunder hver). Bitene går i ring, så tidene begynner på nytt hver
+    sjette bit: der står et brudd (og DISCONTINUITY-SEQUENCE teller dem før den første)."""
+    newest = int(now // 2)
+    first = newest - 3
+    lines = ["#EXTM3U", "#EXT-X-VERSION:3", "#EXT-X-TARGETDURATION:2", f"#EXT-X-MEDIA-SEQUENCE:{first}",
+             f"#EXT-X-DISCONTINUITY-SEQUENCE:{first // len(LIVE)}"]
+    for n in range(first, newest + 1):
+        if n % len(LIVE) == 0 and n != first:
+            lines.append("#EXT-X-DISCONTINUITY")
+        lines += ["#EXTINF:2.000,", f"{n}.ts"]
+    return ("\n".join(lines) + "\n").encode()
 
 
 def main():

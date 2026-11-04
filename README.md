@@ -11,9 +11,10 @@ IPTV-leverandøren din og se TV.
 - **TV-guide** for de neste seks timene. Med en M3U-lenke kommer den fra XMLTV-lenken i lista (eller en du oppgir,
   også .xml.gz).
 - **Søk** i kanalene.
-- **Spilleren** er Apples egen (AVPlayer). På Apple TV kan du pause og spole tilbake, bytte til neste eller forrige
-  kanal i kontrollene, og sveipe ned for kanallista. På iPhone og iPad står kanallista under bildet, med bilde-i-bilde
-  og AirPlay.
+- **Spilleren** er Apples egen (AVPlayer). Du kan pause og spole tilbake i direktesendingen (Fyrlys tar vare på den
+  siste halvtimen), velge bildeformat per kanal og se strøminfo. På Apple TV bytter du til neste eller forrige kanal i
+  kontrollene og sveiper ned for kanallista. På iPhone og iPad står kanallista under bildet, med bilde-i-bilde og
+  AirPlay.
 - **Filmer og serier** med «Hjem» først: «Fortsett å se» (med episoden og hvor langt du har kommet), favorittene og
   kategoriene som rader med «Se alle», og «Nylig lagt til». Rekkefølge og sjanger, søk, en side for hver film og serie
   med kvaliteten (4K, HDR, 5.1 …), episodene sesong for sesong, og «Merk som sett». Når en episode er ferdig, begynner den neste, og spilleren har forrige og neste episode. Filtyper Apples

@@ -41,6 +41,8 @@ final class PlayerModel {
     @ObservationIgnored private var providerStep: [String: Int] = [:]
     /// det som spilles, er leverandørens strøm (ikke en egen)
     @ObservationIgnored private var playingProvider = true
+    /// adressen kanalen spilles fra (også når avspilleren spiller fra bufferet på enheten)
+    @ObservationIgnored private var sourceURL: URL?
     /// spilleren er stoppet (lukket)
     @ObservationIgnored private var stopped = false
 
@@ -76,6 +78,30 @@ final class PlayerModel {
         stopped = false
         generation += 1
         let gen = generation
+        sourceURL = url
+        app.played(channel)
+        app.programs.refresh(channel)
+        scheduleProgramRefresh()
+        // pause og tilbakespoling: HLS hentes og bufres på enheten, og avspilleren spiller derfra (det som ikke kan
+        // bufres, spilles rett fra leverandøren som før)
+        if app.liveShift, LiveShift.applies(to: url) {
+            // den forrige kanalen slipper tilkoblingen med en gang
+            stopObserving()
+            player.replaceCurrentItem(with: nil)
+            Task {
+                let local = await LiveShift.shared.prepare(url)
+                guard gen == self.generation, !self.stopped else { return }
+                if TestSupport.isActive, let local { self.tried.append(local.path) }
+                self.play(local ?? url, gen)
+            }
+            return
+        }
+        Task { await LiveShift.shared.stop() }
+        play(url, gen)
+    }
+
+    /// Avspilleren med [url] (fra leverandøren, en egen strøm, eller bufferet på enheten).
+    private func play(_ url: URL, _ gen: Int) {
         let asset = AVURLAsset(url: url, options: [AVURLAssetHTTPUserAgentKey: xtreamUserAgent])
         let item = AVPlayerItem(asset: asset)
         item.externalMetadata = metadata()
@@ -108,9 +134,6 @@ final class PlayerModel {
         ]
         player.replaceCurrentItem(with: item)
         player.play()
-        app.played(channel)
-        app.programs.refresh(channel)
-        scheduleProgramRefresh()
     }
 
     /// Prøv igjen (knappen etter en feil).
@@ -167,6 +190,50 @@ final class PlayerModel {
 
     func toggleFavorite() { app.toggleFavorite(channel) }
 
+    /// Bildeformatet for kanalen (huskes per kanal).
+    var pictureFormat: PictureFormat { app.pictureFormat(for: channel) }
+
+    func setPictureFormat(_ format: PictureFormat) { app.setPictureFormat(format, for: channel) }
+
+    /// Det avspilleren vet om strømmen nå: oppløsningen, kodekene, bilder i sekundet, bitraten og tapte bilder.
+    func streamInfo() -> StreamInfo {
+        var info = StreamInfo()
+        guard let item = player.currentItem else { return info }
+        let size = item.presentationSize
+        if size.width > 0, size.height > 0 {
+            info.width = Int(size.width.rounded())
+            info.height = Int(size.height.rounded())
+        }
+        if let event = item.accessLog()?.events.last {
+            if event.indicatedBitrate > 0 {
+                info.bitrate = event.indicatedBitrate
+            } else if event.observedBitrate > 0 {
+                info.bitrate = event.observedBitrate
+            }
+            info.dropped = max(0, event.numberOfDroppedVideoFrames)
+            info.stalls = max(0, event.numberOfStalls)
+        }
+        for track in item.tracks {
+            guard let asset = track.assetTrack else { continue }
+            let descriptions = asset.formatDescriptions.map { $0 as! CMFormatDescription }
+            if asset.mediaType == .video {
+                if let first = descriptions.first {
+                    info.videoCodec = fourCCText(CMFormatDescriptionGetMediaSubType(first))
+                }
+                if track.currentVideoFrameRate > 0 { info.fps = Double(track.currentVideoFrameRate) }
+            } else if asset.mediaType == .audio, info.audioCodec == nil, track.isEnabled {
+                if let first = descriptions.first {
+                    info.audioCodec = fourCCText(CMFormatDescriptionGetMediaSubType(first))
+                    if let basic = CMAudioFormatDescriptionGetStreamBasicDescription(first)?.pointee,
+                       basic.mChannelsPerFrame > 0 {
+                        info.audioChannels = Int(basic.mChannelsPerFrame)
+                    }
+                }
+            }
+        }
+        return info
+    }
+
     /// Multiview kan åpnes (to innlogginger, eller et abonnement med flere tilkoblinger).
     var canMultiview: Bool { app.multiviewAvailable }
 
@@ -199,6 +266,7 @@ final class PlayerModel {
     func stop() {
         stopped = true
         generation += 1
+        Task { await LiveShift.shared.stop() }
         pendingOpen?.cancel()
         pendingOpen = nil
         stallTimer?.cancel()
@@ -293,7 +361,7 @@ final class PlayerModel {
         }
         if text == nil {
             var status = code
-            if status == nil, let url = player.currentItem.flatMap({ ($0.asset as? AVURLAsset)?.url }) {
+            if status == nil, let url = sourceURL ?? player.currentItem.flatMap({ ($0.asset as? AVURLAsset)?.url }) {
                 status = await withTimeout(8) { await PlayerModel.streamStatus(url) }
             }
             if let status, status >= 400 {
