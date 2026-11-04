@@ -112,6 +112,11 @@ struct PlayerController: UIViewControllerRepresentable {
                 MainActor.assumeIsolated { model.startOver() }
             })
         }
+        if model.canMultiview {
+            items.append(UIAction(title: L("Multiview"), image: UIImage(systemName: "rectangle.split.2x2")) { _ in
+                MainActor.assumeIsolated { model.openMultiview() }
+            })
+        }
         controller.transportBarCustomMenuItems = items + [
             UIAction(title: L("Forrige kanal"), image: UIImage(systemName: "chevron.down")) { _ in
                 MainActor.assumeIsolated { model.step(-1) }

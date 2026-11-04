@@ -167,6 +167,17 @@ final class PlayerModel {
 
     func toggleFavorite() { app.toggleFavorite(channel) }
 
+    /// Multiview kan åpnes (to innlogginger, eller et abonnement med flere tilkoblinger).
+    var canMultiview: Bool { app.multiviewAvailable }
+
+    /// Multiview med kanalen i det første bildet: direktesendingen stoppes og spilleren lukkes først (den bruker en
+    /// tilkobling), og HomeView viser multiview når spilleren er borte.
+    func openMultiview() {
+        app.pendingMultiview = MultiviewRequest(channel: channel)
+        stop()
+        closeRequested = true
+    }
+
     /// Kanalen har TV-arkiv, og det er kjent hva som går nå.
     var canStartOver: Bool { channel.archiveDays > 0 && nowPlaying(channel) != nil }
 

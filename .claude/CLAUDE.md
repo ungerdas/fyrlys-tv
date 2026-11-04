@@ -363,6 +363,23 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `M3USource`). Falsk leverandør: `/liste.m3u`, `/guide.xml.gz`, `/guide.xml`, `/strom/<id>.m3u8`, `/get.php`;
   testskjermene `m3u` (logget inn med lista) og `login-m3u`; testene `test29M3U` (Apple TV) og `test28M3U` (iPhone og
   iPad). En kanal i lista som ikke er HLS (og ikke har en Xtream-sti), kan ikke spilles med AVPlayer.
+- **Multiview fra 0.1.29** (fra «Resten» i Windows-lista; hvordan Windows gjør det: `lib/ui/multiview_page.dart`,
+  `lib/core/session.dart` `canMultiview`): `App/Multiview.swift`: `MultiviewModel` (`start(first:)`:
+  `AppModel.multiviewLogins` (den i bruk først), `connections(of:)` per innlogging (Xtream: abonnementet, høyst 10 s,
+  1 ved feil; M3U 1), så mange bilder som det er tilkoblinger, høyst fire; under to: «Fant bare én tilkobling …»;
+  `select` (lyden bare fra det valgte), `toggleBig`, `toggleMute`), `MultiviewTile` (egen AVPlayer, adressene som i
+  spilleren for den i bruk (egen strøm, så leverandørens), ellers Xtream eller M3U-adressen; to forsøk med 3 s, så neste
+  adresse, så feilen; stopper det etter start: på nytt etter 1,5 s, høyst tre i minuttet, så «Kanalen stoppet.»;
+  programinfoen fra ProgramStore, eller rett fra en annen Xtream-innlogging), `MultiviewView` (to ved siden av
+  hverandre, over hverandre når skjermen står, tre eller fire i to rader; Apple TV: fokus = valgt, trykk = stort bilde
+  eller kanalvalget, hold inne = hurtigmenyen, Menu tilbake; iOS: trykk, dobbelttrykk, hold inne, `lukk-multiview`,
+  `multiview-lyd`), `PlayerLayerView` (AVPlayerLayer), `MultiviewPicker` (`multiview-velg`, `velg-<id>`, søk,
+  «★ Favoritter»/«Alle kanaler», høyst 500 rader; `AppModel.channels(of:)` fra lista i bruk, fra disken eller fra
+  leverandøren, `favoriteIds(of:)`). Inn: «Multiview» i hurtigmenyen på kortene når `multiviewAvailable` (to
+  innlogginger, eller `maxConnections` ≥ 2), og i spilleren (`PlayerModel.openMultiview`: `pendingMultiview`, spilleren
+  lukkes først, `showPendingReplay` viser den), `multiview-knapp` på iPhone/iPad. Id-ene `multiview`,
+  `multiview-bilde-<n>`. Testskjermen `multiview` (M3U-lista som innlogging nummer to, `TestSupport.extraLogins`);
+  testene `test30Multiview` (Apple TV) og `test29Multiview` (iPhone og iPad).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og

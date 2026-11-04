@@ -48,6 +48,10 @@ final class AppModel {
     /// venter på at et ark eller spilleren for direktesendingen er lukket (leverandøren gir ofte bare én
     /// tilkobling, så direktesendingen stoppes først)
     @ObservationIgnored var pendingReplay: VODPlay?
+    /// multiview, vist av HomeView over alt annet
+    var multiview: MultiviewRequest?
+    /// multiview venter på at spilleren for direktesendingen er lukket (den bruker en tilkobling)
+    @ObservationIgnored var pendingMultiview: MultiviewRequest?
     /// telles opp når «Fortsett å se» endres
     private(set) var continueVersion = 0
     /// telles opp når favorittene i Filmer eller Serier endres (her eller på en annen enhet)
@@ -102,6 +106,8 @@ final class AppModel {
         if TestSupport.isActive {
             // login og login-m3u: innloggingssiden
             if TestSupport.screen?.hasPrefix("login") != true, let test = TestSupport.login {
+                // multiview: en innlogging til (M3U-lista hos den falske leverandøren), så det blir to bilder
+                if !TestSupport.extraLogins.isEmpty { logins = [test] + TestSupport.extraLogins }
                 use(test)
             } else {
                 phase = .signedOut
@@ -383,11 +389,54 @@ final class AppModel {
         return VODPlay.archive(channel, program, client: client, clock: clock)
     }
 
-    /// Et ark eller spilleren er lukket: spill det som ventet.
+    /// Et ark eller spilleren er lukket: spill det som ventet (et program fra start, eller multiview).
     func showPendingReplay() {
+        if let next = pendingMultiview {
+            pendingMultiview = nil
+            multiview = next
+            return
+        }
         guard let next = pendingReplay else { return }
         pendingReplay = nil
         replay = next
+    }
+
+    // ── multiview: opptil fire kanaler samtidig, én tilkobling per bilde ──
+
+    /// Multiview finnes: to innlogginger, eller et abonnement med flere tilkoblinger (som i Fyrlys for Windows).
+    var multiviewAvailable: Bool { logins.count >= 2 || (account?.maxConnections ?? 0) >= 2 }
+
+    /// Innloggingene multiview bruker, den i bruk først.
+    var multiviewLogins: [Login] {
+        guard let login else { return [] }
+        return [login] + logins.filter { $0.id != login.id }
+    }
+
+    /// Hvor mange tilkoblinger innloggingen har: abonnementet hos Xtream (høyst 10 s; 1 når det ikke svarer), 1 for en
+    /// M3U-liste.
+    func connections(of other: Login) async -> Int {
+        guard !other.isM3U else { return 1 }
+        if other.id == login?.id, let account, account.maxConnections > 0 { return account.maxConnections }
+        let client = XtreamClient(login: other)
+        let found = await withTimeout(10) { try? await client.account() }
+        return max(1, found?.maxConnections ?? 1)
+    }
+
+    /// Kanalene til en innlogging: den i bruk har dem, de andre fra sist (på disken) eller fra leverandøren.
+    func channels(of other: Login) async throws -> [Channel] {
+        if other.id == login?.id, !allChannels.isEmpty { return allChannels }
+        let cache = cache
+        let id = other.id
+        let saved = await Task.detached(priority: .userInitiated) { cache.read(id) }.value
+        if let saved, !saved.channels.isEmpty { return saved.channels }
+        if other.isM3U { return try await M3USource(login: other).lists().channels }
+        return try await XtreamClient(login: other).channels()
+    }
+
+    /// Favorittene til en innlogging (også en som ikke er i bruk).
+    func favoriteIds(of other: Login) -> [String] {
+        if other.id == login?.id { return library?.favorites ?? [] }
+        return Library(store: store, loginId: other.id).favorites
     }
 
     // ── filmer og serier: fra IPTV-leverandøren eller fra Plex ──

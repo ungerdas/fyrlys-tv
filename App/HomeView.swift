@@ -85,6 +85,11 @@ struct HomeView: View {
                     .presentationDragIndicator(.visible)
             }
             #endif
+            // multiview (fra hurtigmenyen på et kort, eller fra spilleren når den er lukket)
+            .fullScreenCover(item: multiview) { request in
+                MultiviewView(request: request)
+                    .environment(model)
+            }
             .onAppear(perform: playForTest)
             .onChange(of: model.channels.count) { playForTest() }
             .onChange(of: model.pendingPlay) { playForTest() }
@@ -146,6 +151,10 @@ struct HomeView: View {
         Binding(get: { model.replay }, set: { model.replay = $0 })
     }
 
+    private var multiview: Binding<MultiviewRequest?> {
+        Binding(get: { model.multiview }, set: { model.multiview = $0 })
+    }
+
     /// TV-arkivet for kanalen som er valgt i hurtigmenyen på et kort.
     private var archive: Binding<Channel?> {
         Binding(get: { model.archiveChannel }, set: { model.archiveChannel = $0 })
@@ -183,6 +192,12 @@ struct HomeView: View {
         if screen == "archive", let channel = model.byId["1"] {
             testPlayed = true
             model.archiveChannel = channel
+            return
+        }
+        // multiview med kanal 1 i det første bildet
+        if screen == "multiview", let first = model.byId["1"] {
+            testPlayed = true
+            model.multiview = MultiviewRequest(channel: first)
             return
         }
         // filmen i mkv (VLC), med to lydspor og norske undertekster; mkv-feil: en film leverandøren ikke har

@@ -19,6 +19,8 @@ IPTV-leverandøren din og se TV.
   med kvaliteten (4K, HDR, 5.1 …), episodene sesong for sesong, og «Merk som sett». Når en episode er ferdig, begynner den neste, og spilleren har forrige og neste episode. Filtyper Apples
   avspiller ikke kan (mkv, avi …), spilles med VLC, med valg av lydspor og undertekster.
 - **TV-arkiv** for kanaler som har det hos leverandøren, og «se fra start» på det som går nå.
+- **Multiview**: opptil fire kanaler samtidig, når du har flere innlogginger eller et abonnement med flere
+  tilkoblinger.
 - **Plex**: koble til Plex-serveren din (med en kode på plex.tv/link), og fanene Filmer og Serier viser bibliotekene
   derfra. Hvor langt du har sett, og hva du har sett, holdes i takt med Plex. «Hopp over introen» og «Hopp over
   rulleteksten» der Plex har merket dem, undertekstfilene ved siden av filmene, og «Mer som dette».

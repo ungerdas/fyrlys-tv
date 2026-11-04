@@ -1,5 +1,13 @@
 # Endringer
 
+## v0.1.29
+
+- Multiview: opptil fire kanaler samtidig (som i Fyrlys for Windows), én tilkobling per bilde. Med to innlogginger
+  (eller et abonnement med flere tilkoblinger) står «Multiview» i hurtigmenyen på kanalkortene (hold inne) og i
+  spilleren. Lyden kommer fra det valgte bildet: på Apple TV det som har fokus, på iPhone og iPad det du trykker på.
+  Trykk (dobbelttrykk på iPhone og iPad) for stort bilde, hold inne for å bytte kanal, og Menu eller krysset lukker.
+  Et bilde som stopper, startes igjen av seg selv.
+
 ## v0.1.28
 
 - Logg inn med en M3U-lenke (som i Fyrlys for Windows): velg «M3U-lenke» på innloggingssiden. Kanalene kommer i

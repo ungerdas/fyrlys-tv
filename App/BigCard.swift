@@ -33,6 +33,13 @@ struct BigChannelCard: View {
                         Label(L("TV-arkiv"), systemImage: "clock.arrow.circlepath")
                     }
                 }
+                if model.multiviewAvailable {
+                    Button {
+                        model.multiview = MultiviewRequest(channel: channel)
+                    } label: {
+                        Label(L("Multiview"), systemImage: "rectangle.split.2x2")
+                    }
+                }
             }
             #if os(iOS)
             // ett element med de to knappene i, så «kanal-…» ikke skriver over id-en til stjerneknappen

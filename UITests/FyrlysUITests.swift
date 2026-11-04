@@ -637,6 +637,53 @@ final class FyrlysUITests: XCTestCase {
         shot("53-m3u-spiller")
     }
 
+    /// Multiview med to innlogginger (Xtream og M3U-lista hos den falske leverandøren): kanal 1 i det første bildet, en
+    /// kanal fra M3U-lista velges i det andre, stort bilde og tilbake, og Menu lukker.
+    func test30Multiview() {
+        let app = launch("multiview")
+        let first = find(app, "multiview-bilde-0")
+        let second = find(app, "multiview-bilde-1")
+        XCTAssertTrue(first.waitForExistence(timeout: 40), "multiview kom ikke")
+        XCTAssertTrue(second.exists, "det andre bildet mangler")
+        XCTAssertEqual(first.label, "Fjordkanalen", "kanalen i det første bildet")
+        for _ in 0..<4 where !second.hasFocus {
+            remote.press(.right)
+            wait(0.8)
+        }
+        XCTAssertTrue(second.hasFocus, "fikk ikke fokus på det andre bildet")
+        remote.press(.select)
+        // kanalene til den andre innloggingen (M3U-lista)
+        let row = find(app, "velg-\(stableHash("id:villmark.no|Villmark"))")
+        XCTAssertTrue(row.waitForExistence(timeout: 20), "kanalvalget med kanalene fra M3U-lista kom ikke")
+        wait(1)
+        shot("54-multiview-velg")
+        for _ in 0..<14 where !row.hasFocus {
+            remote.press(.down)
+            wait(0.6)
+        }
+        XCTAssertTrue(row.hasFocus, "fikk ikke fokus på kanalen i lista")
+        remote.press(.select)
+        let named = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND label == %@", "multiview-bilde-1", "Villmark")).firstMatch
+        XCTAssertTrue(named.waitForExistence(timeout: 15), "kanalen kom ikke i det andre bildet")
+        wait(8)
+        shot("55-multiview")
+        // stort bilde, og Menu tilbake til begge
+        if !second.hasFocus { remote.press(.right) }
+        remote.press(.select)
+        wait(2)
+        shot("56-multiview-stort")
+        remote.press(.menu)
+        wait(2)
+        XCTAssertTrue(first.exists && second.exists, "bildene kom ikke tilbake etter stort bilde")
+        let multiview = find(app, "multiview")
+        for _ in 0..<3 where multiview.exists {
+            remote.press(.menu)
+            wait(2)
+        }
+        XCTAssertFalse(multiview.exists, "Menu lukket ikke multiview")
+    }
+
     /// Søket i filmene på Apple TV (øverst i sidemenyen).
     func test26FilmSok() {
         let app = launch("movies")

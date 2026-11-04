@@ -595,6 +595,36 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("47-m3u")
     }
 
+    /// Multiview med to innlogginger (Xtream og M3U-lista hos den falske leverandøren): kanal 1 i det første bildet, en
+    /// kanal fra M3U-lista velges i det andre, dobbelttrykk gir stort bilde, og krysset lukker.
+    func test29Multiview() {
+        let app = launch("multiview")
+        let first = find(app, "multiview-bilde-0")
+        let second = find(app, "multiview-bilde-1")
+        XCTAssertTrue(first.waitForExistence(timeout: 40), "multiview kom ikke")
+        XCTAssertTrue(second.exists, "det andre bildet mangler")
+        second.tap()
+        let row = find(app, "velg-\(stableHash("id:villmark.no|Villmark"))")
+        if !row.waitForExistence(timeout: 10), second.exists { second.tap() }
+        XCTAssertTrue(row.waitForExistence(timeout: 20), "kanalvalget med kanalene fra M3U-lista kom ikke")
+        wait(1)
+        shot("48-multiview-velg")
+        row.tap()
+        let named = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "multiview-bilde-1", "Villmark"))
+            .firstMatch
+        XCTAssertTrue(named.waitForExistence(timeout: 15), "kanalen kom ikke i det andre bildet")
+        wait(8)
+        shot("49-multiview")
+        first.doubleTap()
+        wait(2)
+        shot("50-multiview-stort")
+        find(app, "lukk-multiview").tap()
+        let multiview = find(app, "multiview")
+        for _ in 0..<10 where multiview.exists { wait(1) }
+        XCTAssertFalse(multiview.exists, "krysset lukket ikke multiview")
+    }
+
     func test27NavnOgFeilrapport() {
         let app = launch("settings")
         XCTAssertTrue(find(app, "innstillinger").waitForExistence(timeout: 30))

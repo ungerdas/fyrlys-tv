@@ -254,6 +254,9 @@ private struct PlayerPanel: View {
                 if model.canStartOver {
                     panelButton(L("Fra start"), "backward.end.fill", id: "fra-start-live") { model.startOver() }
                 }
+                if model.canMultiview {
+                    panelButton(L("Multiview"), "rectangle.split.2x2", id: "multiview-knapp") { model.openMultiview() }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
