@@ -726,8 +726,10 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(find(app, "vod-hjem").waitForExistence(timeout: 40), "Hjem fra Plex kom ikke")
         XCTAssertTrue(find(app, "vodkat-4").waitForExistence(timeout: 10), "«Andre videoer» mangler")
         let choose = find(app, "velg-biblioteker")
-        // til slutt i raden på iPhone: dra raden til siden når den ikke synes
-        for _ in 0..<3 where !choose.isHittable {
+        // til slutt i raden på iPhone: dra raden til siden når den står utenfor skjermen (isHittable feiler da)
+        let screen = app.windows.firstMatch.frame
+        for _ in 0..<3 where !isPad && !screen.contains(CGPoint(x: choose.frame.midX, y: choose.frame.midY)) {
+            // på det siste biblioteket (det står igjen på skjermen når raden er dratt til siden)
             find(app, "vodkat-4").swipeLeft()
             wait(1)
         }

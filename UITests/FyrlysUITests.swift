@@ -542,6 +542,16 @@ final class FyrlysUITests: XCTestCase {
         return false
     }
 
+    /// Fokus står på [element], eller på cellen rundt det: i menyene på Apple TV har det med fokus verken id eller tekst,
+    /// men ligger der valget er (bygg 53: «Dokumentar» hadde fokus, og elementet med fokus var raden uten tekst).
+    func focusCovers(_ app: XCUIApplication, _ element: XCUIElement) -> Bool {
+        if element.hasFocus { return true }
+        let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        guard focused.exists, element.exists else { return false }
+        let a = focused.frame, b = element.frame
+        return a.contains(CGPoint(x: b.midX, y: b.midY)) || b.contains(CGPoint(x: a.midX, y: a.midY))
+    }
+
     /// Velger [label] i menyen som er åpen (ned til den, så velg). Går det ikke, står skjermen i loggen.
     func choose(_ app: XCUIApplication, _ label: String) -> Bool {
         let option = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
@@ -549,12 +559,30 @@ final class FyrlysUITests: XCTestCase {
             dumpScreen(app, "menyen viser ikke «\(label)» (\(focusText(app)))", shotName: "59-meny-uten-valg")
             return false
         }
-        guard focusDown(app, option, label: label, tries: 8) else {
-            dumpScreen(app, "fikk ikke fokus på «\(label)» i menyen (\(focusText(app)))", shotName: "59-meny-uten-fokus")
+        for _ in 0..<8 where !focusCovers(app, option) {
+            remote.press(.down)
+            wait(0.6)
+        }
+        guard focusCovers(app, option) else {
+            dumpScreen(app, "fikk ikke fokus på «\(label)» i menyen (\(focusText(app)), valget \(option.frame))",
+                       shotName: "59-meny-uten-fokus")
             return false
         }
         remote.press(.select)
         return true
+    }
+
+    /// Går ned på siden (fra sidemenyen eller fanelinja først inn på den) til [element] finnes: radene lenger ned på
+    /// Hjem lages først når de kommer fram (LazyVStack).
+    func reveal(_ app: XCUIApplication, _ element: XCUIElement, tries: Int = 8) -> Bool {
+        for _ in 0..<tries {
+            if element.exists { return true }
+            let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+            let id = focused.exists ? focused.identifier : ""
+            remote.press(id.hasPrefix("vodkat-") || id == "vod-sok" || id == "velg-biblioteker" ? .right : .down)
+            wait(1)
+        }
+        return element.waitForExistence(timeout: 3)
     }
 
     /// Skriver det som er på skjermen (typen, id-en og teksten til elementene) i loggen («SKJERM:», kommer med i
@@ -787,8 +815,10 @@ final class FyrlysUITests: XCTestCase {
     /// Plex: «Merk som sett» eller «Merk som ikke sett» på siden for en film (merkes på serveren), og «Mer som dette».
     func test23PlexSett() {
         let app = launch("plex")
+        XCTAssertTrue(find(app, "fortsett-1001").waitForExistence(timeout: 40), "Hjem fra Plex kom ikke")
+        // filmen i «Nylig lagt til», den tredje raden
         let movie = find(app, "rad-1002")
-        XCTAssertTrue(movie.waitForExistence(timeout: 40), "filmen mangler i radene")
+        XCTAssertTrue(reveal(app, movie), "filmen mangler i radene")
         XCTAssertTrue(focus(app, movie), "fikk ikke fokus på filmen")
         remote.press(.select)
         let mark = find(app, "merk-sett")
@@ -808,17 +838,18 @@ final class FyrlysUITests: XCTestCase {
     /// filmen (mkv) spilles rett fra serveren med VLC.
     func test17Plex() {
         let app = launch("plex")
-        let movie = find(app, "rad-1001")
-        XCTAssertTrue(movie.waitForExistence(timeout: 40), "radene fra Plex kom ikke")
+        XCTAssertTrue(find(app, "fortsett-1001").waitForExistence(timeout: 40), "filmen mangler i «Fortsett å se»")
+        XCTAssertTrue(find(app, "fortsett-2001").exists, "serien mangler i «Fortsett å se»")
+        XCTAssertTrue(find(app, "rad-e2102").waitForExistence(timeout: 10), "episodene mangler på Hjem")
         XCTAssertTrue(find(app, "vodkat-hjem").exists, "«Hjem» mangler")
         XCTAssertTrue(find(app, "vodkat-1").exists, "biblioteket Filmer mangler")
         XCTAssertTrue(find(app, "vodkat-2").exists, "biblioteket Serier mangler")
         XCTAssertFalse(find(app, "vodkat-3").exists, "musikkbiblioteket skal ikke vises")
-        XCTAssertTrue(find(app, "fortsett-1001").exists, "filmen mangler i «Fortsett å se»")
-        XCTAssertTrue(find(app, "fortsett-2001").exists, "serien mangler i «Fortsett å se»")
-        XCTAssertTrue(find(app, "rad-e2102").exists, "episodene mangler på Hjem")
         wait(2)
         shot("28-plex-hjem")
+        // filmen i «Nylig lagt til», den tredje raden
+        let movie = find(app, "rad-1001")
+        XCTAssertTrue(reveal(app, movie), "filmen i «Nylig lagt til» kom ikke")
         XCTAssertTrue(focus(app, movie), "fikk ikke fokus på filmen")
         remote.press(.select)
         let play = find(app, "spill-av")
