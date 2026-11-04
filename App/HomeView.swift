@@ -8,11 +8,12 @@ struct PlayRequest: Identifiable {
     let list: [Channel]
 }
 
-/// Fanene øverst (fanelinja til Apple TV): TV, TV-guide, Søk og Innstillinger; det samme på iPad. På iPhone som
-/// Fyrlys-nettsiden på en telefon (`PhoneHome`, med forsiden og flisene i `PhoneTV`). TV-fanen på Apple TV og iPad er
-/// sidemenyen og kortene (`ChannelsView`). Spilleren legger seg over alt.
+/// Fanene øverst (fanelinja til Apple TV): TV, TV-guide, Filmer og Serier (fra IPTV-leverandøren), Plex (når en
+/// Plex-server er valgt), Søk og Innstillinger; det samme på iPad. På iPhone som Fyrlys-nettsiden på en telefon
+/// (`PhoneHome`, med forsiden og flisene i `PhoneTV`). TV-fanen på Apple TV og iPad er sidemenyen og kortene
+/// (`ChannelsView`). Spilleren legger seg over alt.
 struct HomeView: View {
-    enum Tab: Hashable { case tv, guide, movies, series, search, settings }
+    enum Tab: Hashable { case tv, guide, movies, series, plex, search, settings }
 
     @Environment(AppModel.self) private var model
     #if os(iOS)
@@ -30,8 +31,9 @@ struct HomeView: View {
     init() {
         switch TestSupport.screen {
         case "guide": _tab = State(initialValue: .guide)
-        case "movies", "plex": _tab = State(initialValue: .movies)
-        case "series", "plex-series": _tab = State(initialValue: .series)
+        case "movies": _tab = State(initialValue: .movies)
+        case "series": _tab = State(initialValue: .series)
+        case "plex", "plex-series": _tab = State(initialValue: .plex)
         case "search": _tab = State(initialValue: .search)
         case "settings", "plex-link", "strommer": _tab = State(initialValue: .settings)
         default: _tab = State(initialValue: .tv)
@@ -93,9 +95,14 @@ struct HomeView: View {
             .onAppear(perform: playForTest)
             .onChange(of: model.channels.count) { playForTest() }
             .onChange(of: model.pendingPlay) { playForTest() }
-            // Filmer og Serier ble borte (Plex koblet fra med en M3U-liste): tilbake til TV
+            // Filmer og Serier ble borte (en annen innlogging med en M3U-liste): tilbake til TV
             .onChange(of: model.hasVOD) { _, has in
                 if !has, tab == .movies || tab == .series { tab = .tv }
+            }
+            // Plex koblet fra: tilbake til TV; testene (plex, plex-series): til Plex-fanen når den kommer
+            .onChange(of: model.hasPlex) { _, has in
+                if !has, tab == .plex { tab = .tv }
+                if has, ["plex", "plex-series"].contains(TestSupport.screen ?? "") { tab = .plex }
             }
     }
 
@@ -120,7 +127,7 @@ struct HomeView: View {
             GuideView(play: play)
                 .tabItem { tabLabel(L("TV-guide"), "calendar.day.timeline.left") }
                 .tag(Tab.guide)
-            // en M3U-liste har ikke filmer og serier (med Plex kommer de derfra)
+            // en M3U-liste har ikke filmer og serier
             if model.hasVOD {
                 VODTab(kind: .movies)
                     .tabItem { tabLabel(L("Filmer"), "film") }
@@ -128,6 +135,12 @@ struct HomeView: View {
                 VODTab(kind: .series)
                     .tabItem { tabLabel(L("Serier"), "play.rectangle.on.rectangle") }
                     .tag(Tab.series)
+            }
+            // filmene og seriene fra Plex sammen
+            if model.hasPlex {
+                VODTab(kind: nil)
+                    .tabItem { tabLabel("Plex", "film.stack") }
+                    .tag(Tab.plex)
             }
             SearchView(play: play, query: $query)
                 .tabItem {

@@ -96,9 +96,10 @@ final class VODPlayerModel {
         seasons = play.seasons
     }
 
-    /// filmene eller seriene (hos Plex eller leverandøren) det som spilles, hører til
+    /// Plex-fanen, eller filmene eller seriene hos leverandøren, som det som spilles, hører til
     private var library: VODModel {
-        play.episode != nil || play.item?.kind == .series ? app.series : app.movies
+        if play.plex != nil || play.item?.isPlex == true || play.episode?.source == "plex" { return app.plexVOD }
+        return play.episode != nil || play.item?.kind == .series ? app.series : app.movies
     }
 
     func start() {

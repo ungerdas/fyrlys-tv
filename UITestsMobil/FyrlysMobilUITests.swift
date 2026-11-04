@@ -397,14 +397,23 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertFalse(player.exists, "krysset lukket ikke spilleren")
     }
 
-    /// Plex (koblet til fra før): «Hjem» med radene og «Fortsett å se» fra Plex, og siden for en film med «Fortsett».
+    /// Plex-fanen (koblet til fra før): «Hjem» med filmer og serier sammen (radene og «Fortsett å se» fra Plex),
+    /// bibliotekene (sidemenyen på iPad, knappene øverst på iPhone), og siden for en film med «Fortsett».
     func test18Plex() {
         let app = launch("plex")
         if !find(app, "rad-1001").waitForExistence(timeout: 40) {
             dumpScreen(app, "radene fra Plex kom ikke", shotName: "25-plex-mangler")
         }
         XCTAssertTrue(find(app, "rad-1001").exists, "radene fra Plex kom ikke")
-        XCTAssertTrue(find(app, "fortsett-1001").exists, "«Fortsett å se» fra Plex mangler")
+        XCTAssertTrue(find(app, "fortsett-1001").exists, "filmen mangler i «Fortsett å se»")
+        XCTAssertTrue(find(app, "fortsett-2001").exists, "serien mangler i «Fortsett å se»")
+        XCTAssertTrue(find(app, "vodkat-1").exists && find(app, "vodkat-2").exists, "bibliotekene mangler")
+        if !isPad {
+            // Filmer og Serier (fra leverandøren) og Plex i fanelinja
+            for tab in ["Filmer", "Serier", "Plex"] {
+                XCTAssertTrue(app.tabBars.buttons[tab].exists, "fanen «\(tab)» mangler")
+            }
+        }
         wait(2)
         shot("25-plex-hjem")
         XCTAssertTrue(openPage(app, "rad-1001", then: "spill-av", timeout: 15), "siden for filmen kom ikke")
@@ -508,9 +517,10 @@ final class FyrlysMobilUITests: XCTestCase {
         a.frame.minY < b.frame.minY - 4 || (abs(a.frame.minY - b.frame.minY) <= 4 && a.frame.minX < b.frame.minX)
     }
 
-    /// Velger kategorien [id] («[name]»): i sidemenyen på iPad, i menyen øverst på iPhone.
+    /// Velger kategorien [id] («[name]»): i sidemenyen på iPad, med knappene øverst i Plex-fanen på iPhone, ellers i
+    /// menyen øverst på iPhone.
     func chooseCategory(_ app: XCUIApplication, id: String, name: String) {
-        if isPad {
+        if isPad || find(app, "vodkat-\(id)").exists {
             find(app, "vodkat-\(id)").tap()
         } else {
             find(app, "vod-kategori").tap()
@@ -709,18 +719,19 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("45-feilrapport")
     }
 
-    /// Plex: «Velg biblioteker» (sidemenyen på iPad, menyen øverst på iPhone); et bibliotek som slås av, er borte.
+    /// Plex: «Velg biblioteker» (nederst i sidemenyen på iPad, til slutt i raden med knapper øverst på iPhone); et
+    /// bibliotek som slås av, er borte.
     func test26PlexBiblioteker() {
         let app = launch("plex")
         XCTAssertTrue(find(app, "vod-hjem").waitForExistence(timeout: 40), "Hjem fra Plex kom ikke")
-        if isPad {
-            XCTAssertTrue(find(app, "vodkat-4").waitForExistence(timeout: 10), "«Andre videoer» mangler")
-            find(app, "velg-biblioteker").tap()
-        } else {
-            find(app, "vod-kategori").tap()
-            XCTAssertTrue(app.buttons["Andre videoer"].waitForExistence(timeout: 5), "«Andre videoer» mangler i menyen")
-            app.buttons["Velg biblioteker"].tap()
+        XCTAssertTrue(find(app, "vodkat-4").waitForExistence(timeout: 10), "«Andre videoer» mangler")
+        let choose = find(app, "velg-biblioteker")
+        // til slutt i raden på iPhone: dra raden til siden når den ikke synes
+        for _ in 0..<3 where !choose.isHittable {
+            find(app, "vodkat-4").swipeLeft()
+            wait(1)
         }
+        choose.tap()
         let toggle = find(app, "vis-bibliotek-4")
         XCTAssertTrue(toggle.waitForExistence(timeout: 15), "bibliotekene kom ikke")
         // bryteren (raden kan være elementet som har id-en)
@@ -729,16 +740,8 @@ final class FyrlysMobilUITests: XCTestCase {
         wait(1)
         shot("42-plex-biblioteker")
         find(app, "biblioteker-ferdig").tap()
-        if isPad {
-            XCTAssertTrue(until(20) { find(app, "vodkat-1").exists && !find(app, "vodkat-4").exists },
-                          "«Andre videoer» står fortsatt i sidemenyen")
-        } else {
-            wait(3)
-            find(app, "vod-kategori").tap()
-            // «Velg biblioteker» står bare i menyen («Filmer» er også fanen nederst)
-            XCTAssertTrue(app.buttons["Velg biblioteker"].waitForExistence(timeout: 10), "menyen kom ikke")
-            XCTAssertFalse(app.buttons["Andre videoer"].exists, "«Andre videoer» står fortsatt i menyen")
-        }
+        XCTAssertTrue(until(20) { find(app, "vodkat-1").exists && !find(app, "vodkat-4").exists },
+                      "«Andre videoer» står fortsatt blant bibliotekene")
         shot("43-plex-skjult")
     }
 

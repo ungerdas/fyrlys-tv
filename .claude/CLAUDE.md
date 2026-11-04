@@ -244,14 +244,15 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   ms) og `scrobble`). `VODItem.source`/`Episode.source` = "plex" (nøklene for hvor langt: `plex:<ratingKey>`), og
   `fileKey`/`resume`/`watched`. `App/PlexModel.swift` (`AppModel.plex`: `Phase` off/linking(kode)/choosing/
   connecting/connected/failed, nøkkelen og serveren i nøkkelringen (`Keychain.savePlex`, konto `plex`) med adressen
-  som svarte sist, `useForVOD` (`plex-filmer`, satt første gang det kobles til), `report` → timeline/scrobble).
-  `VODModel` har en `VODBackend` (xtream, plex, waiting mens Plex kobler til, unavailable(feil)); `AppModel.
-  refreshVOD()` ved innlogging og når Plex endres (`onChange`), `VODTab` henter på nytt med `.task(id:
-  model.version)`. Plex: «Fortsett å se» fra Plex (`continueRow`), hvor langt du har sett hentes ned fra Plex når
+  som svarte sist, `report` → timeline/scrobble). `VODModel` har en `VODBackend` (xtream, plex, waiting mens Plex
+  kobler til, unavailable(feil)); `AppModel.refreshVOD()` ved innlogging, `refreshPlex()` når Plex endres
+  (`onChange`) eller bibliotekene som vises, `VODTab` henter på nytt med `.task(id: model.version)`. (0.1.16–0.1.30
+  viste Plex i fanene Filmer og Serier, valgt med `useForVOD`/`plex-filmer`/`vod-kilde`; fra 0.1.31 egen fane, se
+  under.) Plex: «Fortsett å se» fra Plex (`continueRow`), hvor langt du har sett hentes ned fra Plex når
   siden åpnes (`syncProgress`) og sendes opp av `VODPlayerModel.save` (hvert 10. s, `stopped` ved lukking, `scrobble`
   én gang nær slutten); siden og raden hentes på nytt 1,5 s etter at spilleren er lukket. `App/PlexSettings.swift`:
   seksjonen i Innstillinger (Apple TV i en rulleliste nå, iPad i Form) og `PlexSheet` fra Konto på iPhone
-  (`plex-innstillinger`); id-ene `koble-til-plex`, `plex-kode`, `plex-tilkoblet`, `vod-kilde`, `koble-fra-plex`.
+  (`plex-innstillinger`); id-ene `koble-til-plex`, `plex-kode`, `plex-tilkoblet`, `koble-fra-plex`.
   Falsk Plex: `tools/fake_plex.py` (port 8897, `FYRLYS_TEST_PLEX`; koden FYRL gir nøkkelen tredje gang, serveren
   «Hjemmekino» med en lokal tilkobling som ikke svarer og en som gjør det, filmene 1001–1003, serien 2001), og
   testskjermene `plex`/`plex-series` (koblet til fra før) og `plex-link`; testene `test17Plex`/`test18PlexKobling`
@@ -305,11 +306,11 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   for filmene, sett/ikke sett for 1002. Testene `test22PlexEpisoder`/`test23PlexSett` (Apple TV, iPhone; iPad bare
   `test23`). Skjulte biblioteker (Windows 2.1.37; eieren vil ikke se «Andre videoer» og et sportsbibliotek):
   `AppModel.hiddenLibraries` («<server>/<bibliotek>», iCloud-nøkkelen `plex-skjulte`), `hiddenSections`/`setHidden`
-  → `refreshVOD()` → `VODModel.reset(_:hidden:)`: bibliotekene og `rows(…libraries:)` (contentDirectoryID) bare de
+  → `refreshPlex()` → `VODModel.reset(_:hidden:)`: bibliotekene og `rows(…libraries:)` (contentDirectoryID) bare de
   som vises, og `visible` filtrerer «Fortsett å se», radene, «Se alle» og søket på `categoryId`
   (librarySectionID); `hiddenAll` gir meldingen med `velg-biblioteker`. `PlexLibrariesSheet` (`PlexSettings.swift`:
   `PlexClient.sections()`, bryterne `vis-bibliotek-<n>`, `biblioteker-ferdig`) fra «Biblioteker» i innstillingene
-  (`plex-biblioteker`), nederst i sidemenyen og i menyen på iPhone. Falsk Plex: biblioteket 4 «Andre videoer»
+  (`plex-biblioteker`), nederst i sidemenyen og til slutt i raden på iPhone. Falsk Plex: biblioteket 4 «Andre videoer»
   (tomt). `X-Plex-Language` (nb/en) i `PlexDevice.headers`. Testene `test27PlexBiblioteker` (Apple TV) og
   `test26PlexBiblioteker` (iPhone og iPad).
 - **Filmer og serier fra Windows-lista, også i 0.1.26** (pakken «Filmer og serier»; hvordan Windows gjør det:
@@ -402,6 +403,22 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   finnes ikke (AVPlayer kan det ikke). Falsk leverandør: `/hls/<id>/index.m3u8` er en ekte direktesending (bitene i
   `tools/testdata/direkte`, i ring med brudd); testene `test31Tilbakespoling` (Apple TV, iPhone; som egen strøm for
   Fjordkanalen) og `test30Strominfo` (iPhone).
+- **Plex-fanen fra 0.1.31** (eieren 4.11: «Der ønsker jeg at Filmer og Serier skal være orginal fra IPTV og at vi får
+  egen Fane som heter Plex. hvor det er en hjem skjerm som samler Filmer og serier også rad på siden hvor du kan velge
+  filmer eller serier.»): `AppModel.movies`/`series` er alltid IPTV-leverandøren (`hasVOD` = Xtream), og
+  `AppModel.plexVOD` = `VODModel(kinds: [.movies, .series])` er Plex-fanen (`HomeView.Tab.plex`, `VODTab(kind: nil)`,
+  fanen «Plex» etter Serier når `hasPlex`: en server er valgt, eller en skal velges). `VODModel.kinds`/`mixed`;
+  `kind` er det ene slaget for IPTV, og i Plex-fanen har hvert bibliotek sitt (`libraryKinds` fra `sections()`,
+  `kind(of:)` til `page`). Kjernen: `continueWatching`, `items(ids:)`, `search`, `rowItems` og `rows` tar
+  `Set<VODKind>` (de med ett slag står igjen), `parseContinue`/`parseHubs`/`parseSearch`/`parseItems(kinds:)`,
+  `plexKind` («movie»/«show»); Hjem i fanen har altså «Fortsett å se» og radene i rekkefølgen fra Plex, med filmer og
+  serier om hverandre. `AppModel.vod(for:)` gir modellen en film eller serie hører til (siden, spilleren:
+  `VODPlayerModel.library`). Favorittene: `plexFavorites` = filmene og seriene sammen, sist lagt til først
+  (`VODItem.added` = tidspunktet de ble lagt til, for Plex; de fra før står etter). Sidemenyen (Apple TV, iPad):
+  «Søk» (Apple TV), Hjem (`house`) og bibliotekene med `SidebarIcon` (`film`/`tv`), «Velg biblioteker» nederst;
+  iPhone: `libraryRow`, Hjem og bibliotekene som knapper på en rad (`vodkat-<id>`, kan dras til siden) og
+  `velg-biblioteker` (ikon) til slutt, søket «Søk i Plex» (`searchPrompt`) under. Testskjermene `plex`/`plex-series`
+  åpner Plex-fanen (HomeView bytter dit når den kommer, `onChange(of: hasPlex)`).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og

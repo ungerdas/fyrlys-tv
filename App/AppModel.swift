@@ -63,10 +63,12 @@ final class AppModel {
     @ObservationIgnored private var vodFavoritesCache: [String: [VODItem]] = [:]
     /// hvor langt serverens klokke er foran UTC (for adressene i arkivet), spurt én gang per innlogging
     @ObservationIgnored private var clock: TimeInterval??
-    /// filmer og serier (VOD)
+    /// filmer og serier fra IPTV-leverandøren (fanene Filmer og Serier)
     let movies = VODModel(kind: .movies)
     let series = VODModel(kind: .series)
-    /// Plex: filmer og serier derfra i stedet for fra IPTV-leverandøren, når det er valgt
+    /// Plex-fanen: filmene og seriene fra Plex
+    let plexVOD = VODModel(kinds: [.movies, .series])
+    /// Plex-tilkoblingen
     let plex = PlexModel()
     private let cache = TestSupport.listCache
     private let defaults = TestSupport.defaults
@@ -99,10 +101,8 @@ final class AppModel {
 
     func start() {
         guard phase == .starting else { return }
-        plex.onChange = { [weak self] in self?.refreshVOD() }
-        for vod in [movies, series] {
-            vod.reconnect = { [weak self] in self?.plex.retry() }
-        }
+        plex.onChange = { [weak self] in self?.refreshPlex() }
+        plexVOD.reconnect = { [weak self] in self?.plex.retry() }
         plex.start()
         LiveShift.cleanUp()
         loadStreams()
@@ -244,6 +244,7 @@ final class AppModel {
         plex.reprobe()
         movies.refreshIfOld()
         series.refreshIfOld()
+        plexVOD.refreshIfOld()
         if let at = listsFetchedAt, Date().timeIntervalSince(at) > 3 * 3600 {
             Task { await reload() }
         }
@@ -445,24 +446,33 @@ final class AppModel {
         return Library(store: store, loginId: other.id).favorites
     }
 
-    // ── filmer og serier: fra IPTV-leverandøren eller fra Plex ──
+    // ── filmer og serier: fra IPTV-leverandøren (Filmer og Serier) og fra Plex (Plex-fanen) ──
 
-    /// Hvor fanene Filmer og Serier henter fra nå.
-    private var vodBackend: VODBackend? {
-        if plex.useForVOD && (plex.server != nil || plex.phase != .off) {
-            if let client = plex.client { return .plex(client) }
-            if case .failed(let message) = plex.phase { return .unavailable(message) }
-            if plex.phase == .choosing { return .unavailable(L("Velg Plex-serveren under Innstillinger.")) }
-            return .waiting
-        }
-        return client.map { .xtream($0) }
+    /// Hvor Plex-fanen henter fra nå (nil: ingen Plex-server).
+    private var plexBackend: VODBackend? {
+        guard plex.server != nil || plex.phase != .off else { return nil }
+        if let client = plex.client { return .plex(client) }
+        if case .failed(let message) = plex.phase { return .unavailable(message) }
+        if plex.phase == .choosing { return .unavailable(L("Velg Plex-serveren under Innstillinger.")) }
+        return .waiting
     }
 
+    /// Filmer og Serier fra IPTV-leverandøren (en M3U-liste har dem ikke), og Plex-fanen, på nytt.
     func refreshVOD() {
-        let backend = vodBackend
-        let hidden = hiddenSections
-        movies.reset(backend, hidden: hidden)
-        series.reset(backend, hidden: hidden)
+        let iptv = client.map { VODBackend.xtream($0) }
+        movies.reset(iptv)
+        series.reset(iptv)
+        refreshPlex()
+    }
+
+    /// Plex-fanen på nytt: tilkoblingen er endret, eller bibliotekene som vises.
+    func refreshPlex() {
+        plexVOD.reset(plexBackend, hidden: hiddenSections)
+    }
+
+    /// Filmene, seriene eller Plex-fanen [item] hører til.
+    func vod(for item: VODItem) -> VODModel {
+        item.isPlex ? plexVOD : (item.kind == .movies ? movies : series)
     }
 
     // ── feilrapporten fra Apple TV til iPhone og iPad (i iCloud) ──
@@ -484,7 +494,7 @@ final class AppModel {
         return (saved[0], saved[1])
     }
 
-    // ── Plex: bibliotekene som ikke vises i Filmer og Serier (i iCloud, delt mellom enhetene) ──
+    // ── Plex: bibliotekene som ikke vises i Plex-fanen (i iCloud, delt mellom enhetene) ──
 
     static let hiddenLibrariesKey = "plex-skjulte"
     /// «<server>/<bibliotek>» (som i Fyrlys for Windows)
@@ -513,7 +523,7 @@ final class AppModel {
         guard set != hiddenLibraries else { return }
         hiddenLibraries = set
         if !TestSupport.isActive { store.set(set.sorted(), for: Self.hiddenLibrariesKey) }
-        refreshVOD()
+        refreshPlex()
     }
 
     // ── egne strømmer: adresser som spilles i stedet for leverandørens (i iCloud, delt mellom enhetene) ──
@@ -601,10 +611,12 @@ final class AppModel {
         return guide ? L("M3U-liste med TV-guide") : L("M3U-liste uten TV-guide")
     }
 
-    /// Filmer og Serier finnes: hos Xtream, eller fra Plex (en M3U-liste har dem ikke, så fanene vises ikke da).
-    var hasVOD: Bool {
-        client != nil || (plex.useForVOD && (plex.server != nil || plex.phase != .off))
-    }
+    /// Filmer og Serier finnes: hos Xtream (en M3U-liste har dem ikke, så fanene vises ikke da).
+    var hasVOD: Bool { client != nil }
+
+    /// Plex-fanen: når en Plex-server er valgt (også mens den kobler til, eller når den ikke svarer), og når en av
+    /// serverne på kontoen skal velges
+    var hasPlex: Bool { plex.server != nil || plex.phase == .choosing }
 
     /// Kanalene hver egen strøm gjelder for (navnene hos leverandøren), fra indeksen.
     var streamMatches: [String: [String]] { index.streamNames }
@@ -679,6 +691,15 @@ final class AppModel {
         return items
     }
 
+    /// Plex-fanen: favorittfilmene og -seriene sammen, sist lagt til først (de fra før 0.1.31 har ikke tidspunktet, og
+    /// står etter, filmene først).
+    var plexFavorites: [VODItem] {
+        let all = vodFavorites(.movies, fromPlex: true) + vodFavorites(.series, fromPlex: true)
+        return all.enumerated().sorted {
+            ($0.element.added ?? 0, -$0.offset) > ($1.element.added ?? 0, -$1.offset)
+        }.map(\.element)
+    }
+
     func isVODFavorite(_ item: VODItem) -> Bool {
         vodFavorites(item.kind, fromPlex: item.isPlex).contains { $0.id == item.id }
     }
@@ -689,8 +710,9 @@ final class AppModel {
         if list.contains(where: { $0.id == item.id }) {
             list.removeAll { $0.id == item.id }
         } else {
+            // fra Plex med tidspunktet (Plex-fanen viser filmene og seriene sammen, sist lagt til først)
             list.insert(item.isPlex ? VODItem(id: item.id, kind: item.kind, name: item.name, year: item.year,
-                                              source: "plex") : item, at: 0)
+                                              source: "plex", added: Int(Date().timeIntervalSince1970)) : item, at: 0)
         }
         let lines = list.compactMap { (try? JSONEncoder().encode($0)).flatMap { String(data: $0, encoding: .utf8) } }
         store.set(lines, for: key)
@@ -731,7 +753,7 @@ final class AppModel {
         loadStreams()
         let before = hiddenLibraries
         loadHiddenLibraries()
-        if hiddenLibraries != before { refreshVOD() }
+        if hiddenLibraries != before { refreshPlex() }
         vodFavoritesCache = [:]
         vodFavoritesVersion += 1
         guard let library else { return }

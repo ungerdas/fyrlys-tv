@@ -365,6 +365,11 @@ public let english: [String: String] = [
     "Ingen biblioteker med filmer eller serier.": "No libraries with movies or series.",
     "Bibliotekene med filmer er skjult.": "The libraries with movies are hidden.",
     "Bibliotekene med serier er skjult.": "The libraries with series are hidden.",
+    // Plex-fanen (0.1.31)
+    "Alle bibliotekene er skjult.": "All libraries are hidden.",
+    "Søk i Plex": "Search Plex",
+    "Se filmene og seriene dine fra Plex i en egen fane, Plex.":
+        "Watch your movies and TV shows from Plex in a tab of their own, Plex.",
     // guiden
     "Velg hva guiden viser oppe til høyre: favorittene, alle kanaler eller en kategori.":
         "Choose what the guide shows at the top right: your favorites, all channels or a category.",

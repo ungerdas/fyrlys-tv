@@ -134,6 +134,10 @@ final class PlexTests: XCTestCase {
         XCTAssertNil(movies[0].episode)
         XCTAssertEqual(movies[0].progress, 0)
         XCTAssertTrue(movies[0].image?.contains("thumb") == true, "uten bakgrunn: plakaten")
+        // Plex-fanen: filmer og serier om hverandre, i rekkefølgen fra Plex (sist sett først)
+        let both = parseContinue(deck, kinds: [.movies, .series], client: client)
+        XCTAssertEqual(both.map(\.id), ["201", "101"])
+        XCTAssertEqual(both.map(\.item.kind), [.series, .movies])
     }
 
     /// Søket: filmene eller seriene i treffene, ikke episodene og skuespillerne.
@@ -148,6 +152,10 @@ final class PlexTests: XCTestCase {
         XCTAssertEqual(parseSearch(result, kind: .movies, client: client).map(\.id), ["101"])
         XCTAssertEqual(parseSearch(result, kind: .series, client: client).map(\.name), ["Losene"])
         XCTAssertTrue(parseSearch(container(#"{"MediaContainer": {}}"#), kind: .movies, client: client).isEmpty)
+        // Plex-fanen: filmene og seriene, i rekkefølgen fra Plex
+        let both = parseSearch(result, kinds: [.movies, .series], client: client)
+        XCTAssertEqual(both.map(\.id), ["101", "201"])
+        XCTAssertEqual(both.map(\.kind), [.movies, .series])
     }
 
     /// Radene på Hjem: filmer og serier for hver sin fane, episodene med serien sin, uten «Fortsett å se».
@@ -185,6 +193,24 @@ final class PlexTests: XCTestCase {
         XCTAssertTrue(movies[0].more)
         XCTAssertEqual(movies[0].items.map(\.id), ["102"])
         XCTAssertNil(movies[0].items[0].episode)
+        // Plex-fanen: radene som i Hjem i Plex, med filmer og serier i samme rad
+        let both = parseHubs(hubs, kinds: [.movies, .series], client: client)
+        XCTAssertEqual(both.map(\.title), ["Nytt fra Kystkanalen", "Nylig lagt til"])
+        XCTAssertEqual(both[1].items.map(\.id), ["102", "202"])
+        XCTAssertEqual(both[1].items.map(\.item.kind), [.movies, .series])
+    }
+
+    /// Favorittene i Plex-fanen: filmer og serier fra én henting, i rekkefølgen de ble bedt om.
+    func testItemsOfBothKinds() {
+        let found = parseItems(container("""
+        {"MediaContainer": {"Metadata": [
+          {"ratingKey": "201", "type": "show", "title": "Losene", "leafCount": 2, "viewedLeafCount": 2},
+          {"ratingKey": "101", "type": "movie", "title": "Fyret"},
+          {"ratingKey": "301", "type": "episode", "title": "Tåka"}]}}
+        """), kinds: [.movies, .series], client: client, library: "")
+        XCTAssertEqual(found.map(\.id), ["201", "101"])
+        XCTAssertEqual(found.map(\.kind), [.series, .movies])
+        XCTAssertEqual(found[0].watched, true)
     }
 
     /// Den beste tilkoblingen som svarer: hjemmenettet foran utenfra, og relé bare når ingen andre svarer.

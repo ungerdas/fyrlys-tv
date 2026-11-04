@@ -2,7 +2,7 @@ import FyrlysCore
 import SwiftUI
 
 /// Plex i innstillingene (Apple TV og iPad) og i et eget ark fra Konto (iPhone): koble til med en kode på plex.tv/link,
-/// velg server, velg om Filmer og Serier skal komme fra Plex, og koble fra.
+/// velg server, velg bibliotekene i Plex-fanen, og koble fra.
 struct PlexSettings: View {
     @Environment(AppModel.self) private var model
     /// valget av bibliotekene som vises
@@ -11,7 +11,7 @@ struct PlexSettings: View {
     private var plex: PlexModel { model.plex }
 
     private var pitch: String {
-        L("Se filmene og seriene dine fra Plex i fanene Filmer og Serier, i stedet for dem fra IPTV-leverandøren.")
+        L("Se filmene og seriene dine fra Plex i en egen fane, Plex.")
     }
 
     var body: some View {
@@ -77,18 +77,7 @@ struct PlexSettings: View {
         case .connected:
             info(L("Koblet til {server}", ["server": plex.server?.name ?? "Plex"]))
                 .accessibilityIdentifier("plex-tilkoblet")
-            #if os(tvOS)
-            button(plex.useForVOD ? L("Filmer og serier fra: Plex") : L("Filmer og serier fra: IPTV-leverandøren"),
-                   icon: "film", id: "vod-kilde") { plex.useForVOD.toggle() }
-            #else
-            Picker(L("Filmer og serier fra"), selection: Binding(get: { plex.useForVOD },
-                                                                set: { plex.useForVOD = $0 })) {
-                Text(verbatim: "Plex").tag(true)
-                Text(L("IPTV-leverandøren")).tag(false)
-            }
-            .accessibilityIdentifier("vod-kilde")
-            #endif
-            // bibliotekene som vises i Filmer og Serier (for eksempel uten «Andre videoer»)
+            // bibliotekene som vises i Plex-fanen (for eksempel uten «Andre videoer»)
             button(L("Biblioteker"), icon: "books.vertical", id: "plex-biblioteker") { libraries = true }
             if plex.servers.count > 1 {
                 button(L("Bytt server"), icon: "server.rack", id: "bytt-plex-server") { plex.chooseServer() }
@@ -146,8 +135,8 @@ struct PlexSettings: View {
     #endif
 }
 
-/// Hvilke Plex-biblioteker som vises i Filmer og Serier: det som slås av, er borte fra sidemenyen, Hjem, «Fortsett å
-/// se» og søket (som i Fyrlys for Windows; delt mellom enhetene med iCloud).
+/// Hvilke Plex-biblioteker som vises i Plex-fanen: det som slås av, er borte fra sidemenyen, Hjem, «Fortsett å se» og
+/// søket (som i Fyrlys for Windows; delt mellom enhetene med iCloud).
 struct PlexLibrariesSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss

@@ -1,5 +1,14 @@
 # Endringer
 
+## v0.1.31
+
+- Plex har fått sin egen fane, Plex, etter Filmer og Serier i fanelinja, og Filmer og Serier viser alltid det som
+  kommer fra IPTV-leverandøren. Valget «Filmer og serier fra» under Plex i innstillingene er tatt bort.
+- Hjem i Plex-fanen samler filmene og seriene, som Hjem i Plex: «Fortsett å se» (sist sett først), favorittene og
+  radene fra Plex med filmer og serier sammen.
+- Bibliotekene står i sidemenyen på Apple TV og iPad (med «Søk» øverst på Apple TV og «Velg biblioteker» nederst),
+  og som knapper på en rad øverst på iPhone. Søket i Plex-fanen finner både filmer og serier.
+
 ## v0.1.30
 
 - Pause og spol tilbake i direktesending (som i Fyrlys for Windows): Fyrlys tar vare på den siste halvtimen av

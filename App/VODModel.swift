@@ -14,12 +14,17 @@ enum VODBackend {
 
 /// Filmene eller seriene: kategoriene (hentes første gang fanen vises) med «Hjem» først, kategorien som er valgt, og
 /// lista for hver kategori (hentes når den velges eller vises som rad på Hjem, og huskes til innloggingen eller kilden
-/// byttes). Fra IPTV-leverandøren, eller fra Plex (bibliotekene som kategorier, og «Fortsett å se», radene på Hjem og
-/// søket fra Plex).
+/// byttes). Fanene Filmer og Serier fra IPTV-leverandøren, og Plex-fanen med filmer og serier sammen (bibliotekene som
+/// kategorier, og «Fortsett å se», radene på Hjem og søket fra Plex).
 @MainActor
 @Observable
 final class VODModel {
-    let kind: VODKind
+    /// filmer eller serier (IPTV-leverandøren), eller begge (Plex-fanen)
+    let kinds: Set<VODKind>
+    /// filmer eller serier (Filmer og Serier); i Plex-fanen bibliotekene hver for seg (`kind(of:)`)
+    var kind: VODKind { kinds.contains(.movies) ? .movies : .series }
+    /// Plex-fanen: filmer og serier sammen
+    var mixed: Bool { kinds.count > 1 }
     private(set) var categories: [ChannelCategory] = []
     private(set) var items: [String: [VODItem]] = [:]
     private(set) var loadingCategories = false
@@ -78,8 +83,18 @@ final class VODModel {
     @ObservationIgnored var finishedHere: Set<String> = []
 
     init(kind: VODKind) {
-        self.kind = kind
+        kinds = [kind]
     }
+
+    init(kinds: Set<VODKind>) {
+        self.kinds = kinds
+    }
+
+    /// Plex: om bibliotekene har filmer eller serier
+    private(set) var libraryKinds: [String: VODKind] = [:]
+
+    /// Filmer eller serier i [category] (et bibliotek i Plex-fanen).
+    func kind(of category: String) -> VODKind { libraryKinds[category] ?? kind }
 
     /// Plex: bibliotekene som ikke vises (sidemenyen, Hjem, «Fortsett å se» og søket)
     @ObservationIgnored private var hidden: Set<String> = []
@@ -93,6 +108,7 @@ final class VODModel {
         self.backend = backend
         if case .plex = backend { isPlex = true } else { isPlex = false }
         categories = []
+        libraryKinds = [:]
         items = [:]
         continueRow = []
         rows = []
@@ -162,24 +178,27 @@ final class VODModel {
                 found = categories.isEmpty ? [] : [ChannelCategory(id: Self.home, name: L("Hjem")), all] + categories
             case .plex(let client):
                 // «Fortsett å se» samtidig med bibliotekene og radene (før etter hverandre)
-                let kind = kind
-                let resumeTask = Task { (try? await client.continueWatching(kind)) ?? [] }
-                let libraries: [ChannelCategory]
+                let kinds = kinds
+                let resumeTask = Task { (try? await client.continueWatching(kinds)) ?? [] }
+                let sections: [PlexSection]
                 do {
-                    libraries = try await client.libraries(kind)
+                    sections = try await client.sections().filter { kinds.contains($0.kind) }
                 } catch {
                     resumeTask.cancel()
                     throw error
                 }
-                let shown = libraries.filter { !hidden.contains($0.id) }
-                let home = shown.isEmpty ? [] : ((try? await client.rows(kind, libraries: shown.map(\.id))) ?? [])
+                let shown = sections.filter { !hidden.contains($0.id) }
+                let home = shown.isEmpty ? [] : ((try? await client.rows(kinds, libraries: shown.map(\.id))) ?? [])
                 let resume = await resumeTask.value
                 // avbrutt (en ny henting har tatt over): ikke tomme rader i stedet for dem som kommer
                 guard gen == generation, !Task.isCancelled else { return }
+                libraryKinds = Dictionary(sections.map { ($0.id, $0.kind) }, uniquingKeysWith: { first, _ in first })
                 continueRow = visible(resume)
                 rows = visible(home)
-                hiddenAll = !libraries.isEmpty && shown.isEmpty
-                found = shown.isEmpty ? [] : [ChannelCategory(id: Self.home, name: L("Hjem"))] + shown
+                hiddenAll = !sections.isEmpty && shown.isEmpty
+                found = shown.isEmpty ? []
+                    : [ChannelCategory(id: Self.home, name: L("Hjem"))]
+                        + shown.map { ChannelCategory(id: $0.id, name: $0.name) }
             case .waiting:
                 return
             case .unavailable(let message):
@@ -215,7 +234,7 @@ final class VODModel {
                     : try await client.vodItems(kind, category: category)
             case .plex(let client):
                 // en side om gangen (store bibliotek), i rekkefølgen og sjangeren som er valgt
-                let page = try await client.page(kind, library: category, sort: plexSort(category),
+                let page = try await client.page(kind(of: category), library: category, sort: plexSort(category),
                                                  genre: plexGenres[category], start: 0)
                 found = page.items
                 total = page.total
@@ -338,7 +357,7 @@ final class VODModel {
         let gen = generation, request = requests[category] ?? 0
         loadingMore.insert(category)
         defer { if gen == generation, request == requests[category] ?? 0 { loadingMore.remove(category) } }
-        guard let page = try? await client.page(kind, library: category, sort: plexSort(category),
+        guard let page = try? await client.page(kind(of: category), library: category, sort: plexSort(category),
                                                 genre: plexGenres[category], start: have.count),
               gen == generation, request == requests[category] ?? 0, let now = items[category] else { return }
         var seen = Set(now.map(\.id))
@@ -386,7 +405,7 @@ final class VODModel {
                     found = try? await client.vodItems(kind, category: shown)
                 }
             case .plex(let client):
-                let page = try? await client.page(kind, library: shown, sort: plexSort(shown),
+                let page = try? await client.page(kind(of: shown), library: shown, sort: plexSort(shown),
                                                   genre: plexGenres[shown], start: 0)
                 found = page?.items
                 total = page?.total
@@ -410,14 +429,14 @@ final class VODModel {
     func refreshContinue() async {
         guard case .plex(let client) = backend else { return }
         let gen = generation
-        guard let resume = try? await client.continueWatching(kind), gen == generation else { return }
+        guard let resume = try? await client.continueWatching(kinds), gen == generation else { return }
         continueRow = visible(resume)
         let libraries = categories.map(\.id).filter { $0 != Self.home }
-        guard let home = try? await client.rows(kind, libraries: libraries), gen == generation else { return }
+        guard let home = try? await client.rows(kinds, libraries: libraries), gen == generation else { return }
         rows = visible(home)
     }
 
-    /// Plex: alle bibliotekene med filmer eller serier er skjult (siden sier det, med valget av bibliotekene)
+    /// Plex: alle bibliotekene er skjult (siden sier det, med valget av bibliotekene)
     private(set) var hiddenAll = false
 
     /// Uten det som er fra et skjult bibliotek (det uten bibliotek, står).
@@ -437,8 +456,8 @@ final class VODModel {
         }
     }
 
-    /// Plex: favorittene ([stored], lagret som id og navn) slik serveren har dem nå, i samme rekkefølge. Det som er
-    /// lagret, vises med en gang (uten plakat til svaret kommer).
+    /// Plex: favorittene ([stored], lagret som id og navn; filmer og serier) slik serveren har dem nå, i samme
+    /// rekkefølge. Det som er lagret, vises med en gang (uten plakat til svaret kommer).
     func refreshFavorites(_ stored: [VODItem]) async {
         guard case .plex(let client) = backend else {
             favoriteRow = []
@@ -448,7 +467,7 @@ final class VODModel {
         favoriteRow = stored.map { known[$0.id] ?? $0 }
         guard !stored.isEmpty else { return }
         let gen = generation
-        guard let found = try? await client.items(ids: stored.map(\.id), kind: kind), gen == generation,
+        guard let found = try? await client.items(ids: stored.map(\.id), kinds: kinds), gen == generation,
               !Task.isCancelled else { return }
         favoriteRow = found
     }
@@ -456,16 +475,16 @@ final class VODModel {
     /// Plex: hele raden («Se alle»).
     func rowItems(_ row: VODRow) async -> [VODRowItem] {
         guard case .plex(let client) = backend else { return row.items }
-        let all = (try? await client.rowItems(row, kind: kind)) ?? row.items
+        let all = (try? await client.rowItems(row, kinds: kinds)) ?? row.items
         return hidden.isEmpty ? all : all.filter { !hidden.contains($0.item.categoryId) }
     }
 
-    /// Søket: Plex søker selv; hos IPTV-leverandøren hentes alle filmene eller seriene første gang, og søket går i
-    /// navnene.
+    /// Søket: Plex søker selv (filmer og serier i Plex-fanen); hos IPTV-leverandøren hentes alle filmene eller seriene
+    /// første gang, og søket går i navnene.
     func search(_ query: String) async throws -> [VODItem] {
         switch backend {
         case .plex(let client):
-            return visible(try await client.search(query, kind: kind))
+            return visible(try await client.search(query, kinds: kinds))
         case .xtream(let client):
             let all = try await everything(client)
             return await Task.detached(priority: .userInitiated) { searchVOD(query, in: all) }.value

@@ -488,8 +488,8 @@ private struct SidebarButton: View {
     #endif
 }
 
-/// Ikonet foran alle kanaler, favoritter og sist sett: dempet, gult når den er valgt.
-private struct SidebarIcon: View {
+/// Ikonet foran alle kanaler, favoritter og sist sett (og bibliotekene i Plex-fanen): dempet, gult når den er valgt.
+struct SidebarIcon: View {
     let name: String
     let selected: Bool
     @Environment(\.isFocused) private var focused

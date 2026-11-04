@@ -22,9 +22,10 @@ IPTV-leverandøren din og se TV.
 - **TV-arkiv** for kanaler som har det hos leverandøren, og «se fra start» på det som går nå.
 - **Multiview**: opptil fire kanaler samtidig, når du har flere innlogginger eller et abonnement med flere
   tilkoblinger.
-- **Plex**: koble til Plex-serveren din (med en kode på plex.tv/link), og fanene Filmer og Serier viser bibliotekene
-  derfra. Hvor langt du har sett, og hva du har sett, holdes i takt med Plex. «Hopp over introen» og «Hopp over
-  rulleteksten» der Plex har merket dem, undertekstfilene ved siden av filmene, og «Mer som dette».
+- **Plex**: koble til Plex-serveren din (med en kode på plex.tv/link), og filmene og seriene derfra får sin egen fane,
+  Plex, med Hjem som samler dem (som Hjem i Plex) og bibliotekene i sidemenyen. Hvor langt du har sett, og hva du har
+  sett, holdes i takt med Plex. «Hopp over introen» og «Hopp over rulleteksten» der Plex har merket dem,
+  undertekstfilene ved siden av filmene, og «Mer som dette».
 - **iPhone**: som Fyrlys på nettet på en telefon, med favorittene og det du har sett sist øverst, kategoriene som
   fliser, store kanalkort med logoens egen farge, og lys eller mørk modus.
 - Norsk og engelsk, etter språket på enheten.

@@ -4,7 +4,7 @@ import SwiftUI
 import UIKit
 
 /// iPhone (og iPad i et smalt vindu), som Fyrlys-nettsiden på en telefon: topplinja med fyret, «Fyrlys», lys/mørk og
-/// Konto, og fanene TV, TV-guide, Filmer og Serier nederst.
+/// Konto, og fanene TV, TV-guide, Filmer, Serier og Plex nederst.
 struct PhoneHome: View {
     @Environment(AppModel.self) private var model
     @Binding var tab: HomeView.Tab
@@ -41,6 +41,11 @@ struct PhoneHome: View {
                     VODTab(kind: .series)
                         .tabItem { Label(L("Serier"), systemImage: "play.rectangle.on.rectangle") }
                         .tag(HomeView.Tab.series)
+                }
+                if model.hasPlex {
+                    VODTab(kind: nil)
+                        .tabItem { Label { Text(verbatim: "Plex") } icon: { Image(systemName: "film.stack") } }
+                        .tag(HomeView.Tab.plex)
                 }
             }
             .tint(Theme.signal)

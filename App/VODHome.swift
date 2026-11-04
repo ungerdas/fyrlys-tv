@@ -1,9 +1,10 @@
 import FyrlysCore
 import SwiftUI
 
-/// «Hjem» i Filmer og Serier, som i Plex og IPTV-appene: «Fortsett å se» (bredbilder med hvor langt du har kommet),
-/// favorittene, og så radene fra Plex («Nytt fra …», «Nylig lagt til …») eller kategoriene hos IPTV-leverandøren, med
-/// «Se alle». Filmer og serier åpnes som egen side; en episode spilles med en gang der du slapp (hold inne for serien).
+/// «Hjem» i Filmer, Serier og Plex, som i Plex og IPTV-appene: «Fortsett å se» (bredbilder med hvor langt du har
+/// kommet), favorittene, og så radene fra Plex («Nytt fra …», «Nylig lagt til …»; i Plex-fanen filmer og serier
+/// sammen, som Hjem i Plex) eller kategoriene hos IPTV-leverandøren, med «Se alle». Filmer og serier åpnes som egen
+/// side; en episode spilles med en gang der du slapp (hold inne for serien).
 struct VODHomeView: View {
     @Environment(AppModel.self) private var app
     let model: VODModel
@@ -34,10 +35,10 @@ struct VODHomeView: View {
                 .presentationDragIndicator(.visible)
         }
         #endif
-        // Plex: favorittene slik serveren har dem (plakatene); på nytt når de endres
+        // Plex: favorittfilmene og -seriene slik serveren har dem (plakatene); på nytt når de endres
         .task(id: "\(app.vodFavoritesVersion)-\(model.version)") {
             guard model.isPlex else { return }
-            await model.refreshFavorites(app.vodFavorites(model.kind, fromPlex: true))
+            await model.refreshFavorites(app.plexFavorites)
         }
         // IPTV: «Nylig lagt til» (alle hentes én gang)
         .task(id: model.version) { await model.loadRecent() }

@@ -3,8 +3,8 @@ import Foundation
 import Observation
 import UIKit
 
-/// Plex-tilkoblingen: koden til plex.tv/link, serveren som er valgt (og adressen som svarte), og om fanene Filmer og
-/// Serier henter fra Plex i stedet for IPTV-leverandøren. Nøkkelen og serveren ligger i nøkkelringen.
+/// Plex-tilkoblingen: koden til plex.tv/link, og serveren som er valgt (og adressen som svarte), for Plex-fanen.
+/// Nøkkelen og serveren ligger i nøkkelringen.
 @MainActor
 @Observable
 final class PlexModel {
@@ -23,18 +23,7 @@ final class PlexModel {
     private(set) var servers: [PlexServer] = []
     private(set) var server: PlexServer?
     private(set) var client: PlexClient?
-    /// filmer og serier fra Plex i stedet for IPTV-leverandøren (når Plex er koblet til)
-    var useForVOD: Bool {
-        get { storedUse }
-        set {
-            guard newValue != storedUse else { return }
-            storedUse = newValue
-            defaults.set(newValue, forKey: Self.useKey)
-            onChange?()
-        }
-    }
-    private var storedUse: Bool
-    /// fanene Filmer og Serier må hentes på nytt (kilden eller tilkoblingen er endret)
+    /// Plex-fanen må hentes på nytt (tilkoblingen er endret)
     @ObservationIgnored var onChange: (() -> Void)?
 
     let device: PlexDevice
@@ -47,9 +36,6 @@ final class PlexModel {
     @ObservationIgnored private var probing = false
     /// rapportene til Plex sendes i rekkefølge (timeline og scrobble)
     @ObservationIgnored private var reports: Task<Void, Never>?
-    private let defaults = TestSupport.defaults
-
-    private static let useKey = "plex-filmer"
 
     private struct Saved: Codable {
         var token: String
@@ -71,7 +57,6 @@ final class PlexModel {
                                 version: appVersion)
         self.device = device
         account = PlexAccountClient(device: device, base: TestSupport.plexServer ?? "https://plex.tv")
-        storedUse = defaults.bool(forKey: Self.useKey)
     }
 
     /// Kobler til serveren fra sist (i bakgrunnen). Testene: koblet til den falske serveren fra før, unntatt
@@ -80,9 +65,7 @@ final class PlexModel {
         if TestSupport.isActive {
             guard TestSupport.plexServer != nil, let screen = TestSupport.screen, screen.hasPrefix("plex"),
                   screen != "plex-link" else { return }
-            // fanene venter på Plex i stedet for å vise IPTV-leverandøren først
             phase = .connecting
-            useForVOD = true
             Task { await finish(token: "test-token") }
             return
         }
@@ -90,7 +73,7 @@ final class PlexModel {
             return
         }
         token = saved.token
-        // fanene venter på Plex (.waiting) i stedet for å vise IPTV-leverandøren først
+        // Plex-fanen venter på Plex (.waiting)
         phase = .connecting
         if let server = saved.server {
             self.server = server
@@ -155,11 +138,7 @@ final class PlexModel {
         servers = []
         phase = .off
         if !TestSupport.isActive { Keychain.savePlex(nil) }
-        if useForVOD {
-            useForVOD = false
-        } else {
-            onChange?()
-        }
+        onChange?()
     }
 
     /// Velg en annen av serverne på kontoen.
@@ -185,7 +164,7 @@ final class PlexModel {
                 onChange?()
             }
         } catch {
-            // fanene Filmer og Serier venter på Plex: si fra (før ble de stående og laste)
+            // Plex-fanen venter på Plex: si fra (før ble den stående og laste)
             phase = .failed(error.localizedDescription)
             onChange?()
         }
@@ -223,10 +202,6 @@ final class PlexModel {
         phase = .connected
         AppLog.shared.add("Plex: koblet til (\(Self.kind(of: uri, in: server)))")
         save(uri)
-        // første gang: filmer og serier fra Plex (kan byttes tilbake i innstillingene)
-        if defaults.object(forKey: Self.useKey) == nil || TestSupport.isActive {
-            useForVOD = true
-        }
         onChange?()
     }
 

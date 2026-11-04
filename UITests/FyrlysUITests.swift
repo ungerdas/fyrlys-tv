@@ -783,17 +783,20 @@ final class FyrlysUITests: XCTestCase {
         shot("44-plex-sett")
     }
 
-    /// Plex (koblet til fra før): «Hjem» med radene fra Plex og «Fortsett å se», bibliotekene som kategorier, siden
-    /// for en film med «Fortsett» der Plex sier du slapp, og filmen (mkv) spilles rett fra serveren med VLC.
+    /// Plex-fanen (koblet til fra før): «Hjem» med filmer og serier sammen (radene fra Plex og «Fortsett å se»),
+    /// bibliotekene med filmer og serier i sidemenyen, siden for en film med «Fortsett» der Plex sier du slapp, og
+    /// filmen (mkv) spilles rett fra serveren med VLC.
     func test17Plex() {
         let app = launch("plex")
         let movie = find(app, "rad-1001")
         XCTAssertTrue(movie.waitForExistence(timeout: 40), "radene fra Plex kom ikke")
         XCTAssertTrue(find(app, "vodkat-hjem").exists, "«Hjem» mangler")
         XCTAssertTrue(find(app, "vodkat-1").exists, "biblioteket Filmer mangler")
+        XCTAssertTrue(find(app, "vodkat-2").exists, "biblioteket Serier mangler")
         XCTAssertFalse(find(app, "vodkat-3").exists, "musikkbiblioteket skal ikke vises")
-        XCTAssertTrue(find(app, "fortsett-1001").exists, "«Fortsett å se» fra Plex mangler")
-        XCTAssertFalse(find(app, "rad-e2102").exists, "episodene skal stå under Serier")
+        XCTAssertTrue(find(app, "fortsett-1001").exists, "filmen mangler i «Fortsett å se»")
+        XCTAssertTrue(find(app, "fortsett-2001").exists, "serien mangler i «Fortsett å se»")
+        XCTAssertTrue(find(app, "rad-e2102").exists, "episodene mangler på Hjem")
         wait(2)
         shot("28-plex-hjem")
         XCTAssertTrue(focus(app, movie), "fikk ikke fokus på filmen")

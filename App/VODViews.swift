@@ -4,9 +4,10 @@ import SwiftUI
 
 // ── fanen ──
 
-/// Fanen Filmer eller Serier: «Hjem» og kategoriene (sidemeny på Apple TV og iPad, en meny øverst på iPhone, med
-/// søket under på iPhone og iPad) og plakatene. En film eller serie åpnes som egen side (Menu eller tilbake går
-/// tilbake).
+/// Fanen Filmer eller Serier (fra IPTV-leverandøren), eller Plex-fanen (filmene og seriene fra Plex sammen): «Hjem» og
+/// kategoriene eller bibliotekene (sidemeny på Apple TV og iPad; på iPhone en meny øverst, og i Plex-fanen knapper på
+/// en rad), søket (øverst i sidemenyen på Apple TV, over plakatene på iPhone og iPad) og plakatene. En film eller serie
+/// åpnes som egen side (Menu eller tilbake går tilbake).
 struct VODTab: View {
     @Environment(AppModel.self) private var app
     #if os(iOS)
@@ -14,12 +15,19 @@ struct VODTab: View {
     /// søket i filmene eller seriene
     @State private var query = ""
     #endif
-    let kind: VODKind
+    /// filmer eller serier fra IPTV-leverandøren; nil: Plex-fanen
+    let kind: VODKind?
     @State private var path = NavigationPath()
     /// Plex: valget av bibliotekene som vises
     @State private var libraries = false
 
-    private var model: VODModel { kind == .movies ? app.movies : app.series }
+    private var model: VODModel {
+        switch kind {
+        case .movies?: return app.movies
+        case .series?: return app.series
+        case nil: return app.plexVOD
+        }
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -51,7 +59,7 @@ struct VODTab: View {
         }
     }
 
-    /// Plex: «Velg biblioteker» (sidemenyen nederst, menyen på iPhone, og når alle er skjult).
+    /// Plex: «Velg biblioteker» (sidemenyen nederst, til slutt på raden på iPhone, og når alle er skjult).
     private var librariesButton: some View {
         Button {
             libraries = true
@@ -78,8 +86,7 @@ struct VODTab: View {
         } else if model.categories.isEmpty {
             if model.isPlex, model.hiddenAll {
                 VStack(spacing: 24) {
-                    Text(kind == .movies ? L("Bibliotekene med filmer er skjult.")
-                         : L("Bibliotekene med serier er skjult."))
+                    Text(L("Alle bibliotekene er skjult."))
                         .font(.system(size: Metrics.pageCount + 6))
                         .foregroundStyle(Theme.muted)
                         .multilineTextAlignment(.center)
@@ -89,8 +96,7 @@ struct VODTab: View {
                 .padding(40)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if model.isPlex {
-                VODMessage(text: kind == .movies ? L("Ingen filmbiblioteker på Plex-serveren.")
-                           : L("Ingen seriebiblioteker på Plex-serveren."))
+                VODMessage(text: L("Ingen biblioteker med filmer eller serier."))
             } else {
                 VODMessage(text: kind == .movies ? L("Ingen filmer hos leverandøren.")
                            : L("Ingen serier hos leverandøren."))
@@ -104,7 +110,13 @@ struct VODTab: View {
         }
     }
 
-    /// Apple TV og iPad: kategoriene til venstre, plakatene til høyre.
+    /// Plex-fanen: ikonet foran Hjem og bibliotekene (filmer eller serier).
+    private func libraryIcon(_ id: String) -> String {
+        if id == VODModel.home { return "house" }
+        return model.kind(of: id) == .movies ? "film" : "tv"
+    }
+
+    /// Apple TV og iPad: kategoriene (i Plex-fanen bibliotekene, med ikon) til venstre, plakatene til høyre.
     private var split: some View {
         HStack(alignment: .top, spacing: 0) {
             ScrollView {
@@ -112,7 +124,7 @@ struct VODTab: View {
                     #if os(tvOS)
                     // søket i filmene eller seriene (egen side med tastaturet til Apple TV)
                     Button {
-                        path.append(VODSearchRoute(kind: kind))
+                        path.append(VODSearchRoute())
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "magnifyingglass")
@@ -125,16 +137,20 @@ struct VODTab: View {
                     .accessibilityIdentifier("vod-sok")
                     #endif
                     ForEach(model.categories) { category in
+                        let selected = model.chosen == category.id
                         Button {
                             model.chosen = category.id
                         } label: {
-                            HStack(spacing: 8) {
+                            HStack(spacing: model.mixed ? Metrics.sidebarIcon * 0.65 : 8) {
+                                if model.mixed {
+                                    SidebarIcon(name: libraryIcon(category.id), selected: selected)
+                                }
                                 Text(category.name)
                                     .lineLimit(1)
                                 Spacer(minLength: 0)
                             }
                         }
-                        .buttonStyle(SidebarStyle(selected: model.chosen == category.id))
+                        .buttonStyle(SidebarStyle(selected: selected))
                         .accessibilityIdentifier("vodkat-\(category.id)")
                     }
                     if model.isPlex {
@@ -176,40 +192,14 @@ struct VODTab: View {
     }
 
     #if os(iOS)
-    /// iPhone: kategorien i en meny øverst, plakatene under.
+    /// iPhone: kategorien i en meny øverst (i Plex-fanen Hjem og bibliotekene som knapper på en rad), plakatene under.
     private var phone: some View {
         VStack(spacing: 0) {
-            Menu {
-                ForEach(model.categories) { category in
-                    Button(category.name) { model.chosen = category.id }
-                }
-                if model.isPlex {
-                    Divider()
-                    Button {
-                        libraries = true
-                    } label: {
-                        Label(L("Velg biblioteker"), systemImage: "books.vertical")
-                    }
-                }
-            } label: {
-                HStack(spacing: 10) {
-                    Text(model.name(model.chosen))
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.muted)
-                }
-                .padding(.horizontal, 18)
-                .frame(height: 46)
-                .background(Capsule().fill(Theme.surface))
-                .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
+            if model.mixed {
+                libraryRow
+            } else {
+                categoryMenu
             }
-            .accessibilityIdentifier("vod-kategori")
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
             searchField
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -217,11 +207,86 @@ struct VODTab: View {
         }
     }
 
+    private var categoryMenu: some View {
+        Menu {
+            ForEach(model.categories) { category in
+                Button(category.name) { model.chosen = category.id }
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Text(model.name(model.chosen))
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.muted)
+            }
+            .padding(.horizontal, 18)
+            .frame(height: 46)
+            .background(Capsule().fill(Theme.surface))
+            .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
+        }
+        .accessibilityIdentifier("vod-kategori")
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+
+    /// Plex-fanen på iPhone: Hjem og bibliotekene som knapper på en rad (den kan dras til siden når det er mange), og
+    /// valget av bibliotekene til slutt.
+    private var libraryRow: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(model.categories) { category in
+                    let selected = model.chosen == category.id
+                    Button {
+                        model.chosen = category.id
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: libraryIcon(category.id))
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(category.name)
+                                .font(.system(size: 15, weight: .semibold))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(selected ? Theme.signalInk : Theme.ink2)
+                        .padding(.horizontal, 14)
+                        .frame(height: 38)
+                        .background(Capsule().fill(selected ? Theme.signal : Theme.surface))
+                        .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.line, lineWidth: 1))
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("vodkat-\(category.id)")
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+                Button {
+                    libraries = true
+                } label: {
+                    Image(systemName: "books.vertical")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.ink2)
+                        .frame(width: 44, height: 38)
+                        .background(Capsule().fill(Theme.surface))
+                        .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("Velg biblioteker"))
+                .accessibilityIdentifier("velg-biblioteker")
+            }
+            .padding(.horizontal, 16)
+        }
+        .scrollIndicators(.never)
+        .padding(.top, 8)
+    }
+
     private var searching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
 
     /// Søket i filmene eller seriene (en annen kategori tømmer det).
     private var searchField: some View {
-        SearchField(text: $query, prompt: kind == .movies ? L("Søk i filmer") : L("Søk i serier"), id: "vod-sok")
+        SearchField(text: $query, prompt: searchPrompt(model), id: "vod-sok")
             .onChange(of: model.chosen) { query = "" }
     }
 
@@ -244,6 +309,11 @@ struct VODTab: View {
             PosterGrid(model: model, category: model.chosen, showsTitle: showsTitle)
         }
     }
+}
+
+/// «Søk i filmer», «Søk i serier» eller «Søk i Plex».
+func searchPrompt(_ model: VODModel) -> String {
+    model.mixed ? L("Søk i Plex") : (model.kind == .movies ? L("Søk i filmer") : L("Søk i serier"))
 }
 
 /// Plakatene i en kategori (hentes når kategorien velges); «Fortsett å se» og favorittene står på Hjem.
@@ -678,7 +748,7 @@ struct VODDetailView: View {
     /// en feil som vises en liten stund (Plex svarte ikke da noe skulle merkes som sett)
     @State private var notice: String?
 
-    private var model: VODModel { item.kind == .movies ? app.movies : app.series }
+    private var model: VODModel { app.vod(for: item) }
 
     var body: some View {
         ScrollView {
@@ -1271,10 +1341,8 @@ func ratingText(_ rating: Double) -> String {
 }
 
 #if os(tvOS)
-/// Søket i filmene eller seriene på Apple TV (fra sidemenyen).
-struct VODSearchRoute: Hashable {
-    let kind: VODKind
-}
+/// Søket i filmene, seriene eller Plex på Apple TV (fra sidemenyen; fanen vet hvor det søkes).
+struct VODSearchRoute: Hashable {}
 
 /// Apple TV: søket i filmene eller seriene, med tastaturet til Apple TV øverst og treffene under.
 struct VODSearchPage: View {
@@ -1283,7 +1351,7 @@ struct VODSearchPage: View {
 
     var body: some View {
         VODSearchResults(model: model, query: query.trimmingCharacters(in: .whitespaces))
-            .searchable(text: $query, prompt: model.kind == .movies ? L("Søk i filmer") : L("Søk i serier"))
+            .searchable(text: $query, prompt: searchPrompt(model))
             .background(Theme.bg.ignoresSafeArea())
     }
 }

@@ -34,8 +34,6 @@ enum ErrorReport {
         }
         lines.append(L("NRK direkte: {state} · egne strømmer: {n}",
                        ["state": model.useBuiltInStreams ? L("på") : L("av"), "n": model.streamOverrides.count]))
-        lines.append(L("Filmer og serier fra: {source}",
-                       ["source": model.plex.useForVOD ? "Plex" : L("IPTV-leverandøren")]))
         lines.append(L("Plex: {state}", ["state": plexState(model.plex)]))
         if !model.hiddenSections.isEmpty {
             lines.append(L("Skjulte Plex-biblioteker: {n}", ["n": model.hiddenSections.count]))
