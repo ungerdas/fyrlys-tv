@@ -489,22 +489,57 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
     }
 
-    /// Flytter fokus fra sidemenyen inn på siden og opp til [target] (menyene over plakatene), og til siden når fokus
-    /// står på samme linje.
-    func focusUp(_ app: XCUIApplication, _ target: XCUIElement, tries: Int = 10) -> Bool {
+    /// [target] har fokus, eller elementet med fokus ligger oppå det: i en meny på Apple TV står fokus av og til på
+    /// knappen inni, ikke på elementet med id-en (som i lister i et ark).
+    func focusedOn(_ app: XCUIApplication, _ target: XCUIElement) -> Bool {
+        if target.hasFocus { return true }
+        let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        guard focused.exists, target.exists else { return false }
+        let a = focused.frame, b = target.frame
+        return a.intersects(b) && abs(a.midX - b.midX) < 40 && abs(a.midY - b.midY) < 40
+    }
+
+    /// Hva som har fokus (til feilmeldingene).
+    func focusText(_ app: XCUIApplication) -> String {
+        let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        guard focused.exists else { return "ingenting har fokus" }
+        return "fokus på «\(focused.identifier)» «\(focused.label)» \(focused.frame)"
+    }
+
+    /// Flytter fokus fra sidemenyen inn på siden og opp til [target] (menyene over plakatene, til høyre): til høyre
+    /// under den, så opp, og til siden når fokus står på samme linje. Havner fokus over (fanelinja), går det ned igjen.
+    func focusUp(_ app: XCUIApplication, _ target: XCUIElement, tries: Int = 14) -> Bool {
+        var previous = CGRect.null
+        var last: XCUIRemote.Button?
+        var blocked = false
         for _ in 0..<tries {
-            if target.hasFocus { return true }
+            if focusedOn(app, target) { return true }
             let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
-            if focused.exists, focused.identifier.hasPrefix("vodkat-") {
-                remote.press(.right)
-            } else if focused.exists, abs(focused.frame.midY - target.frame.midY) < 40 {
-                remote.press(focused.frame.midX > target.frame.midX ? .left : .right)
+            let frame = focused.exists ? focused.frame : .null
+            // til høyre flyttet ikke fokus: det er ikke flere plakater på raden
+            if last == .right, frame == previous { blocked = true }
+            previous = frame
+            let press: XCUIRemote.Button
+            if !focused.exists {
+                press = .down
+            } else if focused.identifier.hasPrefix("vodkat-") {
+                press = .right
+            } else if abs(frame.midY - target.frame.midY) < 40 {
+                press = frame.midX > target.frame.midX ? .left : .right
+            } else if frame.midY < target.frame.midY {
+                press = .down
+            } else if frame.maxX < target.frame.minX, !blocked {
+                press = .right
             } else {
-                remote.press(.up)
+                press = .up
             }
+            remote.press(press)
+            last = press
             wait(0.8)
         }
-        return target.hasFocus
+        if focusedOn(app, target) { return true }
+        shot("58-meny-uten-fokus")
+        return false
     }
 
     /// Velger [label] i menyen som er åpen (ned til den, så velg).
@@ -529,7 +564,7 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(before(coast, fjord), "leverandørens rekkefølge: «Kysten fra lufta» først")
         let sort = find(app, "vod-sortering")
         XCTAssertTrue(sort.exists, "valget av rekkefølge mangler")
-        XCTAssertTrue(focusUp(app, sort), "fikk ikke fokus på rekkefølgen")
+        XCTAssertTrue(focusUp(app, sort), "fikk ikke fokus på rekkefølgen (\(focusText(app)), menyen \(sort.frame))")
         remote.press(.select)
         XCTAssertTrue(choose(app, "A–Å"), "fant ikke «A–Å» i menyen")
         XCTAssertTrue(until(10) { fjord.exists && coast.exists && before(fjord, coast) }, "A–Å: «Fjordlys» først")
@@ -556,7 +591,7 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(find(app, "vod-1001").waitForExistence(timeout: 15), "filmene i biblioteket kom ikke")
         let genre = find(app, "vod-sjanger")
         XCTAssertTrue(genre.waitForExistence(timeout: 10), "valget av sjanger mangler")
-        XCTAssertTrue(focusUp(app, genre), "fikk ikke fokus på sjangeren")
+        XCTAssertTrue(focusUp(app, genre), "fikk ikke fokus på sjangeren (\(focusText(app)), menyen \(genre.frame))")
         remote.press(.select)
         XCTAssertTrue(choose(app, "Dokumentar"), "fant ikke «Dokumentar» i menyen")
         XCTAssertTrue(until(15) { !find(app, "vod-1001").exists && find(app, "vod-1002").exists },

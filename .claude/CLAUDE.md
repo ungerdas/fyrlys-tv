@@ -642,3 +642,13 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   rett i hjemmenettet, sjangrene og sidene i store bibliotek. Igjen fra lista: «Resten» (flere kanaler samtidig, M3U og
   XMLTV, feilrapport, egne navn på innloggingene) og «TV-spilleren» (pause og spol tilbake i direktesending, strøminfo,
   bildeformat).
+- 4.11.2026: 0.1.27 (egne navn, feilrapport), 0.1.28 (M3U og XMLTV), 0.1.29 (multiview) og 0.1.30 (pause og
+  tilbakespoling i direktesending, bildeformat, strøminfo) er laget: hele lista fra Windows-økta er gjort (lydforsinkelse
+  finnes ikke med AVPlayer). Bygg 48 (0.1.25) kom ikke til TestFlight: iPhone-jobben feilet på `test17Mkv` (testfilmen
+  på 30 s var ferdig midt i testen; den pauser nå med en gang), og så fikk den ingen Mac. Bygg 50 (0.1.29) kompilerte
+  for begge, men fem Apple TV-tester fant ikke fokus (menyene over plakatene står til høyre: overskriften er nå et
+  `tvFocusSection`; i en liste i et ark står fokus på cellen, ikke på knappen med id-en: kanalvalget i multiview og
+  bibliotekene er knapper og brytere i en rulleliste på Apple TV, og testene har `hasFocus(app, element, label:)` og
+  `focusDown`; `test22` begynner fra «Fortsett å se»), og på iPhone fantes «Filmer» både som fane og bibliotek og
+  «Lagre» to ganger i varselet. `FlowLayout` fikk slakk (det siste merket på filmsiden havnet oppå teksten under). M3U,
+  multiview, feilrapporten og søket på Apple TV virket i simulatorene (bildene 47–54).
