@@ -420,6 +420,24 @@ final class FyrlysUITests: XCTestCase {
         label.split(separator: ":").reduce(0) { $0 * 60 + (Int($1) ?? 0) }
     }
 
+    /// [element] har fokus, eller cellen det står i (en rad i en liste i et ark: fokus står på cellen, med teksten i
+    /// raden, ikke på knappen eller bryteren med id-en).
+    func hasFocus(_ app: XCUIApplication, _ element: XCUIElement, label: String) -> Bool {
+        if element.exists && element.hasFocus { return true }
+        let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        return focused.exists && focused.label.contains(label)
+    }
+
+    /// Trykker ned til [element] (med [label]) har fokus i en liste.
+    func focusDown(_ app: XCUIApplication, _ element: XCUIElement, label: String, tries: Int = 14) -> Bool {
+        for _ in 0..<tries {
+            if hasFocus(app, element, label: label) { return true }
+            remote.press(.down)
+            wait(0.6)
+        }
+        return hasFocus(app, element, label: label)
+    }
+
     /// Trykker til høyre til [target] har fokus (knappene på en rad).
     func focusRight(_ target: XCUIElement, tries: Int = 6) -> Bool {
         for _ in 0..<tries {
@@ -435,14 +453,10 @@ final class FyrlysUITests: XCTestCase {
     /// den neste («Neste: …»), også i neste sesong.
     func test22PlexEpisoder() {
         let app = launch("plex-series")
-        let series = find(app, "rad-2001")
-        XCTAssertTrue(series.waitForExistence(timeout: 40), "serien mangler i radene")
-        XCTAssertTrue(focus(app, series), "fikk ikke fokus på serien")
-        remote.press(.select)
-        let resume = find(app, "fortsett-serie")
-        XCTAssertTrue(resume.waitForExistence(timeout: 15), "knappen til episoden du skal se, mangler")
-        wait(1)
-        if !resume.hasFocus { _ = focusRight(resume) }
+        // «Fortsett å se» spiller episoden du er midt i (knappen på seriesiden prøves i test19)
+        let resume = find(app, "fortsett-2001")
+        XCTAssertTrue(resume.waitForExistence(timeout: 40), "«Fortsett å se» fra Plex kom ikke")
+        XCTAssertTrue(focus(app, resume), "fikk ikke fokus på «Fortsett å se»")
         remote.press(.select)
         let player = find(app, "vod-spiller")
         XCTAssertTrue(player.waitForExistence(timeout: 20), "spilleren kom ikke")
@@ -497,11 +511,7 @@ final class FyrlysUITests: XCTestCase {
     func choose(_ app: XCUIApplication, _ label: String) -> Bool {
         let option = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
         guard option.waitForExistence(timeout: 5) else { return false }
-        for _ in 0..<8 where !option.hasFocus {
-            remote.press(.down)
-            wait(0.6)
-        }
-        guard option.hasFocus else { return false }
+        guard focusDown(app, option, label: label, tries: 8) else { return false }
         remote.press(.select)
         return true
     }
@@ -571,11 +581,7 @@ final class FyrlysUITests: XCTestCase {
         remote.press(.select)
         let toggle = find(app, "vis-bibliotek-4")
         XCTAssertTrue(toggle.waitForExistence(timeout: 15), "bibliotekene kom ikke")
-        for _ in 0..<6 where !toggle.hasFocus {
-            remote.press(.down)
-            wait(0.6)
-        }
-        XCTAssertTrue(toggle.hasFocus, "fikk ikke fokus på «Andre videoer»")
+        XCTAssertTrue(focusDown(app, toggle, label: "Andre videoer", tries: 8), "fikk ikke fokus på «Andre videoer»")
         remote.press(.select)
         wait(1)
         shot("49-plex-biblioteker")
@@ -657,11 +663,7 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 20), "kanalvalget med kanalene fra M3U-lista kom ikke")
         wait(1)
         shot("54-multiview-velg")
-        for _ in 0..<14 where !row.hasFocus {
-            remote.press(.down)
-            wait(0.6)
-        }
-        XCTAssertTrue(row.hasFocus, "fikk ikke fokus på kanalen i lista")
+        XCTAssertTrue(focusDown(app, row, label: "Villmark"), "fikk ikke fokus på kanalen i lista")
         remote.press(.select)
         let named = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "multiview-bilde-1", "Villmark")).firstMatch

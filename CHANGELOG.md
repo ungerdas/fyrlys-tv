@@ -10,6 +10,8 @@
   kontrollene på Apple TV, og under «Mer» (…) i spilleren på iPhone og iPad. Huskes for hver kanal.
 - Strøminfo: oppløsningen, kodekene, bilder i sekundet, bitraten og tapte bilder. På Apple TV ved siden av «Kanaler»
   når du sveiper ned i spilleren, på iPhone og iPad under «Mer».
+- Det siste merket på siden for en film (for eksempel «★ 6,9») kunne havne på en egen linje oppå teksten under.
+- Apple TV: opp fra plakatene går til valget av rekkefølge og sjanger, uansett hvilken plakat du står på.
 
 ## v0.1.29
 

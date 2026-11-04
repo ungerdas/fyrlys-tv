@@ -304,6 +304,8 @@ private struct PosterGrid: View {
                     .lineLimit(1)
             }
         }
+        // Apple TV: opp fra hvilken som helst plakat i den øverste raden går til menyene (de står til høyre)
+        .tvFocusSection()
     }
 
     private func grid(_ toTop: @escaping () -> Void) -> some View {
@@ -471,7 +473,9 @@ struct FlowLayout: Layout {
         var x: CGFloat = 0, y: CGFloat = 0, row: CGFloat = 0, widest: CGFloat = 0
         for view in subviews {
             let size = view.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > width {
+            // litt slakk: bredden som gis tilbake, er summen av de samme tallene (ellers kunne det siste merket havne på
+            // en ny linje som det ikke var satt av plass til, oppå teksten under)
+            if x > 0, x + size.width > width + 1 {
                 x = 0
                 y += row + spacing
                 row = 0
@@ -487,7 +491,7 @@ struct FlowLayout: Layout {
         var x = bounds.minX, y = bounds.minY, row: CGFloat = 0
         for view in subviews {
             let size = view.sizeThatFits(.unspecified)
-            if x > bounds.minX, x + size.width > bounds.maxX {
+            if x > bounds.minX, x + size.width > bounds.maxX + 1 {
                 x = bounds.minX
                 y += row + spacing
                 row = 0

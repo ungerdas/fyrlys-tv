@@ -156,32 +156,28 @@ struct PlexLibrariesSheet: View {
 
     var body: some View {
         NavigationStack {
+            #if os(tvOS)
+            // Apple TV: bryterne i en rulleliste (fokus står da på bryteren selv, ikke på en celle rundt den)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    toggles
+                    Text(L("Det du slår av, vises ikke i sidemenyen, på Hjem eller i søket."))
+                        .font(.system(size: 24))
+                        .foregroundStyle(Theme.muted)
+                }
+                .frame(maxWidth: 900, alignment: .leading)
+                .padding(40)
+            }
+            .navigationTitle(L("Biblioteker"))
+            #else
             List {
                 Section {
-                    if let sections {
-                        if sections.isEmpty {
-                            Text(L("Ingen biblioteker med filmer eller serier."))
-                        }
-                        ForEach(sections) { section in
-                            Toggle(isOn: Binding(get: { !model.isHidden(section.id) },
-                                                 set: { model.setHidden(section.id, !$0) })) {
-                                Label(section.name, systemImage: section.kind == .movies ? "film" : "tv")
-                            }
-                            .accessibilityIdentifier("vis-bibliotek-\(section.id)")
-                        }
-                    } else if failed {
-                        Text(L("Får ikke kontakt med Plex-serveren"))
-                    } else {
-                        ProgressView()
-                    }
+                    toggles
                 } footer: {
                     Text(L("Det du slår av, vises ikke i sidemenyen, på Hjem eller i søket."))
                 }
-                #if os(iOS)
                 .listRowBackground(Theme.surface)
-                #endif
             }
-            #if os(iOS)
             .scrollContentBackground(.hidden)
             .background(Theme.bg)
             .navigationBarTitleDisplayMode(.inline)
@@ -191,14 +187,35 @@ struct PlexLibrariesSheet: View {
                         .accessibilityIdentifier("biblioteker-ferdig")
                 }
             }
-            #endif
             .navigationTitle(L("Biblioteker"))
+            #endif
         }
         #if os(iOS)
         .tint(Theme.signal)
         #endif
         .accessibilityIdentifier("plex-bibliotekvalg")
         .task { await load() }
+    }
+
+    /// Én bryter per bibliotek (på: vises).
+    @ViewBuilder
+    private var toggles: some View {
+        if let sections {
+            if sections.isEmpty {
+                Text(L("Ingen biblioteker med filmer eller serier."))
+            }
+            ForEach(sections) { section in
+                Toggle(isOn: Binding(get: { !model.isHidden(section.id) },
+                                     set: { model.setHidden(section.id, !$0) })) {
+                    Label(section.name, systemImage: section.kind == .movies ? "film" : "tv")
+                }
+                .accessibilityIdentifier("vis-bibliotek-\(section.id)")
+            }
+        } else if failed {
+            Text(L("Får ikke kontakt med Plex-serveren"))
+        } else {
+            ProgressView()
+        }
     }
 
     private func load() async {

@@ -632,6 +632,31 @@ private struct MultiviewTileFace: View {
 }
 
 #if os(tvOS)
+/// En rad i kanalvalget på Apple TV: lys bakgrunn i fokus.
+private struct PickerRowStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        RowFace(configuration: configuration)
+    }
+
+    private struct RowFace: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isFocused) private var focused
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(focused ? Color.black : Theme.ink)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(focused ? Color.white : Theme.surface))
+                .scaleEffect(focused ? 1.02 : 1)
+                .animation(.easeOut(duration: 0.15), value: focused)
+        }
+    }
+}
+
 /// Bildene på Apple TV: ingen forstørring eller skygge i fokus (kanten viser det valgte).
 private struct MultiviewTileStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -704,42 +729,67 @@ struct MultiviewPicker: View {
     private var content: some View {
         if let channels {
             let shown = filtered(channels)
-            List {
-                Picker(L("Vis"), selection: $favoritesOnly) {
-                    Text(L("★ Favoritter")).tag(true)
-                    Text(L("Alle kanaler")).tag(false)
-                }
-                .pickerStyle(.segmented)
-                if shown.isEmpty {
-                    Text(L("Fant ingenting."))
-                        .foregroundStyle(Theme.muted)
-                }
-                ForEach(shown.prefix(500), id: \.id) { channel in
-                    Button {
-                        done(channel)
-                    } label: {
-                        HStack(spacing: 14) {
-                            ChannelLogo(channel: channel)
-                                .frame(width: MultiviewView.text * 3.4, height: MultiviewView.text * 2)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(verbatim: nameParts(channel.name).main)
-                                    .lineLimit(1)
-                                if let number = channel.number {
-                                    Text(L("Kanal {n}", ["n": number]))
-                                        .font(.caption)
-                                        .foregroundStyle(Theme.muted)
-                                }
-                            }
-                        }
+            #if os(tvOS)
+            // Apple TV: knapper i en rulleliste (fokus står da på knappen selv, ikke på en celle rundt den)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    filter
+                    if shown.isEmpty { nothing }
+                    ForEach(shown.prefix(500), id: \.id) { channel in
+                        Button { done(channel) } label: { row(channel) }
+                            .buttonStyle(PickerRowStyle())
+                            .accessibilityIdentifier("velg-\(channel.id)")
                     }
-                    .accessibilityIdentifier("velg-\(channel.id)")
+                }
+                .padding(.horizontal, 40)
+                .padding(.vertical, 20)
+            }
+            #else
+            List {
+                filter
+                if shown.isEmpty { nothing }
+                ForEach(shown.prefix(500), id: \.id) { channel in
+                    Button { done(channel) } label: { row(channel) }
+                        .accessibilityIdentifier("velg-\(channel.id)")
                 }
             }
+            #endif
         } else if failed {
             Text(L("Fikk ikke hentet kanalene."))
                 .foregroundStyle(Theme.muted)
         } else {
             ProgressView()
+        }
+    }
+
+    private var filter: some View {
+        Picker(L("Vis"), selection: $favoritesOnly) {
+            Text(L("★ Favoritter")).tag(true)
+            Text(L("Alle kanaler")).tag(false)
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var nothing: some View {
+        Text(L("Fant ingenting."))
+            .foregroundStyle(Theme.muted)
+    }
+
+    /// En kanal i lista: logoen, navnet og nummeret.
+    private func row(_ channel: Channel) -> some View {
+        HStack(spacing: 14) {
+            ChannelLogo(channel: channel)
+                .frame(width: MultiviewView.text * 3.4, height: MultiviewView.text * 2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: nameParts(channel.name).main)
+                    .lineLimit(1)
+                if let number = channel.number {
+                    Text(L("Kanal {n}", ["n": number]))
+                        .font(.caption)
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+            Spacer(minLength: 0)
         }
     }
 

@@ -162,12 +162,15 @@ struct ErrorReportView: View {
     private func reportText(_ text: String) -> some View {
         #if os(tvOS)
         let lines = text.components(separatedBy: "\n")
-        ForEach(Array(stride(from: 0, to: lines.count, by: 12)), id: \.self) { start in
-            Text(verbatim: lines[start..<min(start + 12, lines.count)].joined(separator: "\n"))
-                .font(.system(size: Self.font, design: .monospaced))
-                .foregroundStyle(Theme.ink)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .focusable()
+        // bitene tett i tett (ellers så det ut som avsnitt midt i rapporten)
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(stride(from: 0, to: lines.count, by: 12)), id: \.self) { start in
+                Text(verbatim: lines[start..<min(start + 12, lines.count)].joined(separator: "\n"))
+                    .font(.system(size: Self.font, design: .monospaced))
+                    .foregroundStyle(Theme.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .focusable()
+            }
         }
         #else
         Text(verbatim: text)

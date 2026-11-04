@@ -648,10 +648,11 @@ final class FyrlysMobilUITests: XCTestCase {
         }
         XCTAssertTrue(known, "strøminfoen sier ingenting om strømmen: \(info.label)")
         more.tap()
-        let formats = app.buttons["Bildeformat"]
+        // undermenyen kan ha valget i seg («Bildeformat, Original»)
+        let formats = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Bildeformat")).firstMatch
         XCTAssertTrue(formats.waitForExistence(timeout: 5), "«Bildeformat» mangler i menyen")
         formats.tap()
-        let fill = app.buttons["Fyll skjermen"]
+        let fill = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Fyll skjermen")).firstMatch
         XCTAssertTrue(fill.waitForExistence(timeout: 5), "bildeformatene mangler")
         fill.tap()
         wait(2)
