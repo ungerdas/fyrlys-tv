@@ -344,6 +344,25 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `AppModel.sendReport`, iCloud-nøkkelen `feilrapport-tv`, vist som «Fra Apple TV» (`rapport-fra-tv`) på iPhone og
   iPad). `feilrapport-knapp` nederst i innstillingene (Apple TV, iPad «Hjelp») og i Konto (iPhone). Testene
   `test28Feilrapport` (Apple TV) og `test27NavnOgFeilrapport` (iPhone og iPad).
+- **M3U og XMLTV fra 0.1.28** (fra «Resten» i Windows-lista; hvordan Windows gjør det: `lib/core/m3u_source.dart`,
+  `lib/core/session.dart` (`loginM3u`), `lib/ui/login_page.dart`): `Core/.../M3U.swift`: `parseM3U` (leser bytene, ikke
+  regex: #EXTM3U med url-tvg/x-tvg-url/tvg-url, #EXTINF med attributtene før det første kommaet utenfor anførselstegn,
+  #EXTGRP; filmer og episoder hoppes over, `isVODURL`), `M3UList.lists(hasGuide:)` (kategoriene = gruppene,
+  `ungroupedCategory` «Uten kategori»; id-ene `stableHash("id:<tvg-id>|<navn>")` eller `"n:<gruppe>|<navn>"`, like får
+  #2; `Channel.m3u` = `M3UChannel` med adressen, tvg-id og tvg-name, og `Lists.guides`, så lista fra sist har det),
+  `parseXMLTV` (bytene; programmene fra 2 t før til et døgn etter, med `XMLTVWanted` bare for kanalene i lista: tvg-id,
+  ellers navnet og tvg-name mot display-name; Latin-1 når fila sier det), `unpackGzip` (hodet leses i Core,
+  `NSData.decompressed(.zlib)` bare på Apple), `xtreamLogin(fromM3U:)`, `normalizeLink`, `m3uPlayURLs` (en .ts-adresse
+  med Xtream-sti prøves som `/live/…/<id>.m3u8` først), `M3USource` (actor: `lists()`, `remember(lists)`,
+  `programs(for:)`; guiden hentes når det trengs og hver 6. time, etter en feil igjen etter 5 min). `Login.m3u`/`epg`
+  (`init(m3u:epg:)`, `isM3U`, id `stableHash("m3u|<lenken uten password/pass/pwd>")`, «M3U-liste fra {host}»). Appen:
+  `LoginView` med `innloggingstype` (Xtream Codes først, så M3U-lenke), `m3u-lenke`, `epg-lenke`;
+  `AppModel.signIn(m3u:epg:)` (en Xtream-lenke prøves som Xtream først), `use(_:fresh:)` (lista fra innloggingen hentes
+  ikke igjen), `providerURLs` (spilleren tar den neste etter to feil, `providerStep`), `hasVOD` (Filmer og Serier bare
+  med Xtream eller Plex), `m3uSummary` (`m3u-info`); `ProgramStore.reset(source:)` med `ProgramSource` (Xtream eller
+  `M3USource`). Falsk leverandør: `/liste.m3u`, `/guide.xml.gz`, `/guide.xml`, `/strom/<id>.m3u8`, `/get.php`;
+  testskjermene `m3u` (logget inn med lista) og `login-m3u`; testene `test29M3U` (Apple TV) og `test28M3U` (iPhone og
+  iPad). En kanal i lista som ikke er HLS (og ikke har en Xtream-sti), kan ikke spilles med AVPlayer.
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og

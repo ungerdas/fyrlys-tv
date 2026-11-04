@@ -18,6 +18,9 @@ enum ErrorReport {
         lines.append(L("Språk: {language}", ["language": appLanguage]))
         lines.append("")
         lines.append(L("Innlogginger: {n}", ["n": max(model.logins.count, model.login == nil ? 0 : 1)]))
+        if let login = model.login {
+            lines.append(L("Innlogging i bruk: {kind}", ["kind": login.isM3U ? (model.m3uSummary ?? "M3U") : "Xtream Codes"]))
+        }
         if let account = model.account {
             lines.append(L("Abonnement: {status} · {max} tilkoblinger · {active} i bruk",
                            ["status": account.status.isEmpty ? "–" : account.status,

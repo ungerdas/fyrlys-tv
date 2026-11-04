@@ -7,11 +7,16 @@
 Innlogging test/test. player_api.php svarer med abonnement, kategorier, kanaler og programinfo (base64, rundt nå);
 /live/test/test/<id>.m3u8 sendes videre til Apples eksempelstrøm, unntatt kanal 90, som svarer 404.
 
+M3U: /liste.m3u er en M3U-liste (oppdiktede kanaler i egne grupper, en uten gruppe, en film som hoppes over) med
+TV-guiden /guide.xml.gz (XMLTV, gzip, programmene heter «… fra guiden»); /strom/<id>.m3u8 sendes videre til
+eksempelstrømmen. /get.php?username=test&password=test er Xtream-lista som M3U (en Xtream-lenke).
+
 Med --kanaler lages en stor liste som hos en ekte leverandør: mange kategorier etter land og slag, eventkanaler
 («18:30 Lag - Lag | Liga») uten programinfo, noen vanlige kanaler uten programinfo, og logoer med hver sin adresse.
 """
 import argparse
 import base64
+import gzip
 import json
 import os
 import re
@@ -73,6 +78,68 @@ MOVIES = [
 SERIES_CATEGORIES = [("41", "Norske serier")]
 SERIES = [(9001, "Losene", "41", "2020-09-01", "7.9")]
 EPISODES = {9001: {1: ["Utløpet", "Tåka", "Fyrvokteren"], 2: ["Vinterstorm", "Hjem"]}}
+
+# M3U-lista: (tvg-id, tvg-name, navn, gruppe, sti, logo). Nordlys Sport 1 har ingen tvg-id (finnes i guiden etter
+# navnet), Villmark ingen gruppe («Uten kategori»), og Kystnytt 24 er en .ts-strøm fra en Xtream-server (appen prøver
+# den som HLS først).
+M3U_LIST = [
+    ("fjord.no", "Fjordkanalen", "Fjordkanalen", "Kyst og fjord", "/strom/1.m3u8", 1),
+    ("kyst.no", "", "Kystnytt 24", "Kyst og fjord", "/live/test/test/2.ts", None),
+    ("", "", "Nordlys Sport 1", "Sport", "/strom/11.m3u8", 11),
+    ("villmark.no", "", "Villmark", "", "/strom/41.m3u8", 41),
+    ("", "", "Kanal uten guide", "Sport", "/strom/13.m3u8", None),
+]
+GUIDE_CHANNELS = [("fjord.no", "Fjordkanalen"), ("kyst.no", "Kystnytt 24"), ("sport1.no", "Nordlys Sport 1"),
+                  ("villmark.no", "Villmark")]
+GUIDE_TITLES = ["Morgensending fra guiden", "Kveldsnytt fra guiden", "Dokumentar fra guiden", "Sporten fra guiden",
+                "Været fra guiden"]
+
+
+def m3u_list(host):
+    lines = [f'#EXTM3U url-tvg="http://{host}/guide.xml.gz"']
+    for tvg_id, tvg_name, name, group, path, logo in M3U_LIST:
+        attrs = f'tvg-id="{tvg_id}"'
+        if tvg_name:
+            attrs += f' tvg-name="{tvg_name}"'
+        if logo:
+            attrs += f' tvg-logo="http://{host}/logo/{logo}.png"'
+        if group:
+            attrs += f' group-title="{group}"'
+        lines += [f"#EXTINF:-1 {attrs},{name}", f"http://{host}{path}"]
+    lines += ['#EXTINF:-1 group-title="Filmer",Fyret i nord (2021)', f"http://{host}/movie/test/test/501.mkv"]
+    return ("\n".join(lines) + "\n").encode()
+
+
+def xtream_m3u(host):
+    """Xtream-lista som M3U (get.php): det samme som player_api.php gir."""
+    names = dict(CATEGORIES)
+    lines = ["#EXTM3U"]
+    for cid, name, cat in CHANNELS:
+        lines += [f'#EXTINF:-1 tvg-id="kanal{cid}" tvg-name="{name}" group-title="{names[cat]}",{name}',
+                  f"http://{host}/live/{USER}/{PASSWORD}/{cid}.ts"]
+    return ("\n".join(lines) + "\n").encode()
+
+
+def xmltv(now):
+    """TV-guiden: programmer fra to timer før nå til tolv timer etter, med tittel og beskrivelse."""
+    stamp = lambda t: time.strftime("%Y%m%d%H%M%S +0000", time.gmtime(t))
+    out = ['<?xml version="1.0" encoding="UTF-8"?>', '<tv generator-info-name="fyrlys-test">']
+    for cid, name in GUIDE_CHANNELS:
+        out.append(f'  <channel id="{cid}"><display-name lang="no">{name}</display-name></channel>')
+    for n, (cid, name) in enumerate(GUIDE_CHANNELS):
+        t = int(now // 1800 * 1800) - 7200
+        i = n
+        while t < now + 12 * 3600:
+            length = LENGTHS[i % len(LENGTHS)] * 60
+            title = GUIDE_TITLES[i % len(GUIDE_TITLES)]
+            out.append(f'  <programme start="{stamp(t)}" stop="{stamp(t + length)}" channel="{cid}">'
+                       f'<title lang="no">{title}</title><desc lang="no">{title} på {name} &amp; et oppdiktet '
+                       f'program til testene.</desc></programme>')
+            t += length
+            i += 1
+    out.append("</tv>")
+    return "\n".join(out).encode()
+
 
 TITLES = {
     "1": ["Nyhetene", "Været", "Dagsrevyen", "Debatt", "Kveldsnytt", "Nyhetsmorgen"],
@@ -317,6 +384,22 @@ class Handler(BaseHTTPRequestHandler):
                 listing = [p for p in programs(cid, cat, now) if int(p["stop_timestamp"]) > now][:limit]
                 return self.json({"epg_listings": listing})
             return self.json([])
+
+        if url.path == "/liste.m3u":
+            return self.send(200, m3u_list(host), "audio/x-mpegurl")
+        if url.path == "/guide.xml.gz":
+            return self.send(200, gzip.compress(xmltv(time.time())), "application/gzip")
+        if url.path == "/guide.xml":
+            return self.send(200, xmltv(time.time()), "application/xml")
+        if url.path == "/get.php":
+            if q.get("username") != USER or q.get("password") != PASSWORD:
+                return self.send(401, b"", "text/plain")
+            return self.send(200, xtream_m3u(host), "audio/x-mpegurl")
+        if len(parts) == 2 and parts[0] == "strom":
+            cid = parts[1].split(".")[0]
+            if parts[1].endswith(".m3u8") and cid.isdigit() and int(cid) in CATEGORY_OF and cid != "90":
+                return self.send(302, b"", "text/plain", {"Location": SAMPLE})
+            return self.send(404, b"", "text/plain")
 
         if len(parts) == 2 and parts[0] == "logo":
             cid = int(parts[1].split(".")[0]) if parts[1].split(".")[0].isdigit() else 0

@@ -6,11 +6,14 @@ public struct Lists: Codable, Sendable {
     public let categories: [ChannelCategory]
     public let channels: [Channel]
     public let saved: Date
+    /// en M3U-liste: lenkene til TV-guiden som står i lista (url-tvg)
+    public let guides: [String]?
 
-    public init(categories: [ChannelCategory], channels: [Channel], saved: Date = Date()) {
+    public init(categories: [ChannelCategory], channels: [Channel], saved: Date = Date(), guides: [String]? = nil) {
         self.categories = categories
         self.channels = channels
         self.saved = saved
+        self.guides = guides
     }
 }
 

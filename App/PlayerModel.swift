@@ -37,6 +37,8 @@ final class PlayerModel {
     @ObservationIgnored private var pendingOpen: Task<Void, Never>?
     /// kanalene der den egne strømmen ikke virket: leverandørens så lenge spilleren er åpen
     @ObservationIgnored private var providerOnly = Set<String>()
+    /// adressen hos leverandøren som prøves per kanal (en M3U-liste kan ha flere: HLS først, så den i lista)
+    @ObservationIgnored private var providerStep: [String: Int] = [:]
     /// det som spilles, er leverandørens strøm (ikke en egen)
     @ObservationIgnored private var playingProvider = true
     /// spilleren er stoppet (lukket)
@@ -61,9 +63,10 @@ final class PlayerModel {
         pendingOpen = nil
         // en annen kanal begynner med blanke ark (før kunne feilene på forrige kanal gi feilmelding med en gang)
         if channel.id != self.channel.id { failures = [] }
-        let provider = app.client?.liveURL(channel)
+        let urls = app.providerURLs(channel)
+        let provider = urls.isEmpty ? nil : urls[min(providerStep[channel.id] ?? 0, urls.count - 1)]
         var url = app.streamURL(channel)
-        if providerOnly.contains(channel.id), let provider { url = provider }
+        if providerOnly.contains(channel.id) || providerStep[channel.id] != nil, let provider { url = provider }
         guard let url else { return }
         playingProvider = url == provider
         if TestSupport.isActive { tried.append(url.path) }
@@ -234,8 +237,17 @@ final class PlayerModel {
         stallTimer = nil
         // en egen strøm som feiler to ganger: leverandørens strøm for kanalen (NRK-strømmen kan være nede eller
         // stengt der du er; før ble kanalen da ikke å se i det hele tatt)
-        if !playingProvider, failures.count >= 2, app.client != nil {
+        if !playingProvider, failures.count >= 2, !app.providerURLs(channel).isEmpty {
             providerOnly.insert(channel.id)
+            failures = []
+            open(channel)
+            return
+        }
+        // leverandørens adresse feiler to ganger, og det finnes en til (M3U-lista: adressen som står der, når HLS ikke
+        // virket)
+        let step = providerStep[channel.id] ?? 0
+        if playingProvider, failures.count >= 2, step + 1 < app.providerURLs(channel).count {
+            providerStep[channel.id] = step + 1
             failures = []
             open(channel)
             return

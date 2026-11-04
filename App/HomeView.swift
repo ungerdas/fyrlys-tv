@@ -88,6 +88,10 @@ struct HomeView: View {
             .onAppear(perform: playForTest)
             .onChange(of: model.channels.count) { playForTest() }
             .onChange(of: model.pendingPlay) { playForTest() }
+            // Filmer og Serier ble borte (Plex koblet fra med en M3U-liste): tilbake til TV
+            .onChange(of: model.hasVOD) { _, has in
+                if !has, tab == .movies || tab == .series { tab = .tv }
+            }
     }
 
     @ViewBuilder
@@ -111,12 +115,15 @@ struct HomeView: View {
             GuideView(play: play)
                 .tabItem { tabLabel(L("TV-guide"), "calendar.day.timeline.left") }
                 .tag(Tab.guide)
-            VODTab(kind: .movies)
-                .tabItem { tabLabel(L("Filmer"), "film") }
-                .tag(Tab.movies)
-            VODTab(kind: .series)
-                .tabItem { tabLabel(L("Serier"), "play.rectangle.on.rectangle") }
-                .tag(Tab.series)
+            // en M3U-liste har ikke filmer og serier (med Plex kommer de derfra)
+            if model.hasVOD {
+                VODTab(kind: .movies)
+                    .tabItem { tabLabel(L("Filmer"), "film") }
+                    .tag(Tab.movies)
+                VODTab(kind: .series)
+                    .tabItem { tabLabel(L("Serier"), "play.rectangle.on.rectangle") }
+                    .tag(Tab.series)
+            }
             SearchView(play: play, query: $query)
                 .tabItem {
                     #if os(tvOS)

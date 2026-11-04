@@ -5,7 +5,9 @@ import Foundation
 /// innstillinger som tømmes, og eventuelt rett til en skjerm (FYRLYS_TEST_SCREEN: login, tv, guide, search, settings,
 /// player, player-error, movies, series, archive = TV-arkivet for kanal 1, mkv = filmen 502 i VLC, mkv-feil = en film
 /// leverandøren ikke har, plex og plex-series = Filmer og Serier fra Plex (koblet til fra før), plex-link = koble til
-/// Plex med koden, strommer = Innstillinger (på iPhone arket) med egne strømmer (FYRLYS_TEST_STREAMS); på iPhone også category = Sport og all = Alle kanaler).
+/// Plex med koden, strommer = Innstillinger (på iPhone arket) med egne strømmer (FYRLYS_TEST_STREAMS), m3u = logget inn med
+/// M3U-lista til den falske leverandøren, login-m3u = innloggingen med M3U-lenke valgt; på iPhone også category = Sport
+/// og all = Alle kanaler).
 enum TestSupport {
     static let env = ProcessInfo.processInfo.environment
 
@@ -13,8 +15,11 @@ enum TestSupport {
 
     static var isActive: Bool { server != nil }
 
+    /// m3u: M3U-lista hos den falske leverandøren (med TV-guide), ellers Xtream (test/test)
     static var login: Login? {
-        server.map { Login(server: $0, username: "test", password: "test") }
+        guard let server else { return nil }
+        if screen == "m3u" { return Login(m3u: server + "/liste.m3u") }
+        return Login(server: server, username: "test", password: "test")
     }
 
     /// en falsk Plex (plex.tv og serveren, tools/fake_plex.py)

@@ -147,7 +147,7 @@ public struct ChannelIndex: Sendable {
 
     /// Samme kategorier og kanaler som [other] (når lista ble lagret, teller ikke).
     public func hasSameLists(as other: Lists) -> Bool {
-        lists.categories == other.categories && lists.channels == other.channels
+        lists.categories == other.categories && lists.channels == other.channels && lists.guides == other.guides
     }
 
     /// Kategori-id-ene i [ids] som finnes, uten doble, i samme rekkefølge.

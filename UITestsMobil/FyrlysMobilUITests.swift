@@ -53,6 +53,16 @@ final class FyrlysMobilUITests: XCTestCase {
         _ = XCTWaiter.wait(for: [XCTestExpectation(description: "vent")], timeout: seconds)
     }
 
+    /// Id-en appen gir en kanal fra en M3U-liste (`stableHash` i kjernen: FNV-1a, 64 bit).
+    func stableHash(_ text: String) -> String {
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in text.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01b3
+        }
+        return String(hash, radix: 16)
+    }
+
     /// Trykker på [id] og venter på [target]; trykker én gang til hvis siden ikke kom (et trykk tas av og til ikke i
     /// simulatoren).
     @discardableResult
@@ -347,7 +357,12 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(played, "tiden gikk ikke (VLC spilte ikke filmen)")
         XCTAssertTrue(find(app, "vod-lyd").exists, "valget av lydspor mangler")
         XCTAssertTrue(find(app, "vod-tekst").exists, "valget av undertekster mangler")
+        // pause med en gang: testfilmen er bare 30 sekunder, og når den er ferdig, lukkes spilleren (i bygg 42 og 48
+        // skjedde det midt i testen). Undertekstene står nesten hele tiden, også i pause.
         wait(2)
+        let pause = find(app, "vod-pause")
+        if pause.exists { pause.tap() }
+        wait(1)
         shot("24-mkv")
         // et trykk på bildet (ikke på knappene) skjuler kontrollene: undertekstene alene, i Apple sin stil
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.28)).tap()
@@ -366,10 +381,7 @@ final class FyrlysMobilUITests: XCTestCase {
             wait(3)
             shot("24-mkv-staende")
             XCTAssertTrue(find(app, "vod-spiller").exists, "spilleren ble borte da den ble snudd til stående")
-            // telefonen snus for hånd: filmen blir der. Pause først: testfilmen er bare 30 sekunder, og når den er
-            // ferdig, lukkes spilleren (i bygg 42 skjedde det før den siste sjekken)
-            let pause = find(app, "vod-pause")
-            if pause.exists { pause.tap() }
+            // telefonen snus for hånd: filmen blir der
             XCUIDevice.shared.orientation = .landscapeLeft
             wait(3)
             XCTAssertTrue(find(app, "vod-spiller").exists, "spilleren ble borte da telefonen ble lagt ned")
@@ -553,6 +565,36 @@ final class FyrlysMobilUITests: XCTestCase {
     }
 
     /// «Gi nytt navn» på innloggingen, og feilrapporten med «Kopier» (Konto på iPhone, innstillingene på iPad).
+    /// Innloggingen med en M3U-lenke (lista hos den falske leverandøren, med TV-guide i gzip): gruppene og kanalene fra
+    /// lista med programmene fra guiden, og ingen Filmer og Serier.
+    func test28M3U() {
+        let app = launch("login-m3u")
+        let field = find(app, "m3u-lenke")
+        XCTAssertTrue(field.waitForExistence(timeout: 30), "feltet for M3U-lenken mangler")
+        XCTAssertTrue(find(app, "epg-lenke").exists, "feltet for EPG-lenken mangler")
+        field.tap()
+        field.typeText(server + "/liste.m3u\n")
+        wait(1)
+        shot("46-m3u-innlogging")
+        find(app, "logg-inn").tap()
+        let fjord = "kanal-\(stableHash("id:fjord.no|Fjordkanalen"))"
+        if isPad {
+            XCTAssertTrue(find(app, fjord).waitForExistence(timeout: 30), "kanalene fra M3U-lista kom ikke")
+            XCTAssertTrue(find(app, "hylle-Kyst og fjord").exists, "gruppen fra lista mangler i sidemenyen")
+        } else {
+            XCTAssertTrue(find(app, "hylle-Kyst og fjord").waitForExistence(timeout: 30),
+                          "gruppene fra M3U-lista kom ikke")
+            XCTAssertTrue(find(app, "hylle-Uten kategori").exists, "«Uten kategori» mangler")
+            XCTAssertTrue(openPage(app, "hylle-alle", then: fjord, timeout: 15), "Alle kanaler ble ikke vist")
+        }
+        let guide = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "fra guiden"))
+            .firstMatch
+        XCTAssertTrue(guide.waitForExistence(timeout: 30), "programmene fra TV-guiden kom ikke")
+        XCTAssertFalse(app.tabBars.buttons["Filmer"].exists, "Filmer skal ikke vises for en M3U-liste")
+        wait(2)
+        shot("47-m3u")
+    }
+
     func test27NavnOgFeilrapport() {
         let app = launch("settings")
         XCTAssertTrue(find(app, "innstillinger").waitForExistence(timeout: 30))

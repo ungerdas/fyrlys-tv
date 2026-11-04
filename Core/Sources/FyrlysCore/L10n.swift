@@ -26,14 +26,43 @@ public func L(_ no: String, _ args: [String: Any] = [:]) -> String {
 public let english: [String: String] = [
     // innlogging
     "{user} på {host}": "{user} on {host}",
+    // M3U-lister og TV-guiden (XMLTV)
+    "M3U-liste fra {host}": "M3U list from {host}",
+    "Uten kategori": "Uncategorized",
+    "Lim inn M3U-lenken": "Paste the M3U link",
+    "Ugyldig lenke": "Invalid link",
+    "Får ikke hentet M3U-lista": "Couldn't download the M3U list",
+    "Får ikke hentet TV-guiden": "Couldn't download the TV guide",
+    "Serveren avviste M3U-lista (HTTP {code})": "The server denied access to the M3U list (HTTP {code})",
+    "Serveren avviste TV-guiden (HTTP {code})": "The server denied access to the TV guide (HTTP {code})",
+    "Serveren svarte HTTP {code} for M3U-lista": "The server responded with HTTP {code} for the M3U list",
+    "Serveren svarte HTTP {code} for TV-guiden": "The server responded with HTTP {code} for the TV guide",
+    "Får ikke pakket ut M3U-lista": "Couldn't unpack the M3U list",
+    "Får ikke pakket ut TV-guiden": "Couldn't unpack the TV guide",
+    "Lenken ga ikke en M3U-liste": "The link didn't return an M3U list",
+    "Lista har bare filmer og serier, ingen TV-kanaler": "The list only has movies and series, no TV channels",
+    "Fant ingen kanaler i lista": "No channels found in the list",
+    "M3U-liste med TV-guide": "M3U list with TV guide",
+    "M3U-liste uten TV-guide": "M3U list without TV guide",
+    "Innlogging i bruk: {kind}": "Login in use: {kind}",
     "Logg inn": "Sign in",
     "Logger inn …": "Signing in…",
     "Server": "Server",
     "Brukernavn": "Username",
     "Passord": "Password",
-    "Innloggingen fra IPTV-leverandøren din (Xtream Codes). Den lagres kryptert på Apple TV-en.":
-        "The login from your IPTV provider (Xtream Codes). It is stored encrypted on the Apple TV.",
+    "Innloggingen fra IPTV-leverandøren din: Xtream Codes eller en M3U-lenke. Den lagres kryptert på Apple TV-en.":
+        "The login from your IPTV provider: Xtream Codes or an M3U link. It is stored encrypted on the Apple TV.",
     "Fyll inn server, brukernavn og passord.": "Fill in server, username and password.",
+    "Innloggingen du har fått fra IPTV-leverandøren (Xtream Codes).":
+        "The login you got from your IPTV provider (Xtream Codes).",
+    "M3U-lenke": "M3U link",
+    "Lenken til kanallista fra leverandøren. Er det en Xtream-lenke (get.php med brukernavn og passord), får du også filmer og serier.":
+        "The channel list link from your provider. If it is an Xtream link (get.php with username and password), you also get movies and series.",
+    "EPG-lenke (valgfri)": "EPG link (optional)",
+    "XMLTV, .xml eller .xml.gz": "XMLTV, .xml or .xml.gz",
+    "Står den tom, brukes EPG-lenken i lista": "If left empty, the EPG link in the list is used",
+    "Kunne ikke koble til. Sjekk lenken eller adressen.": "Couldn't connect. Check the link or address.",
+    "Slag innlogging": "Login type",
     // feil fra leverandøren
     "Får ikke kontakt med IPTV-serveren": "Can't reach the IPTV server",
     "Serveren avviste innloggingen": "The server rejected the login",
@@ -56,8 +85,8 @@ public let english: [String: String] = [
     "Flytt opp": "Move up",
     "Flytt ned": "Move down",
     // iPhone og iPad
-    "Innloggingen fra IPTV-leverandøren din (Xtream Codes). Den lagres kryptert på denne enheten.":
-        "The login from your IPTV provider (Xtream Codes). It is stored encrypted on this device.",
+    "Innloggingen fra IPTV-leverandøren din: Xtream Codes eller en M3U-lenke. Den lagres kryptert på denne enheten.":
+        "The login from your IPTV provider: Xtream Codes or an M3U link. It is stored encrypted on this device.",
     "Søk i kategoriene": "Search categories",
     "Ferdig": "Done",
     "Trykk på stjernen for å legge en kategori øverst.": "Tap the star to pin a category to the top.",

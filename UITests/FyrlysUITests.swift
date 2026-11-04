@@ -84,6 +84,16 @@ final class FyrlysUITests: XCTestCase {
         _ = XCTWaiter.wait(for: [XCTestExpectation(description: "vent")], timeout: seconds)
     }
 
+    /// Id-en appen gir en kanal fra en M3U-liste (`stableHash` i kjernen: FNV-1a, 64 bit).
+    func stableHash(_ text: String) -> String {
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in text.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01b3
+        }
+        return String(hash, radix: 16)
+    }
+
     func test01Login() {
         let app = launch("login")
         XCTAssertTrue(find(app, "innlogging").waitForExistence(timeout: 30))
@@ -594,6 +604,37 @@ final class FyrlysUITests: XCTestCase {
         wait(1)
         shot("51-feilrapport")
         remote.press(.menu)
+    }
+
+    /// Innlogget med en M3U-liste (hos den falske leverandøren) med TV-guide (XMLTV i gzip): gruppene i sidemenyen,
+    /// programmene fra guiden på kortene, ingen Filmer og Serier, og en .ts-strøm fra lista spilles som HLS.
+    func test29M3U() {
+        let app = launch("m3u")
+        let fjord = find(app, "kanal-\(stableHash("id:fjord.no|Fjordkanalen"))")
+        XCTAssertTrue(fjord.waitForExistence(timeout: 30), "kanalene fra M3U-lista kom ikke")
+        XCTAssertTrue(find(app, "hylle-Kyst og fjord").exists, "gruppen fra lista mangler i sidemenyen")
+        XCTAssertTrue(find(app, "hylle-Uten kategori").exists, "«Uten kategori» mangler i sidemenyen")
+        XCTAssertFalse(find(app, "hylle-Filmer").exists, "filmen i lista skulle vært hoppet over")
+        let guide = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "fra guiden"))
+            .firstMatch
+        XCTAssertTrue(guide.waitForExistence(timeout: 30), "programmene fra TV-guiden kom ikke")
+        let bar = app.tabBars.firstMatch
+        XCTAssertFalse(bar.buttons.matching(NSPredicate(format: "label == %@", "Filmer")).firstMatch.exists,
+                       "Filmer skal ikke vises for en M3U-liste")
+        wait(3)
+        shot("52-m3u")
+        // Kystnytt 24 er en .ts-strøm fra en Xtream-server i lista: den prøves som HLS (det Apple TV kan) først
+        let kyst = find(app, "kanal-\(stableHash("id:kyst.no|Kystnytt 24"))")
+        XCTAssertTrue(focus(app, kyst), "fikk ikke fokus på Kystnytt 24")
+        remote.press(.select)
+        let player = find(app, "spiller")
+        XCTAssertTrue(player.waitForExistence(timeout: 30), "spilleren kom ikke")
+        let tried = { (player.value as? String) ?? "" }
+        for _ in 0..<10 where tried().isEmpty { wait(1) }
+        XCTAssertTrue(tried().hasPrefix("/live/test/test/2.m3u8"), "strømmen ble ikke prøvd som HLS først: \(tried())")
+        wait(8)
+        XCTAssertFalse(find(app, "spiller-feil").exists, "kanalen fra M3U-lista kunne ikke spilles")
+        shot("53-m3u-spiller")
     }
 
     /// Søket i filmene på Apple TV (øverst i sidemenyen).

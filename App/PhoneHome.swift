@@ -34,12 +34,14 @@ struct PhoneHome: View {
                         }
                     }
                     .tag(HomeView.Tab.guide)
-                VODTab(kind: .movies)
-                    .tabItem { Label(L("Filmer"), systemImage: "film") }
-                    .tag(HomeView.Tab.movies)
-                VODTab(kind: .series)
-                    .tabItem { Label(L("Serier"), systemImage: "play.rectangle.on.rectangle") }
-                    .tag(HomeView.Tab.series)
+                if model.hasVOD {
+                    VODTab(kind: .movies)
+                        .tabItem { Label(L("Filmer"), systemImage: "film") }
+                        .tag(HomeView.Tab.movies)
+                    VODTab(kind: .series)
+                        .tabItem { Label(L("Serier"), systemImage: "play.rectangle.on.rectangle") }
+                        .tag(HomeView.Tab.series)
+                }
             }
             .tint(Theme.signal)
         }
@@ -198,6 +200,10 @@ private struct AccountMenu: View {
                     .accessibilityLabel(L("Gi nytt navn"))
                     .accessibilityIdentifier("gi-nytt-navn")
                 }
+            }
+            if let summary = model.m3uSummary {
+                Text(summary)
+                    .accessibilityIdentifier("m3u-info")
             }
             if let account = model.account {
                 if let expires = account.expires {

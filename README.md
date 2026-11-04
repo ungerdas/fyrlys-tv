@@ -2,12 +2,14 @@
 
 ![Fyrlys](docs/ikon.png)
 
-En enkel IPTV-spiller for Apple TV, iPhone og iPad: logg inn med Xtream Codes fra IPTV-leverandøren din og se TV.
+En enkel IPTV-spiller for Apple TV, iPhone og iPad: logg inn med Xtream Codes eller en M3U-lenke fra
+IPTV-leverandøren din og se TV.
 
 - **TV**: favoritter, sist sett, alle kanaler og kategoriene, med det som går nå på hvert kanalkort. Legg kategoriene
   du bruker mest i «Dine kategorier», i den rekkefølgen du vil. Hold inne på en kanal for å gjøre den til favoritt (på
   iPhone og iPad kan du også trykke på stjernen).
-- **TV-guide** for de neste seks timene.
+- **TV-guide** for de neste seks timene. Med en M3U-lenke kommer den fra XMLTV-lenken i lista (eller en du oppgir,
+  også .xml.gz).
 - **Søk** i kanalene.
 - **Spilleren** er Apples egen (AVPlayer). På Apple TV kan du pause og spole tilbake, bytte til neste eller forrige
   kanal i kontrollene, og sveipe ned for kanallista. På iPhone og iPad står kanallista under bildet, med bilde-i-bilde
@@ -28,7 +30,9 @@ Innloggingen lagres kryptert i nøkkelringen på enheten og sendes bare til leve
 selv og samler ingenting inn.
 
 Fyrlys trenger tvOS 17 eller iOS/iPadOS 17 eller nyere. Kanalene spilles som HLS (`.m3u8`), og det støtter de fleste
-Xtream-leverandører.
+Xtream-leverandører. En M3U-lenke som er en Xtream-lenke (get.php med brukernavn og passord), logges inn som Xtream
+Codes, med filmer, serier og TV-arkiv; en annen M3U-liste gir kanalene og TV-guiden. Kanaler i en M3U-liste som ikke
+sendes som HLS, kan Apples avspiller ikke spille (en .ts-strøm fra en Xtream-server prøves som HLS først).
 
 ## Status
 

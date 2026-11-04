@@ -1,5 +1,16 @@
 # Endringer
 
+## v0.1.28
+
+- Logg inn med en M3U-lenke (som i Fyrlys for Windows): velg «M3U-lenke» på innloggingssiden. Kanalene kommer i
+  gruppene fra lista (kanaler uten gruppe under «Uten kategori»), og filmer og episoder i lista hoppes over.
+- TV-guiden for en M3U-liste kommer fra XMLTV: lenken som står i lista, eller en du oppgir selv («EPG-lenke», også
+  .xml.gz). Den hentes når den trengs og så hver sjette time.
+- Er M3U-lenken en Xtream-lenke (get.php med brukernavn og passord), logges du inn med Xtream Codes, og da får du også
+  filmer, serier og TV-arkivet.
+- En M3U-liste har ikke filmer og serier, så de fanene vises ikke (med Plex kommer de derfra). En .ts-strøm fra en
+  Xtream-server i lista prøves som HLS først, siden det er det Apples avspiller kan spille.
+
 ## v0.1.27
 
 - Innloggingene kan få egne navn («Gi nytt navn»: «Hjemme», «Sport»). Under Innstillinger på Apple TV og iPad, og

@@ -40,6 +40,10 @@ struct SettingsView: View {
                             }
                             .accessibilityIdentifier("gi-nytt-navn")
                         }
+                        if let summary = model.m3uSummary {
+                            row(summary)
+                                .accessibilityIdentifier("m3u-info")
+                        }
                         if let account = model.account {
                             if let expires = account.expires {
                                 row(L("Aktiv til {date}", ["date": longDate(expires)]))

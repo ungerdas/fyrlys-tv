@@ -18,7 +18,10 @@ final class AppModel {
     private(set) var logins: [Login] = []
     /// innloggingssiden vises for å legge til en innlogging (med «Avbryt» tilbake til den som er i bruk)
     var addingLogin = false
+    /// Xtream Codes (nil for en M3U-liste)
     private(set) var client: XtreamClient?
+    /// en M3U-liste: lista og TV-guiden (XMLTV)
+    @ObservationIgnored private(set) var m3u: M3USource?
     /// kategoriene og kanalene med oppslagene (lages i bakgrunnen og byttes bare når lista er endret)
     private(set) var index = ChannelIndex.empty
     /// alle kanalene, med kanalene i favorittkategoriene først
@@ -97,7 +100,8 @@ final class AppModel {
         loadStreams()
         loadHiddenLibraries()
         if TestSupport.isActive {
-            if TestSupport.screen != "login", let test = TestSupport.login {
+            // login og login-m3u: innloggingssiden
+            if TestSupport.screen?.hasPrefix("login") != true, let test = TestSupport.login {
                 use(test)
             } else {
                 phase = .signedOut
@@ -112,7 +116,11 @@ final class AppModel {
 
     /// Logger inn (sjekker innloggingen hos leverandøren først).
     func signIn(server: String, username: String, password: String) async throws {
-        var login = Login(server: server, username: username, password: password)
+        try await signIn(Login(server: server, username: username, password: password))
+    }
+
+    private func signIn(_ xtream: Login) async throws {
+        var login = xtream
         // samme konto på nytt: navnet du ga den, står
         login.name = logins.first { $0.id == login.id }?.name
         let client = XtreamClient(login: login)
@@ -120,11 +128,41 @@ final class AppModel {
         if !account.status.isEmpty && account.status.lowercased() != "active" {
             throw SourceError(L("Abonnementet er ikke aktivt ({status})", ["status": account.status]))
         }
+        save(login)
+        use(login)
+        self.account = account
+    }
+
+    /// Logger inn med en M3U-lenke (og eventuelt en lenke til TV-guiden), som i Fyrlys for Windows: er det en
+    /// Xtream-lenke (get.php med brukernavn og passord), prøves den som Xtream Codes først (da kommer filmer, serier og
+    /// TV-arkivet med); ellers hentes lista, og den må ha kanaler.
+    func signIn(m3u text: String, epg epgText: String) async throws {
+        let link = try normalizeLink(text, empty: L("Lim inn M3U-lenken"))
+        var epg: String?
+        if !epgText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            epg = try normalizeLink(epgText, empty: "")
+        }
+        if let xtream = xtreamLogin(fromM3U: link) {
+            do {
+                try await signIn(xtream)
+                AppLog.shared.add("Innlogging: M3U-lenken er en Xtream-lenke")
+                return
+            } catch {
+                // ikke en Xtream-server likevel: lista leses som den er
+            }
+        }
+        var login = Login(m3u: link, epg: epg)
+        login.name = logins.first { $0.id == login.id }?.name
+        let lists = try await M3USource(login: login).lists()
+        save(login)
+        use(login, fresh: lists)
+    }
+
+    /// Den nye (eller oppdaterte) innloggingen først i lista.
+    private func save(_ login: Login) {
         logins = [login] + logins.filter { $0.id != login.id }
         if !TestSupport.isActive { Keychain.saveAll(logins) }
         addingLogin = false
-        use(login)
-        self.account = account
     }
 
     /// Bytter til en annen lagret innlogging.
@@ -169,13 +207,14 @@ final class AppModel {
         loading = false
         login = nil
         client = nil
+        m3u = nil
         library = nil
         libraryVersion += 1
         account = nil
         index = .empty
         allChannels = []
         listsFetchedAt = nil
-        programs.reset(client: nil)
+        programs.reset(source: nil)
         refreshVOD()
         phase = .signedOut
         #if os(tvOS)
@@ -200,13 +239,24 @@ final class AppModel {
         }
     }
 
-    private func use(_ login: Login) {
-        AppLog.shared.add("Innlogging: Xtream Codes (\(logins.count) lagret)")
+    /// Tar i bruk [login]. [fresh]: lista er nettopp hentet (en M3U-liste ved innloggingen), så den hentes ikke igjen.
+    private func use(_ login: Login, fresh: Lists? = nil) {
+        AppLog.shared.add("Innlogging: \(login.isM3U ? "M3U-liste" : "Xtream Codes") (\(logins.count) lagret)")
         generation += 1
         let gen = generation
         self.login = login
-        let client = XtreamClient(login: login)
-        self.client = client
+        let source: any ProgramSource
+        if login.isM3U {
+            let m3u = M3USource(login: login)
+            self.m3u = m3u
+            client = nil
+            source = m3u
+        } else {
+            let client = XtreamClient(login: login)
+            self.client = client
+            m3u = nil
+            source = client
+        }
         triedOnce = false
         error = nil
         index = .empty
@@ -214,21 +264,34 @@ final class AppModel {
         listsFetchedAt = nil
         library = Library(store: store, loginId: login.id)
         libraryVersion += 1
-        programs.reset(client: client)
+        programs.reset(source: source)
         refreshVOD()
         clock = nil
         let cache = cache
         let id = login.id
         let keys = mergeKeys
+        let m3uSource = self.m3u
         Task {
             // lista fra sist leses og pakkes ut i bakgrunnen: med titusenvis av kanaler sto appen ellers stille imens
-            let saved = await Task.detached(priority: .userInitiated) {
-                cache.read(id).map { ChannelIndex($0, merging: keys) }
+            let lists = fresh
+            let saved = await Task.detached(priority: .userInitiated) { () -> ChannelIndex? in
+                (lists ?? cache.read(id)).map { ChannelIndex($0, merging: keys) }
             }.value
             guard gen == generation else { return }
-            if let saved { show(saved) }
+            if let saved {
+                await m3uSource?.remember(saved.lists)
+                guard gen == generation else { return }
+                show(saved)
+            }
             phase = .ready
-            await reload()
+            if let fresh {
+                listsFetchedAt = Date()
+                triedOnce = true
+                AppLog.shared.add("Listene: \(fresh.channels.count) kanaler i \(fresh.categories.count) kategorier")
+                Task.detached(priority: .background) { cache.write(fresh, for: id) }
+            } else {
+                await reload()
+            }
         }
     }
 
@@ -236,23 +299,30 @@ final class AppModel {
 
     /// Henter kategoriene og kanalene på nytt (lista fra sist vises imens).
     func reload() async {
-        guard let client, loadingFor != generation else { return }
+        guard client != nil || m3u != nil, loadingFor != generation else { return }
         let gen = generation
         loadingFor = gen
         loading = true
-        await fetchLists(client, gen)
+        await fetchLists(gen)
         guard loadingFor == gen else { return }
         loadingFor = nil
         loading = false
         triedOnce = true
-        if let account = try? await client.account(), gen == generation { self.account = account }
+        if let client, let account = try? await client.account(), gen == generation { self.account = account }
     }
 
-    private func fetchLists(_ client: XtreamClient, _ gen: Int) async {
+    /// Listene fra leverandøren: Xtream (kategoriene og kanalene), eller M3U-lista.
+    private func downloadLists() async throws -> Lists {
+        if let m3u { return try await m3u.lists() }
+        guard let client else { throw SourceError(L("Ikke logget inn")) }
+        async let cats = client.categories()
+        async let chans = client.channels()
+        return Lists(categories: try await cats, channels: try await chans)
+    }
+
+    private func fetchLists(_ gen: Int) async {
         do {
-            async let cats = client.categories()
-            async let chans = client.channels()
-            let lists = Lists(categories: try await cats, channels: try await chans)
+            let lists = try await downloadLists()
             guard gen == generation else { return }
             let current = index
             // ingen kanaler i svaret (et uventet svar, eller leverandøren har problemer): lista fra sist står, og
@@ -449,7 +519,26 @@ final class AppModel {
     /// Adressen kanalen spilles fra: en egen når det er lagt inn en for den, ellers leverandørens.
     func streamURL(_ channel: Channel) -> URL? {
         if !streamByKey.isEmpty, let key = index.streamKey(of: channel), let own = streamByKey[key] { return own }
-        return client?.liveURL(channel)
+        return providerURLs(channel).first
+    }
+
+    /// Leverandørens adresser for kanalen: Xtream som HLS, eller adressen i M3U-lista (en .ts-strøm fra en Xtream-server
+    /// først som HLS, se `m3uPlayURLs`).
+    func providerURLs(_ channel: Channel) -> [URL] {
+        if let m3u = channel.m3u { return m3uPlayURLs(m3u.url) }
+        return client.map { [$0.liveURL(channel)] } ?? []
+    }
+
+    /// «M3U-liste med TV-guide» (nil for Xtream Codes: der står abonnementet)
+    var m3uSummary: String? {
+        guard let login, login.isM3U else { return nil }
+        let guide = login.epg != nil || !(index.lists.guides ?? []).isEmpty
+        return guide ? L("M3U-liste med TV-guide") : L("M3U-liste uten TV-guide")
+    }
+
+    /// Filmer og Serier finnes: hos Xtream, eller fra Plex (en M3U-liste har dem ikke, så fanene vises ikke da).
+    var hasVOD: Bool {
+        client != nil || (plex.useForVOD && (plex.server != nil || plex.phase != .off))
     }
 
     /// Kanalene hver egen strøm gjelder for (navnene hos leverandøren), fra indeksen.
@@ -682,6 +771,18 @@ final class ChannelPrograms {
     var loaded = false
 }
 
+/// Hvor programinfoen kommer fra: leverandørens programinfo per kanal (Xtream), eller TV-guiden (XMLTV) til en
+/// M3U-liste.
+protocol ProgramSource: Sendable {
+    func programs(for channel: Channel) async throws -> [Program]
+}
+
+extension XtreamClient: ProgramSource {
+    func programs(for channel: Channel) async throws -> [Program] { try await epg(channel, limit: 10) }
+}
+
+extension M3USource: ProgramSource {}
+
 /// Programinfo for kanalene som vises: hentes når et kort har vært framme litt (høyst fire om gangen, de nyeste
 /// først) og tas vare på i fem minutter. Eventkanaler og kanaler uten programinfo hos leverandøren hoppes over, som i
 /// Fyrlys på Windows. Kanalene som vises (kort, guiderader, kanallista i spilleren), hentes på nytt hvert minutt når
@@ -696,7 +797,7 @@ final class ProgramStore {
     private var visible: [String: (channel: Channel, count: Int)] = [:]
     private var waiting: [Channel] = []
     private var running = 0
-    private var client: XtreamClient?
+    private var source: (any ProgramSource)?
     private var generation = 0
     private var pumpQueued = false
     private var ticker: Task<Void, Never>?
@@ -708,8 +809,8 @@ final class ProgramStore {
     /// ventetid før henting, så rask blaing ikke fyller køen med kanaler du bare passerte
     static let settle: Duration = .milliseconds(150)
 
-    func reset(client: XtreamClient?) {
-        self.client = client
+    func reset(source: (any ProgramSource)?) {
+        self.source = source
         for box in boxes.values where !box.list.isEmpty || box.loaded {
             box.list = []
             box.loaded = false
@@ -804,7 +905,7 @@ final class ProgramStore {
     }
 
     private func pump() {
-        guard let client else { return }
+        guard let source else { return }
         while running < Self.maxRunning, let channel = waiting.popLast() {
             running += 1
             fetched[channel.id] = Date()
@@ -812,7 +913,7 @@ final class ProgramStore {
             Task {
                 let result: [Program]?
                 do {
-                    result = try await client.epg(channel, limit: 10)
+                    result = try await source.programs(for: channel)
                 } catch {
                     result = nil
                 }

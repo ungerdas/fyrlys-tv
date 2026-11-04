@@ -1,13 +1,18 @@
 import FyrlysCore
 import SwiftUI
 
-/// Innlogging med Xtream Codes: server, brukernavn og passord. Side om side på Apple TV, under hverandre på iPhone og
-/// iPad.
+/// Innloggingen: Xtream Codes (server, brukernavn og passord) eller en M3U-lenke (og eventuelt en lenke til
+/// TV-guiden), som i Fyrlys for Windows. Side om side på Apple TV, under hverandre på iPhone og iPad.
 struct LoginView: View {
+    enum Kind: Hashable { case xtream, m3u }
+
     @Environment(AppModel.self) private var model
+    @State private var kind: Kind = TestSupport.screen == "login-m3u" ? .m3u : .xtream
     @State private var server = ""
     @State private var username = ""
     @State private var password = ""
+    @State private var link = ""
+    @State private var epg = ""
     @State private var busy = false
     @State private var error: String?
 
@@ -50,9 +55,9 @@ struct LoginView: View {
                 .font(.system(size: title, weight: .bold))
             Group {
                 #if os(tvOS)
-                Text(L("Innloggingen fra IPTV-leverandøren din (Xtream Codes). Den lagres kryptert på Apple TV-en."))
+                Text(L("Innloggingen fra IPTV-leverandøren din: Xtream Codes eller en M3U-lenke. Den lagres kryptert på Apple TV-en."))
                 #else
-                Text(L("Innloggingen fra IPTV-leverandøren din (Xtream Codes). Den lagres kryptert på denne enheten."))
+                Text(L("Innloggingen fra IPTV-leverandøren din: Xtream Codes eller en M3U-lenke. Den lagres kryptert på denne enheten."))
                 #endif
             }
                 .font(.system(size: text))
@@ -65,13 +70,35 @@ struct LoginView: View {
         VStack(alignment: .leading, spacing: heading * 0.68) {
             Text(L("Logg inn"))
                 .font(.system(size: heading, weight: .bold))
-            TextField(L("Server"), text: $server, prompt: Text(verbatim: "http://iptv.example.com:8080"))
-                .keyboardType(.URL)
-                .textContentType(.URL)
-            TextField(L("Brukernavn"), text: $username)
-                .textContentType(.username)
-            SecureField(L("Passord"), text: $password)
-                .textContentType(.password)
+            Picker(L("Slag innlogging"), selection: $kind) {
+                Text(verbatim: "Xtream Codes").tag(Kind.xtream)
+                Text(L("M3U-lenke")).tag(Kind.m3u)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("innloggingstype")
+            .onChange(of: kind) { error = nil }
+            if kind == .xtream {
+                hint(L("Innloggingen du har fått fra IPTV-leverandøren (Xtream Codes)."), size: text)
+                TextField(L("Server"), text: $server, prompt: Text(verbatim: "http://iptv.example.com:8080"))
+                    .keyboardType(.URL)
+                    .textContentType(.URL)
+                TextField(L("Brukernavn"), text: $username)
+                    .textContentType(.username)
+                SecureField(L("Passord"), text: $password)
+                    .textContentType(.password)
+            } else {
+                hint(L("Lenken til kanallista fra leverandøren. Er det en Xtream-lenke (get.php med brukernavn og passord), får du også filmer og serier."),
+                     size: text)
+                TextField(L("M3U-lenke"), text: $link,
+                          prompt: Text(verbatim: "http://iptv.example.com:8080/get.php?…"))
+                    .keyboardType(.URL)
+                    .textContentType(.URL)
+                    .accessibilityIdentifier("m3u-lenke")
+                TextField(L("EPG-lenke (valgfri)"), text: $epg, prompt: Text(L("XMLTV, .xml eller .xml.gz")))
+                    .keyboardType(.URL)
+                    .accessibilityIdentifier("epg-lenke")
+                hint(L("Står den tom, brukes EPG-lenken i lista"), size: text)
+            }
             if let error {
                 Text(error)
                     .font(.system(size: text))
@@ -113,18 +140,32 @@ struct LoginView: View {
         .autocorrectionDisabled()
     }
 
+    private func hint(_ text: String, size: CGFloat) -> some View {
+        Text(text)
+            .font(.system(size: size * 0.85))
+            .foregroundStyle(Theme.muted)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
     private func submit() async {
-        guard !server.trimmingCharacters(in: .whitespaces).isEmpty, !username.isEmpty, !password.isEmpty else {
-            error = L("Fyll inn server, brukernavn og passord.")
-            return
+        if kind == .xtream {
+            guard !server.trimmingCharacters(in: .whitespaces).isEmpty, !username.isEmpty, !password.isEmpty else {
+                error = L("Fyll inn server, brukernavn og passord.")
+                return
+            }
         }
         busy = true
         error = nil
         defer { busy = false }
         do {
-            try await model.signIn(server: server, username: username, password: password)
+            if kind == .xtream {
+                try await model.signIn(server: server, username: username, password: password)
+            } else {
+                try await model.signIn(m3u: link, epg: epg)
+            }
         } catch {
-            self.error = (error as? SourceError)?.message ?? error.localizedDescription
+            // noe uventet (en adresse som ikke lar seg tolke): en forklaring, ikke en teknisk feil
+            self.error = (error as? SourceError)?.message ?? L("Kunne ikke koble til. Sjekk lenken eller adressen.")
         }
     }
 }
