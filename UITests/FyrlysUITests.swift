@@ -706,13 +706,19 @@ final class FyrlysUITests: XCTestCase {
         app.typeText("0000")
         XCTAssertTrue(find(app, "bruker-feil").waitForExistence(timeout: 10), "feil PIN ga ingen feilmelding")
         wait(1)
-        if !pin.hasFocus {
-            XCTAssertTrue(focusUpTo(app, pin), "fikk ikke fokus på PIN-feltet igjen")
-            remote.press(.select)
-            wait(2)
+        // inn i feltet igjen (tastaturet lukkes når feltet tømmes); Menu lukker tastaturet om det står åpent
+        if !focusCovers(app, pin) {
+            remote.press(.menu)
+            wait(1)
         }
+        XCTAssertTrue(focusUpTo(app, pin) || focusDown(app, pin, label: "PIN", tries: 4), "fikk ikke fokus på PIN-feltet igjen (\(focusText(app)))")
+        remote.press(.select)
+        wait(2)
         app.typeText("1234")
-        XCTAssertTrue(until(20) { who.exists && who.label.contains("Barna") }, "byttet ikke til Barna: \(who.label)")
+        if !until(20, { who.exists && who.label.contains("Barna") }) {
+            dumpScreen(app, "byttet ikke til Barna (\(focusText(app)))", shotName: "62-plex-pin-mangler")
+        }
+        XCTAssertTrue(who.exists && who.label.contains("Barna"), "byttet ikke til Barna: \(who.label)")
         wait(1)
         shot("61-plex-barna")
     }
