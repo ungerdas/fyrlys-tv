@@ -672,3 +672,14 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `focusDown`; `test22` begynner fra «Fortsett å se»), og på iPhone fantes «Filmer» både som fane og bibliotek og
   «Lagre» to ganger i varselet. `FlowLayout` fikk slakk (det siste merket på filmsiden havnet oppå teksten under). M3U,
   multiview, feilrapporten og søket på Apple TV virket i simulatorene (bildene 47–54).
+- 4.–5.11.2026: bygg 51–55 kom ikke til TestFlight (bare testene på Apple TV, og én på iPhone): fokus i menyene over
+  plakatene (`focusedOn`: elementet med fokus ligger oppå menyen), valget i menyen (`focusCovers`: i en meny på Apple TV
+  har elementet med fokus verken id eller tekst, men står der valget er; menyene er knapper med hake på Apple TV, ikke
+  en Picker), den tredje raden på Hjem på Apple TV (LazyVStack: `reveal` går ned til den), knappen til slutt i raden på
+  iPhone (`isHittable` feiler utenfor skjermen: rammen sjekkes), og ned fra menyen til plakatene når ingen står rett
+  under (plakatene er en `tvFocusSection`; en ekte feil). Underveis (eieren 4.11 kl. 23): Plex-fanen (se Arkitektur),
+  så «Vi trenger ikke sjangermeny.» (tatt bort). 0.1.31 (bygg 56) er i TestFlight, VALID for TV_OS og IOS; alle
+  UI-testene grønne. Den første i TestFlight siden 0.1.24 (bygg 45): med 0.1.25–0.1.31. iPad på høykant: sju faner får
+  ikke plass i fanelinja (iPadOS 18), Innstillinger står bak pila til høyre (sagt til eieren). Ikke prøvd på hans
+  enheter: Plex-fanen mot hans server, pause/tilbakespoling med leverandøren hans, M3U, multiview (trenger to
+  innlogginger eller to tilkoblinger), markørene og undertekstfilene fra Plex.
