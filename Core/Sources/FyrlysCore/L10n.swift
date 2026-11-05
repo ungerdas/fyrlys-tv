@@ -374,6 +374,12 @@ public let english: [String: String] = [
     "Flytt til venstre": "Move left",
     "Flytt til høyre": "Move right",
     "Skjul": "Hide",
+    // Plex Home (0.1.34)
+    "Hvem ser på?": "Who's watching?",
+    "PIN for {name}": "PIN for {name}",
+    "PIN": "PIN",
+    "Bytt": "Switch",
+    "Feil PIN. Prøv igjen.": "Wrong PIN. Try again.",
     // guiden
     "Velg hva guiden viser oppe til høyre: favorittene, alle kanaler eller en kategori.":
         "Choose what the guide shows at the top right: your favorites, all channels or a category.",

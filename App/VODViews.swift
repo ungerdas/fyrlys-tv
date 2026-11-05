@@ -20,6 +20,8 @@ struct VODTab: View {
     @State private var path = NavigationPath()
     /// Plex: valget av bibliotekene som vises
     @State private var libraries = false
+    /// Plex Home: «Hvem ser på?»
+    @State private var chooseUser = false
 
     private var model: VODModel {
         switch kind {
@@ -57,7 +59,14 @@ struct VODTab: View {
             PlexLibrariesSheet()
                 .environment(app)
         }
+        .sheet(isPresented: $chooseUser) {
+            PlexUserSheet()
+                .environment(app)
+        }
     }
+
+    /// Plex Home: knappen «Hvem ser på?» med navnet på den som ser på (bare når kontoen har flere brukere).
+    private var hasHomeUsers: Bool { model.mixed && !app.plex.users.isEmpty }
 
     /// Plex: «Velg biblioteker» når alle er skjult (ellers holder du inne på et bibliotek, eller går til Innstillinger).
     private var librariesButton: some View {
@@ -188,6 +197,20 @@ struct VODTab: View {
                     .buttonStyle(SidebarStyle(selected: false))
                     .accessibilityIdentifier("vod-sok")
                     #endif
+                    if hasHomeUsers {
+                        Button {
+                            chooseUser = true
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "person.crop.circle")
+                                Text(app.plex.user?.name ?? L("Hvem ser på?"))
+                                    .lineLimit(1)
+                                Spacer(minLength: 0)
+                            }
+                        }
+                        .buttonStyle(SidebarStyle(selected: false))
+                        .accessibilityIdentifier("plex-bruker")
+                    }
                     ForEach(model.categories) { category in
                         if isLibrary(category) {
                             sidebarRow(category)
@@ -276,6 +299,22 @@ struct VODTab: View {
     private var libraryRow: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
+                if hasHomeUsers {
+                    Button {
+                        chooseUser = true
+                    } label: {
+                        Image(systemName: "person.crop.circle")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Theme.ink2)
+                            .frame(width: 44, height: 38)
+                            .background(Capsule().fill(Theme.surface))
+                            .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(app.plex.user?.name ?? L("Hvem ser på?"))
+                    .accessibilityIdentifier("plex-bruker")
+                }
                 ForEach(model.categories) { category in
                     if isLibrary(category) {
                         chip(category)

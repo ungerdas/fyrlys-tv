@@ -1,5 +1,11 @@
 # Endringer
 
+## v0.1.34
+
+- Plex Home: «Hvem ser på?» øverst i sidemenyen i Plex-fanen (på iPhone den første knappen på raden) når kontoen har
+  flere brukere. Velg en bruker (med PIN for dem som har det), så får «Fortsett å se», sett/ikke sett og bibliotekene
+  den brukerens. Valget huskes på hver enhet for seg.
+
 ## v0.1.33
 
 - Radene på Hjem i Plex-fanen følger rekkefølgen på bibliotekene også når Plex ikke sier hvilket bibliotek det som står

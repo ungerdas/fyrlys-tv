@@ -245,3 +245,129 @@ struct PlexSheet: View {
     }
 }
 #endif
+
+/// Plex Home: «Hvem ser på?» – brukerne på kontoen, med PIN for dem som har det. Den som velges, får sin egen
+/// «Fortsett å se», sett/ikke sett og tilgang til bibliotekene sine.
+struct PlexUserSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    /// brukeren som trenger PIN
+    @State private var asking: PlexHomeUser?
+    @State private var pin = ""
+    @State private var error: String?
+
+    private var plex: PlexModel { model.plex }
+
+    var body: some View {
+        NavigationStack {
+            #if os(tvOS)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    content
+                }
+                .frame(maxWidth: 900, alignment: .leading)
+                .padding(40)
+            }
+            .navigationTitle(L("Hvem ser på?"))
+            #else
+            List {
+                content
+                    .listRowBackground(Theme.surface)
+            }
+            .scrollContentBackground(.hidden)
+            .background(Theme.bg)
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(L("Hvem ser på?"))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L("Avbryt")) { dismiss() }
+                        .accessibilityIdentifier("bruker-avbryt")
+                }
+            }
+            #endif
+        }
+        #if os(iOS)
+        .tint(Theme.signal)
+        #endif
+        .accessibilityIdentifier("plex-brukere")
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let asking {
+            Text(L("PIN for {name}", ["name": asking.name]))
+                .font(.headline)
+            SecureField(L("PIN"), text: $pin)
+                #if os(iOS)
+                .keyboardType(.numberPad)
+                #endif
+                .accessibilityIdentifier("bruker-pin")
+            if let error {
+                Text(error)
+                    .foregroundStyle(Theme.live)
+                    .accessibilityIdentifier("bruker-feil")
+            }
+            Button(L("Bytt")) { Task { await choose(asking, pin: pin) } }
+                .disabled(pin.isEmpty || plex.switching)
+                .accessibilityIdentifier("bruker-bytt")
+            Button(L("Tilbake")) {
+                self.asking = nil
+                pin = ""
+                self.error = nil
+            }
+        } else {
+            ForEach(plex.users) { user in
+                Button {
+                    if user.protected {
+                        asking = user
+                    } else {
+                        Task { await choose(user, pin: nil) }
+                    }
+                } label: {
+                    HStack(spacing: 14) {
+                        RemoteImage(url: user.thumb.flatMap { URL(string: $0) }, fill: true) {
+                            Image(systemName: "person.circle.fill")
+                                .resizable()
+                                .foregroundStyle(Theme.muted)
+                        }
+                        .frame(width: Self.avatar, height: Self.avatar)
+                        .clipShape(Circle())
+                        Text(user.name)
+                        if user.protected {
+                            Image(systemName: "lock.fill")
+                                .foregroundStyle(Theme.muted)
+                        }
+                        Spacer(minLength: 0)
+                        if user.id == plex.user?.id {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(Theme.signal)
+                        }
+                    }
+                }
+                .disabled(plex.switching)
+                .accessibilityIdentifier("bruker-\(user.id)")
+            }
+            if let error {
+                Text(error)
+                    .foregroundStyle(Theme.live)
+                    .accessibilityIdentifier("bruker-feil")
+            }
+        }
+    }
+
+    private func choose(_ user: PlexHomeUser, pin: String?) async {
+        do {
+            try await plex.switchUser(user, pin: pin)
+            dismiss()
+        } catch {
+            self.error = pin == nil ? error.localizedDescription : L("Feil PIN. Prøv igjen.")
+            self.pin = ""
+        }
+    }
+
+    #if os(tvOS)
+    static let avatar: CGFloat = 60
+    #else
+    static let avatar: CGFloat = 36
+    #endif
+}

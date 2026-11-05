@@ -758,6 +758,34 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("43-plex-skjult")
     }
 
+    /// Plex Home: «Hvem ser på?» (sidemenyen på iPad, første knapp på raden på iPhone); «Barna» har PIN (feil PIN
+    /// gir feilmelding, 1234 bytter).
+    func test32PlexHome() {
+        let app = launch("plex")
+        XCTAssertTrue(find(app, "vod-hjem").waitForExistence(timeout: 40), "Hjem fra Plex kom ikke")
+        let who = find(app, "plex-bruker")
+        XCTAssertTrue(who.waitForExistence(timeout: 10), "«Hvem ser på?» mangler")
+        XCTAssertTrue(until(10) { who.label.contains("Eieren") }, "eieren står ikke som den som ser på: \(who.label)")
+        who.tap()
+        let child = find(app, "bruker-2")
+        XCTAssertTrue(child.waitForExistence(timeout: 10), "brukerne kom ikke")
+        wait(1)
+        shot("46-plex-hvem")
+        child.tap()
+        let pin = find(app, "bruker-pin")
+        XCTAssertTrue(pin.waitForExistence(timeout: 10), "PIN-feltet kom ikke")
+        pin.tap()
+        pin.typeText("0000")
+        find(app, "bruker-bytt").tap()
+        XCTAssertTrue(find(app, "bruker-feil").waitForExistence(timeout: 10), "feil PIN ga ingen feilmelding")
+        pin.tap()
+        pin.typeText("1234")
+        find(app, "bruker-bytt").tap()
+        XCTAssertTrue(until(20) { who.exists && who.label.contains("Barna") }, "byttet ikke til Barna: \(who.label)")
+        wait(1)
+        shot("47-plex-barna")
+    }
+
     /// Plex: «Merk som sett» eller «Merk som ikke sett» i menyen på siden for en film (merkes på serveren), og «Mer
     /// som dette».
     func test23PlexSett() {

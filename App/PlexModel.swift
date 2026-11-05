@@ -23,12 +23,20 @@ final class PlexModel {
     private(set) var servers: [PlexServer] = []
     private(set) var server: PlexServer?
     private(set) var client: PlexClient?
+    /// Plex Home: brukerne på kontoen (tom når kontoen ikke har Plex Home), og den som ser på nå
+    private(set) var users: [PlexHomeUser] = []
+    private(set) var user: PlexHomeUser?
+    /// bytter bruker (venter på plex.tv)
+    private(set) var switching = false
     /// Plex-fanen må hentes på nytt (tilkoblingen er endret)
     @ObservationIgnored var onChange: (() -> Void)?
 
     let device: PlexDevice
     @ObservationIgnored private var account: PlexAccountClient
+    /// nøkkelen til brukeren som ser på (serverne hentes med den)
     @ObservationIgnored private var token: String?
+    /// nøkkelen til kontoen som er logget inn (fra plex.tv/link; bare den kan bytte bruker i Plex Home)
+    @ObservationIgnored private var accountToken: String?
     @ObservationIgnored private var linkTask: Task<Void, Never>?
     /// økes for hver tilkobling, så et sent svar fra en tidligere ikke skriver over en nyere
     @ObservationIgnored private var connectGeneration = 0
@@ -41,6 +49,9 @@ final class PlexModel {
         var token: String
         var server: PlexServer?
         var uri: String?
+        /// Plex Home: kontonøkkelen og brukeren som ser på (nil: kontoen selv)
+        var accountToken: String?
+        var user: PlexHomeUser?
     }
 
     init() {
@@ -73,6 +84,8 @@ final class PlexModel {
             return
         }
         token = saved.token
+        accountToken = saved.accountToken ?? saved.token
+        user = saved.user
         // Plex-fanen venter på Plex (.waiting)
         phase = .connecting
         if let server = saved.server {
@@ -81,9 +94,38 @@ final class PlexModel {
                 await connect(server, preferred: saved.uri)
                 // serverne på kontoen (for «Bytt server»), i bakgrunnen
                 if servers.isEmpty, let found = try? await account.servers(token: saved.token) { servers = found }
+                await loadUsers()
             }
         } else {
             Task { await finish(token: saved.token) }
+        }
+    }
+
+    /// Plex Home: brukerne på kontoen (tom uten Plex Home). Uten valgt bruker regnes eieren (admin) som den som ser på.
+    func loadUsers() async {
+        guard let accountToken else { return }
+        guard let found = try? await account.homeUsers(token: accountToken) else { return }
+        users = found.count > 1 ? found : []
+        if user == nil { user = found.first(where: \.admin) }
+    }
+
+    /// Plex Home: bytter til [user] (med [pin] når brukeren har en): den nye nøkkelen, serverne på nytt (hver bruker har
+    /// sin egen nøkkel til serveren) og tilkoblingen på nytt. Feil (galt PIN) kastes.
+    func switchUser(_ user: PlexHomeUser, pin: String?) async throws {
+        guard let accountToken else { return }
+        switching = true
+        defer { switching = false }
+        let newToken = try await account.switchUser(user, pin: pin, token: accountToken)
+        token = newToken
+        self.user = user
+        AppLog.shared.add("Plex: byttet bruker i Plex Home")
+        let found = (try? await account.servers(token: newToken)) ?? []
+        if !found.isEmpty { servers = found }
+        if let server, let fresh = found.first(where: { $0.id == server.id }) ?? found.first {
+            await connect(fresh, preferred: client?.base)
+        } else {
+            save(client?.base)
+            onChange?()
         }
     }
 
@@ -133,6 +175,9 @@ final class PlexModel {
         linkTask?.cancel()
         linkTask = nil
         token = nil
+        accountToken = nil
+        users = []
+        user = nil
         server = nil
         client = nil
         servers = []
@@ -149,11 +194,13 @@ final class PlexModel {
 
     private func finish(token: String, choose: Bool = false) async {
         self.token = token
+        if accountToken == nil { accountToken = token }
         phase = .connecting
         do {
             let found = try await account.servers(token: token)
             servers = found
             save(nil)
+            await loadUsers()
             if found.isEmpty {
                 phase = .failed(L("Fant ingen Plex-server på kontoen."))
                 onChange?()
@@ -245,7 +292,7 @@ final class PlexModel {
 
     private func save(_ uri: String?) {
         guard !TestSupport.isActive, let token else { return }
-        let saved = Saved(token: token, server: server, uri: uri)
+        let saved = Saved(token: token, server: server, uri: uri, accountToken: accountToken, user: user)
         Keychain.savePlex(try? JSONEncoder().encode(saved))
     }
 

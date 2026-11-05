@@ -24,7 +24,7 @@ IPTV-leverandøren din og se TV.
   tilkoblinger.
 - **Plex**: koble til Plex-serveren din (med en kode på plex.tv/link), og filmene og seriene derfra får sin egen fane,
   Plex, med Hjem som samler dem (som Hjem i Plex) og bibliotekene i sidemenyen (hold inne for å flytte eller skjule
-  dem). Hvor langt du har sett, og hva du har
+  dem). Med Plex Home velger du hvem som ser på. Hvor langt du har sett, og hva du har
   sett, holdes i takt med Plex. «Hopp over introen» og «Hopp over rulleteksten» der Plex har merket dem,
   undertekstfilene ved siden av filmene, og «Mer som dette».
 - **iPhone**: som Fyrlys på nettet på en telefon, med favorittene og det du har sett sist øverst, kategoriene som

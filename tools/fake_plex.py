@@ -32,6 +32,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 TOKEN = "test-token"
+TOKEN_CHILD = "barna-token"
 PIN = {"id": 4242, "code": "FYRL", "polls": 0}
 
 with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata", "stormnatt.mkv"), "rb") as f:
@@ -169,9 +170,23 @@ class Handler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_POST(self):
-        if urlparse(self.path).path == "/api/v2/pins":
+        url = urlparse(self.path)
+        q = {k: v[0] for k, v in parse_qs(url.query).items()}
+        if url.path == "/api/v2/pins":
             PIN["polls"] = 0
             return self.json({"id": PIN["id"], "code": PIN["code"], "authToken": None}, 201)
+        # Plex Home: bytt bruker (bare kontonøkkelen kan); «Barna» har PIN 1234
+        m = re.fullmatch(r"/api/v2/home/users/(\d+)/switch", url.path)
+        if m:
+            if self.token(q) != TOKEN:
+                return self.send(401)
+            if m.group(1) == "2":
+                if q.get("pin") != "1234":
+                    return self.send(403)
+                return self.json({"id": 2, "authToken": TOKEN_CHILD}, 201)
+            if m.group(1) == "1":
+                return self.json({"id": 1, "authToken": TOKEN}, 201)
+            return self.send(404)
         self.send(404)
 
     def token(self, q):
@@ -187,21 +202,28 @@ class Handler(BaseHTTPRequestHandler):
             PIN["polls"] += 1
             return self.json({"id": PIN["id"], "code": PIN["code"],
                               "authToken": TOKEN if PIN["polls"] >= 3 else None})
+        if path == "/api/v2/home/users":
+            if self.token(q) not in (TOKEN, TOKEN_CHILD):
+                return self.send(401)
+            return self.json({"users": [
+                {"id": 1, "title": "test", "friendlyName": "Eieren", "admin": True, "protected": False},
+                {"id": 2, "title": "barna", "friendlyName": "Barna", "admin": False, "protected": True,
+                 "restricted": True}]})
         if path == "/api/v2/resources":
-            if self.token(q) != TOKEN:
+            if self.token(q) not in (TOKEN, TOKEN_CHILD):
                 return self.send(401)
             port = self.server.server_address[1]
             return self.json([
                 {"name": "Stuespiller", "provides": "player", "clientIdentifier": "spiller", "accessToken": TOKEN,
                  "connections": []},
                 {"name": "Hjemmekino", "provides": "server", "clientIdentifier": "falsk-server", "owned": True,
-                 "accessToken": TOKEN, "connections": [
+                 "accessToken": self.token(q), "connections": [
                      {"protocol": "http", "uri": "http://127.0.0.1:9", "local": True, "relay": False},
                      {"protocol": "http", "uri": f"http://127.0.0.1:{port}", "local": False, "relay": False}]},
             ])
 
         # ── serveren ──
-        if self.token(q) != TOKEN:
+        if self.token(q) not in (TOKEN, TOKEN_CHILD):
             return self.send(401)
         if path == "/identity":
             return self.container(machineIdentifier="falsk-server")

@@ -19,6 +19,22 @@ final class PlexTests: XCTestCase {
 
     var client: PlexClient { PlexClient(base: "http://192.168.1.10:32400/", token: "hemmelig", device: device) }
 
+    /// Plex Home: brukerne med eieren først, PIN-beskyttelse og bildet.
+    func testHomeUsers() {
+        let users = parseHomeUsers(json("""
+        {"users": [
+          {"id": 2, "title": "Barna", "friendlyName": "Barna", "admin": false, "protected": false, "restricted": true},
+          {"id": 1, "title": "paal", "friendlyName": "Pål", "admin": true, "protected": true, "thumb": "https://plex.tv/u/1"},
+          {"title": "Uten id"}]}
+        """))
+        XCTAssertEqual(users.map(\.id), [1, 2])
+        XCTAssertEqual(users[0].name, "Pål")
+        XCTAssertTrue(users[0].protected)
+        XCTAssertEqual(users[0].thumb, "https://plex.tv/u/1")
+        XCTAssertTrue(users[1].restricted)
+        XCTAssertFalse(users[1].protected)
+    }
+
     func testPinAndServers() {
         XCTAssertEqual(parsePin(json(#"{"id": 4242, "code": "FYRL", "authToken": null}"#)),
                        PlexPin(id: 4242, code: "FYRL"))

@@ -203,6 +203,60 @@ public struct PlexAccountClient: Sendable {
     public func servers(token: String) async throws -> [PlexServer] {
         parseServers(try await json(request("/api/v2/resources?includeHttps=1&includeRelay=1", token: token)))
     }
+
+    /// Brukerne i Plex Home («Hvem ser på?»), med den som eier kontoen først.
+    public func homeUsers(token: String) async throws -> [PlexHomeUser] {
+        parseHomeUsers(try await json(request("/api/v2/home/users", token: token)))
+    }
+
+    /// Bytter til [user] i Plex Home og gir nøkkelen til den brukeren ([pin] når brukeren har en). Nøkkelen til
+    /// kontoen som er logget inn, må brukes (den du fikk fra plex.tv/link; en annen brukers nøkkel kan ikke bytte).
+    public func switchUser(_ user: PlexHomeUser, pin: String?, token: String) async throws -> String {
+        var path = "/api/v2/home/users/\(user.id)/switch"
+        if let pin, !pin.isEmpty, let encoded = pin.addingPercentEncoding(withAllowedCharacters: .alphanumerics) {
+            path += "?pin=\(encoded)"
+        }
+        let json = try await self.json(request(path, method: "POST", token: token))
+        let newToken = text((json as? [String: Any])?["authToken"])
+        guard !newToken.isEmpty else { throw SourceError(L("Plex svarte ikke som ventet")) }
+        return newToken
+    }
+}
+
+/// En bruker i Plex Home.
+public struct PlexHomeUser: Codable, Hashable, Identifiable, Sendable {
+    public let id: Int
+    public let name: String
+    /// bildet (avataren)
+    public let thumb: String?
+    public let admin: Bool
+    /// må skrive PIN for å bytte til brukeren
+    public let protected: Bool
+    /// en begrenset bruker (barn)
+    public let restricted: Bool
+
+    public init(id: Int, name: String, thumb: String? = nil, admin: Bool = false, protected: Bool = false,
+                restricted: Bool = false) {
+        self.id = id
+        self.name = name
+        self.thumb = thumb
+        self.admin = admin
+        self.protected = protected
+        self.restricted = restricted
+    }
+}
+
+/// /api/v2/home/users: brukerne (`users`), eieren (admin) først.
+public func parseHomeUsers(_ json: Any) -> [PlexHomeUser] {
+    let list = ((json as? [String: Any])?["users"] as? [[String: Any]]) ?? (json as? [[String: Any]]) ?? []
+    let users: [PlexHomeUser] = list.compactMap { u in
+        guard let id = int(u["id"]) else { return nil }
+        let name = nonEmpty(u["friendlyName"]) ?? nonEmpty(u["title"]) ?? nonEmpty(u["username"]) ?? ""
+        guard !name.isEmpty else { return nil }
+        return PlexHomeUser(id: id, name: name, thumb: nonEmpty(u["thumb"]), admin: flag(u["admin"]),
+                            protected: flag(u["protected"]), restricted: flag(u["restricted"]))
+    }
+    return users.filter(\.admin) + users.filter { !$0.admin }
 }
 
 /// En Plex-server: bibliotekene, filmene og seriene, bildene og filene, og hvor langt du har sett.

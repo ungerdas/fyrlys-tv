@@ -677,6 +677,58 @@ final class FyrlysUITests: XCTestCase {
         shot("50-plex-skjult")
     }
 
+    /// Plex Home: «Hvem ser på?» øverst i sidemenyen; «Barna» har PIN (feil PIN gir feilmelding, 1234 bytter), og
+    /// navnet på knappen byttes.
+    func test32PlexHome() {
+        let app = launch("plex")
+        let who = find(app, "plex-bruker")
+        XCTAssertTrue(who.waitForExistence(timeout: 40), "«Hvem ser på?» mangler")
+        XCTAssertTrue(until(10) { who.label.contains("Eieren") }, "eieren står ikke som den som ser på: \(who.label)")
+        XCTAssertTrue(focus(app, find(app, "vodkat-hjem")), "fikk ikke fokus på Hjem")
+        for _ in 0..<3 where !who.hasFocus {
+            remote.press(.up)
+            wait(0.8)
+        }
+        XCTAssertTrue(who.hasFocus, "fikk ikke fokus på «Hvem ser på?»")
+        remote.press(.select)
+        let child = find(app, "bruker-2")
+        XCTAssertTrue(child.waitForExistence(timeout: 10), "brukerne kom ikke")
+        wait(1)
+        shot("60-plex-hvem")
+        XCTAssertTrue(focusDown(app, child, label: "Barna", tries: 4), "fikk ikke fokus på Barna")
+        remote.press(.select)
+        let pin = find(app, "bruker-pin")
+        XCTAssertTrue(pin.waitForExistence(timeout: 10), "PIN-feltet kom ikke")
+        XCTAssertTrue(focusDown(app, pin, label: "PIN", tries: 4), "fikk ikke fokus på PIN-feltet")
+        remote.press(.select)
+        wait(2)
+        app.typeText("0000\n")
+        wait(2)
+        let go = find(app, "bruker-bytt")
+        XCTAssertTrue(focusDown(app, go, label: "Bytt", tries: 4), "fikk ikke fokus på «Bytt»")
+        remote.press(.select)
+        XCTAssertTrue(find(app, "bruker-feil").waitForExistence(timeout: 10), "feil PIN ga ingen feilmelding")
+        XCTAssertTrue(focusUpTo(app, pin), "fikk ikke fokus på PIN-feltet igjen")
+        remote.press(.select)
+        wait(2)
+        app.typeText("1234\n")
+        wait(2)
+        XCTAssertTrue(focusDown(app, go, label: "Bytt", tries: 4), "fikk ikke fokus på «Bytt» igjen")
+        remote.press(.select)
+        XCTAssertTrue(until(20) { who.exists && who.label.contains("Barna") }, "byttet ikke til Barna: \(who.label)")
+        wait(1)
+        shot("61-plex-barna")
+    }
+
+    /// Opp til [element] har fokus.
+    func focusUpTo(_ app: XCUIApplication, _ element: XCUIElement, tries: Int = 6) -> Bool {
+        for _ in 0..<tries where !focusCovers(app, element) {
+            remote.press(.up)
+            wait(0.6)
+        }
+        return focusCovers(app, element)
+    }
+
     /// Feilrapporten nederst i innstillingene: hele teksten på skjermen, og «Send til iPhone».
     func test28Feilrapport() {
         let app = launch("settings")
