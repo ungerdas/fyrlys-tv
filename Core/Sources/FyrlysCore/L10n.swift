@@ -370,6 +370,10 @@ public let english: [String: String] = [
     "Søk i Plex": "Search Plex",
     "Se filmene og seriene dine fra Plex i en egen fane, Plex.":
         "Watch your movies and TV shows from Plex in a tab of their own, Plex.",
+    // hold inne på et bibliotek i Plex-fanen (0.1.32)
+    "Flytt til venstre": "Move left",
+    "Flytt til høyre": "Move right",
+    "Skjul": "Hide",
     // guiden
     "Velg hva guiden viser oppe til høyre: favorittene, alle kanaler eller en kategori.":
         "Choose what the guide shows at the top right: your favorites, all channels or a category.",

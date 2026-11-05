@@ -419,9 +419,18 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `VODPlayerModel.library`). Favorittene: `plexFavorites` = filmene og seriene sammen, sist lagt til først
   (`VODItem.added` = tidspunktet de ble lagt til, for Plex; de fra før står etter). Sidemenyen (Apple TV, iPad):
   «Søk» (Apple TV), Hjem (`house`) og bibliotekene med `SidebarIcon` (`film`/`tv`), «Velg biblioteker» nederst;
-  iPhone: `libraryRow`, Hjem og bibliotekene som knapper på en rad (`vodkat-<id>`, kan dras til siden) og
-  `velg-biblioteker` (ikon) til slutt, søket «Søk i Plex» (`searchPrompt`) under. Testskjermene `plex`/`plex-series`
-  åpner Plex-fanen (HomeView bytter dit når den kommer, `onChange(of: hasPlex)`).
+  iPhone: `libraryRow`, Hjem og bibliotekene som knapper på en rad (`vodkat-<id>`, kan dras til siden), søket «Søk i
+  Plex» (`searchPrompt`) under. Testskjermene `plex`/`plex-series` åpner Plex-fanen (HomeView bytter dit når den
+  kommer, `onChange(of: hasPlex)`). Fra 0.1.32 (eieren 5.11 med bilde fra Apple TV-en: «Den velg biblioteker inne i
+  plex menyen kan vi ta bort, vil heller kunne holde inne på f.eks filmer å velge skjul ellerno. Vil også kunne justere
+  rekkefølgen, slik at vi kan ha TV-serier øverst.»): hurtigmeny på bibliotekene (`libraryActions`: «Flytt opp»/«Flytt
+  ned», på iPhone «Flytt til venstre»/«Flytt til høyre», og «Skjul» → `setHidden`), ingen «Velg biblioteker» i
+  sidemenyen og raden (bare når alle er skjult; ellers «Biblioteker» under Plex i innstillingene). Rekkefølgen:
+  `AppModel.libraryOrder` («<server>/<bibliotek>», iCloud-nøkkelen `plex-rekkefolge`), `orderedSections`,
+  `moveLibrary(_:by:among:)` (bytter med naboen som vises; de skjulte beholder plassen bak) → `VODModel.setOrder`
+  (uten å hente på nytt) og `reset(…order:)`; `ordered` sorterer bibliotekene, og `arranged` radene på Hjem etter
+  biblioteket det meste i raden kommer fra (`plexRows` er radene slik Plex sendte dem; uten valgt rekkefølge står de
+  som i Plex). Testene `test27PlexBiblioteker` (Apple TV) og `test26PlexBiblioteker` (iPhone og iPad).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og

@@ -651,29 +651,28 @@ final class FyrlysUITests: XCTestCase {
         shot("47-plex-a-a")
     }
 
-    /// Plex: «Velg biblioteker» nederst i sidemenyen; et bibliotek som slås av, er borte fra sidemenyen.
+    /// Plex: hold inne på et bibliotek i sidemenyen: «Flytt opp» (Serier over Filmer, også etter at fanen er hentet på
+    /// nytt) og «Skjul» (borte fra sidemenyen). «Velg biblioteker» står ikke i sidemenyen.
     func test27PlexBiblioteker() {
         let app = launch("plex")
-        let other = find(app, "vodkat-4")
-        XCTAssertTrue(other.waitForExistence(timeout: 40), "biblioteket «Andre videoer» mangler")
-        XCTAssertTrue(focus(app, other), "fikk ikke fokus på «Andre videoer»")
-        let choose = find(app, "velg-biblioteker")
-        XCTAssertTrue(choose.exists, "«Velg biblioteker» mangler")
-        for _ in 0..<3 where !choose.hasFocus {
-            remote.press(.down)
-            wait(0.8)
-        }
-        XCTAssertTrue(choose.hasFocus, "fikk ikke fokus på «Velg biblioteker»")
-        remote.press(.select)
-        let toggle = find(app, "vis-bibliotek-4")
-        XCTAssertTrue(toggle.waitForExistence(timeout: 15), "bibliotekene kom ikke")
-        XCTAssertTrue(focusDown(app, toggle, label: "Andre videoer", tries: 8), "fikk ikke fokus på «Andre videoer»")
-        remote.press(.select)
+        let movies = find(app, "vodkat-1"), series = find(app, "vodkat-2")
+        XCTAssertTrue(series.waitForExistence(timeout: 40) && movies.exists, "bibliotekene mangler")
+        XCTAssertFalse(find(app, "velg-biblioteker").exists, "«Velg biblioteker» skal ikke stå i sidemenyen")
+        XCTAssertTrue(before(movies, series), "rekkefølgen fra Plex: Filmer først")
+        XCTAssertTrue(focus(app, series), "fikk ikke fokus på Serier")
+        remote.press(.select, forDuration: 2)
+        XCTAssertTrue(choose(app, "Flytt opp"), "«Flytt opp» mangler i menyen")
+        XCTAssertTrue(until(10) { series.exists && movies.exists && before(series, movies) },
+                      "Serier ble ikke flyttet opp")
         wait(1)
-        shot("49-plex-biblioteker")
-        remote.press(.menu)
-        XCTAssertTrue(until(20) { find(app, "vodkat-1").exists && !find(app, "vodkat-4").exists },
-                      "«Andre videoer» står fortsatt i sidemenyen")
+        shot("49-plex-rekkefolge")
+        let other = find(app, "vodkat-4")
+        XCTAssertTrue(focus(app, other), "fikk ikke fokus på «Andre videoer»")
+        remote.press(.select, forDuration: 2)
+        XCTAssertTrue(choose(app, "Skjul"), "«Skjul» mangler i menyen")
+        XCTAssertTrue(until(20) { movies.exists && !other.exists }, "«Andre videoer» står fortsatt i sidemenyen")
+        // fanen er hentet på nytt (uten det skjulte biblioteket), og rekkefølgen står seg
+        XCTAssertTrue(series.exists && before(series, movies), "rekkefølgen ble borte")
         wait(1)
         shot("50-plex-skjult")
     }

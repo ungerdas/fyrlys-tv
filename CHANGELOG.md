@@ -1,5 +1,12 @@
 # Endringer
 
+## v0.1.32
+
+- Plex-fanen: hold inne på et bibliotek for å flytte det opp eller ned (på iPhone til venstre eller høyre) eller skjule
+  det. «Velg biblioteker» står ikke lenger i sidemenyen og raden; de skjulte bibliotekene vises igjen under Plex i
+  innstillingene (på iPhone Konto, Plex), «Biblioteker».
+- Rekkefølgen du velger, gjelder også radene på Hjem (som i Plex), og den deles mellom Apple TV, iPhone og iPad.
+
 ## v0.1.31
 
 - Plex har fått sin egen fane, Plex, etter Filmer og Serier i fanelinja, og Filmer og Serier viser alltid det som

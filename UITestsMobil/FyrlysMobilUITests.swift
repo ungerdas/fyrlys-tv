@@ -721,31 +721,36 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("45-feilrapport")
     }
 
-    /// Plex: «Velg biblioteker» (nederst i sidemenyen på iPad, til slutt i raden med knapper øverst på iPhone); et
-    /// bibliotek som slås av, er borte.
+    /// Plex: hold inne på et bibliotek (sidemenyen på iPad, knappene øverst på iPhone): «Flytt opp» eller «Flytt til
+    /// venstre» (Serier foran Filmer, også etter at fanen er hentet på nytt) og «Skjul». «Velg biblioteker» står ikke der.
     func test26PlexBiblioteker() {
         let app = launch("plex")
         XCTAssertTrue(find(app, "vod-hjem").waitForExistence(timeout: 40), "Hjem fra Plex kom ikke")
-        XCTAssertTrue(find(app, "vodkat-4").waitForExistence(timeout: 10), "«Andre videoer» mangler")
-        let choose = find(app, "velg-biblioteker")
-        // til slutt i raden på iPhone: dra raden til siden når den står utenfor skjermen (isHittable feiler da)
+        let movies = find(app, "vodkat-1"), series = find(app, "vodkat-2"), other = find(app, "vodkat-4")
+        XCTAssertTrue(series.waitForExistence(timeout: 10) && movies.exists && other.exists, "bibliotekene mangler")
+        XCTAssertFalse(find(app, "velg-biblioteker").exists, "«Velg biblioteker» skal ikke stå blant bibliotekene")
+        XCTAssertTrue(before(movies, series), "rekkefølgen fra Plex: Filmer først")
+        series.press(forDuration: 1.2)
+        let up = app.buttons[isPad ? "Flytt opp" : "Flytt til venstre"]
+        XCTAssertTrue(up.waitForExistence(timeout: 5), "menyen kom ikke")
+        up.tap()
+        XCTAssertTrue(until(10) { series.exists && movies.exists && before(series, movies) },
+                      "Serier ble ikke flyttet fram")
+        wait(1)
+        shot("42-plex-rekkefolge")
+        // «Andre videoer» står til slutt i raden på iPhone: dra raden til siden når den står utenfor skjermen
         let screen = app.windows.firstMatch.frame
-        for _ in 0..<3 where !isPad && !screen.contains(CGPoint(x: choose.frame.midX, y: choose.frame.midY)) {
-            // på det siste biblioteket (det står igjen på skjermen når raden er dratt til siden)
-            find(app, "vodkat-4").swipeLeft()
+        for _ in 0..<3 where !isPad && !screen.contains(CGPoint(x: other.frame.midX, y: other.frame.midY)) {
+            movies.swipeLeft()
             wait(1)
         }
-        choose.tap()
-        let toggle = find(app, "vis-bibliotek-4")
-        XCTAssertTrue(toggle.waitForExistence(timeout: 15), "bibliotekene kom ikke")
-        // bryteren (raden kan være elementet som har id-en)
-        let control = toggle.switches.firstMatch.exists ? toggle.switches.firstMatch : toggle
-        control.tap()
-        wait(1)
-        shot("42-plex-biblioteker")
-        find(app, "biblioteker-ferdig").tap()
-        XCTAssertTrue(until(20) { find(app, "vodkat-1").exists && !find(app, "vodkat-4").exists },
-                      "«Andre videoer» står fortsatt blant bibliotekene")
+        other.press(forDuration: 1.2)
+        let hide = app.buttons["Skjul"]
+        XCTAssertTrue(hide.waitForExistence(timeout: 5), "«Skjul» mangler i menyen")
+        hide.tap()
+        XCTAssertTrue(until(20) { movies.exists && !other.exists }, "«Andre videoer» står fortsatt blant bibliotekene")
+        // fanen er hentet på nytt (uten det skjulte biblioteket), og rekkefølgen står seg
+        XCTAssertTrue(series.exists && before(series, movies), "rekkefølgen ble borte")
         shot("43-plex-skjult")
     }
 

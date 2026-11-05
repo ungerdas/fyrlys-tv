@@ -38,8 +38,13 @@ final class VODModel {
     private(set) var isPlex = false
     /// Plex: «Fortsett å se» fra Plex
     private(set) var continueRow: [VODResume] = []
-    /// Plex: radene fra Hjem i Plex («Nytt fra …», «Nylig lagt til …»), vist under «Hjem» øverst i sidemenyen
+    /// Plex: radene fra Hjem i Plex («Nytt fra …», «Nylig lagt til …»), vist under «Hjem» øverst i sidemenyen; med en
+    /// egen rekkefølge på bibliotekene står radene i den rekkefølgen (som i Plex når bibliotekene flyttes)
     private(set) var rows: [VODRow] = []
+    /// Plex: radene slik Plex sendte dem
+    @ObservationIgnored private var plexRows: [VODRow] = []
+    /// Plex: rekkefølgen som er valgt på bibliotekene (tom: som i Plex)
+    @ObservationIgnored private var order: [String] = []
     /// Plex: favorittene slik serveren har dem nå (plakatene, «sett»)
     private(set) var favoriteRow: [VODItem] = []
 
@@ -97,10 +102,11 @@ final class VODModel {
     /// Plex: bibliotekene som ikke vises (sidemenyen, Hjem, «Fortsett å se» og søket)
     @ObservationIgnored private var hidden: Set<String> = []
 
-    func reset(_ backend: VODBackend?, hidden: Set<String> = []) {
+    func reset(_ backend: VODBackend?, hidden: Set<String> = [], order: [String] = []) {
         generation += 1
         version += 1
         self.hidden = hidden
+        self.order = order
         categoriesTask?.cancel()
         categoriesTask = nil
         self.backend = backend
@@ -110,6 +116,7 @@ final class VODModel {
         items = [:]
         continueRow = []
         rows = []
+        plexRows = []
         favoriteRow = []
         allItems = nil
         allTask?.cancel()
@@ -183,14 +190,15 @@ final class VODModel {
                     resumeTask.cancel()
                     throw error
                 }
-                let shown = sections.filter { !hidden.contains($0.id) }
+                let shown = ordered(sections.filter { !hidden.contains($0.id) }) { $0.id }
                 let home = shown.isEmpty ? [] : ((try? await client.rows(kinds, libraries: shown.map(\.id))) ?? [])
                 let resume = await resumeTask.value
                 // avbrutt (en ny henting har tatt over): ikke tomme rader i stedet for dem som kommer
                 guard gen == generation, !Task.isCancelled else { return }
                 libraryKinds = Dictionary(sections.map { ($0.id, $0.kind) }, uniquingKeysWith: { first, _ in first })
                 continueRow = visible(resume)
-                rows = visible(home)
+                plexRows = visible(home)
+                rows = arranged(plexRows)
                 hiddenAll = !sections.isEmpty && shown.isEmpty
                 found = shown.isEmpty ? []
                     : [ChannelCategory(id: Self.home, name: L("Hjem"))]
@@ -414,7 +422,41 @@ final class VODModel {
         continueRow = visible(resume)
         let libraries = categories.map(\.id).filter { $0 != Self.home }
         guard let home = try? await client.rows(kinds, libraries: libraries), gen == generation else { return }
-        rows = visible(home)
+        plexRows = visible(home)
+        rows = arranged(plexRows)
+    }
+
+    // ── Plex: rekkefølgen på bibliotekene ──
+
+    /// Plex: bibliotekene i en annen rekkefølge (sidemenyen og radene på Hjem), uten å hente noe på nytt.
+    func setOrder(_ order: [String]) {
+        guard order != self.order else { return }
+        self.order = order
+        guard isPlex, !categories.isEmpty else { return }
+        let libraries = ordered(categories.filter { $0.id != Self.home }) { $0.id }
+        categories = categories.filter { $0.id == Self.home } + libraries
+        rows = arranged(plexRows)
+    }
+
+    /// [items] i rekkefølgen som er valgt på bibliotekene ([library] gir biblioteket); de som ikke er med der, står etter
+    /// i den rekkefølgen de hadde.
+    private func ordered<T>(_ items: [T], library: (T) -> String) -> [T] {
+        guard !order.isEmpty else { return items }
+        let rank = Dictionary(order.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+        return items.enumerated().sorted { a, b in
+            let ra = rank[library(a.element)] ?? Int.max, rb = rank[library(b.element)] ?? Int.max
+            return ra != rb ? ra < rb : a.offset < b.offset
+        }.map(\.element)
+    }
+
+    /// Radene fra Plex med bibliotekene i rekkefølgen som er valgt (uten valgt rekkefølge: som Plex sendte dem).
+    private func arranged(_ rows: [VODRow]) -> [VODRow] {
+        ordered(rows) { row in
+            // biblioteket det meste i raden kommer fra
+            var count: [String: Int] = [:]
+            for entry in row.items where !entry.item.categoryId.isEmpty { count[entry.item.categoryId, default: 0] += 1 }
+            return count.max { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }?.key ?? ""
+        }
     }
 
     /// Plex: alle bibliotekene er skjult (siden sier det, med valget av bibliotekene)

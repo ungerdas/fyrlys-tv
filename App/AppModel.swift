@@ -107,6 +107,7 @@ final class AppModel {
         LiveShift.cleanUp()
         loadStreams()
         loadHiddenLibraries()
+        loadLibraryOrder()
         if TestSupport.isActive {
             // login og login-m3u: innloggingssiden
             if TestSupport.screen?.hasPrefix("login") != true, let test = TestSupport.login {
@@ -467,7 +468,7 @@ final class AppModel {
 
     /// Plex-fanen på nytt: tilkoblingen er endret, eller bibliotekene som vises.
     func refreshPlex() {
-        plexVOD.reset(plexBackend, hidden: hiddenSections)
+        plexVOD.reset(plexBackend, hidden: hiddenSections, order: orderedSections)
     }
 
     /// Filmene, seriene eller Plex-fanen [item] hører til.
@@ -524,6 +525,38 @@ final class AppModel {
         hiddenLibraries = set
         if !TestSupport.isActive { store.set(set.sorted(), for: Self.hiddenLibrariesKey) }
         refreshPlex()
+    }
+
+    // ── Plex: rekkefølgen på bibliotekene i Plex-fanen (i iCloud, delt mellom enhetene) ──
+
+    static let libraryOrderKey = "plex-rekkefolge"
+    /// «<server>/<bibliotek>» i rekkefølgen som er valgt (for alle serverne)
+    private(set) var libraryOrder: [String] = []
+
+    private func loadLibraryOrder() {
+        libraryOrder = store.strings(Self.libraryOrderKey)
+    }
+
+    /// bibliotekene på serveren som er valgt, i rekkefølgen som er valgt (tom: som i Plex)
+    var orderedSections: [String] {
+        guard let server = plex.server?.id else { return [] }
+        let prefix = server + "/"
+        return libraryOrder.filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) }
+    }
+
+    /// Flytter biblioteket [library] ett steg ([offset] -1 opp, 1 ned) blant dem som vises ([shown], i rekkefølgen de
+    /// står): det bytter plass med naboen. De som er skjult nå, beholder plassen bak.
+    func moveLibrary(_ library: String, by offset: Int, among shown: [String]) {
+        guard let server = plex.server?.id, let from = shown.firstIndex(of: library) else { return }
+        let to = from + offset
+        guard shown.indices.contains(to) else { return }
+        var order = shown
+        order.swapAt(from, to)
+        order += orderedSections.filter { !order.contains($0) }
+        let prefix = server + "/"
+        libraryOrder = libraryOrder.filter { !$0.hasPrefix(prefix) } + order.map { prefix + $0 }
+        if !TestSupport.isActive { store.set(libraryOrder, for: Self.libraryOrderKey) }
+        plexVOD.setOrder(orderedSections)
     }
 
     // ── egne strømmer: adresser som spilles i stedet for leverandørens (i iCloud, delt mellom enhetene) ──
@@ -753,7 +786,13 @@ final class AppModel {
         loadStreams()
         let before = hiddenLibraries
         loadHiddenLibraries()
-        if hiddenLibraries != before { refreshPlex() }
+        let order = libraryOrder
+        loadLibraryOrder()
+        if hiddenLibraries != before {
+            refreshPlex()
+        } else if libraryOrder != order {
+            plexVOD.setOrder(orderedSections)
+        }
         vodFavoritesCache = [:]
         vodFavoritesVersion += 1
         guard let library else { return }

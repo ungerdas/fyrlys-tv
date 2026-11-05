@@ -59,7 +59,7 @@ struct VODTab: View {
         }
     }
 
-    /// Plex: «Velg biblioteker» (sidemenyen nederst, til slutt på raden på iPhone, og når alle er skjult).
+    /// Plex: «Velg biblioteker» når alle er skjult (ellers holder du inne på et bibliotek, eller går til Innstillinger).
     private var librariesButton: some View {
         Button {
             libraries = true
@@ -116,6 +116,58 @@ struct VODTab: View {
         return model.kind(of: id) == .movies ? "film" : "tv"
     }
 
+    /// Et bibliotek i Plex-fanen (ikke Hjem): hold inne for å flytte eller skjule det.
+    private func isLibrary(_ category: ChannelCategory) -> Bool {
+        model.mixed && category.id != VODModel.home
+    }
+
+    /// Hold inne på et bibliotek: flytt det opp eller ned (til venstre eller høyre i raden på iPhone, [across]), eller
+    /// skjul det (det vises igjen under Plex i innstillingene, «Biblioteker»).
+    @ViewBuilder
+    private func libraryActions(_ id: String, across: Bool) -> some View {
+        let libraries = model.categories.map(\.id).filter { $0 != VODModel.home }
+        let index = libraries.firstIndex(of: id) ?? 0
+        if index > 0 {
+            Button {
+                app.moveLibrary(id, by: -1, among: libraries)
+            } label: {
+                Label(across ? L("Flytt til venstre") : L("Flytt opp"), systemImage: across ? "arrow.left" : "arrow.up")
+            }
+        }
+        if index < libraries.count - 1 {
+            Button {
+                app.moveLibrary(id, by: 1, among: libraries)
+            } label: {
+                Label(across ? L("Flytt til høyre") : L("Flytt ned"), systemImage: across ? "arrow.right" : "arrow.down")
+            }
+        }
+        Button {
+            app.setHidden(id, true)
+        } label: {
+            Label(L("Skjul"), systemImage: "eye.slash")
+        }
+    }
+
+    /// En linje i sidemenyen (i Plex-fanen med ikon).
+    private func sidebarRow(_ category: ChannelCategory) -> some View {
+        let selected = model.chosen == category.id
+        return Button {
+            model.chosen = category.id
+        } label: {
+            HStack(spacing: model.mixed ? Metrics.sidebarIcon * 0.65 : 8) {
+                if model.mixed {
+                    SidebarIcon(name: libraryIcon(category.id), selected: selected)
+                }
+                Text(category.name)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+        }
+        .buttonStyle(SidebarStyle(selected: selected))
+        // id-en før hurtigmenyen (etter den ble id-en borte av og til på iPhone og iPad)
+        .accessibilityIdentifier("vodkat-\(category.id)")
+    }
+
     /// Apple TV og iPad: kategoriene (i Plex-fanen bibliotekene, med ikon) til venstre, plakatene til høyre.
     private var split: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -137,26 +189,12 @@ struct VODTab: View {
                     .accessibilityIdentifier("vod-sok")
                     #endif
                     ForEach(model.categories) { category in
-                        let selected = model.chosen == category.id
-                        Button {
-                            model.chosen = category.id
-                        } label: {
-                            HStack(spacing: model.mixed ? Metrics.sidebarIcon * 0.65 : 8) {
-                                if model.mixed {
-                                    SidebarIcon(name: libraryIcon(category.id), selected: selected)
-                                }
-                                Text(category.name)
-                                    .lineLimit(1)
-                                Spacer(minLength: 0)
-                            }
+                        if isLibrary(category) {
+                            sidebarRow(category)
+                                .contextMenu { libraryActions(category.id, across: false) }
+                        } else {
+                            sidebarRow(category)
                         }
-                        .buttonStyle(SidebarStyle(selected: selected))
-                        .accessibilityIdentifier("vodkat-\(category.id)")
-                    }
-                    if model.isPlex {
-                        librariesButton
-                            .buttonStyle(SidebarStyle(selected: false))
-                            .padding(.top, 10)
                     }
                 }
                 .padding(.vertical, 6)
@@ -233,53 +271,49 @@ struct VODTab: View {
         .padding(.top, 8)
     }
 
-    /// Plex-fanen på iPhone: Hjem og bibliotekene som knapper på en rad (den kan dras til siden når det er mange), og
-    /// valget av bibliotekene til slutt.
+    /// Plex-fanen på iPhone: Hjem og bibliotekene som knapper på en rad (den kan dras til siden når det er mange); hold
+    /// inne på et bibliotek for å flytte eller skjule det.
     private var libraryRow: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(model.categories) { category in
-                    let selected = model.chosen == category.id
-                    Button {
-                        model.chosen = category.id
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: libraryIcon(category.id))
-                                .font(.system(size: 13, weight: .semibold))
-                            Text(category.name)
-                                .font(.system(size: 15, weight: .semibold))
-                                .lineLimit(1)
-                        }
-                        .foregroundStyle(selected ? Theme.signalInk : Theme.ink2)
-                        .padding(.horizontal, 14)
-                        .frame(height: 38)
-                        .background(Capsule().fill(selected ? Theme.signal : Theme.surface))
-                        .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.line, lineWidth: 1))
-                        .contentShape(Capsule())
+                    if isLibrary(category) {
+                        chip(category)
+                            .contextMenu { libraryActions(category.id, across: true) }
+                    } else {
+                        chip(category)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("vodkat-\(category.id)")
-                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
-                Button {
-                    libraries = true
-                } label: {
-                    Image(systemName: "books.vertical")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.ink2)
-                        .frame(width: 44, height: 38)
-                        .background(Capsule().fill(Theme.surface))
-                        .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(L("Velg biblioteker"))
-                .accessibilityIdentifier("velg-biblioteker")
             }
             .padding(.horizontal, 16)
         }
         .scrollIndicators(.never)
         .padding(.top, 8)
+    }
+
+    /// Hjem eller et bibliotek på raden øverst på iPhone.
+    private func chip(_ category: ChannelCategory) -> some View {
+        let selected = model.chosen == category.id
+        return Button {
+            model.chosen = category.id
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: libraryIcon(category.id))
+                    .font(.system(size: 13, weight: .semibold))
+                Text(category.name)
+                    .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(selected ? Theme.signalInk : Theme.ink2)
+            .padding(.horizontal, 14)
+            .frame(height: 38)
+            .background(Capsule().fill(selected ? Theme.signal : Theme.surface))
+            .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.line, lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("vodkat-\(category.id)")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private var searching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
