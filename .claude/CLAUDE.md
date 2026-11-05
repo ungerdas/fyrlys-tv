@@ -697,4 +697,5 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   en film, «Nyeste Filmer», sidemenyen Hjem, Filmer, TV-serier). Ønsket hold inne for å skjule og flytte bibliotekene i
   stedet for «Velg biblioteker» → 0.1.32 (bygg 57, VALID for TV_OS og IOS, alle testene grønne på første forsøk).
   Skjermbildet viste at «Nytt fra Kystkanalen» (episodene uten bibliotek i den falske Plex) havnet til slutt etter
-  flyttingen → 0.1.33 (`library(of:)` faller tilbake på slaget; `test26PlexBiblioteker` sjekker radene).
+  flyttingen → 0.1.33 (`library(of:)` faller tilbake på slaget; `test26PlexBiblioteker` sjekker radene). 0.1.33
+  (bygg 58) er i TestFlight, VALID for TV_OS og IOS; alle testene grønne, også radene i `test26` på iPhone og iPad.
