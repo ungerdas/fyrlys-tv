@@ -303,7 +303,10 @@ struct PlexUserSheet: View {
                 .keyboardType(.numberPad)
                 #endif
                 .onChange(of: pin) { _, new in
-                    if new.count == 4, !plex.switching { Task { await choose(asking, pin: new) } }
+                    if new.count == 4, !plex.switching {
+                        self.error = nil
+                        Task { await choose(asking, pin: new) }
+                    }
                 }
                 .onSubmit { if !pin.isEmpty { Task { await choose(asking, pin: pin) } } }
                 .accessibilityIdentifier("bruker-pin")
@@ -366,7 +369,10 @@ struct PlexUserSheet: View {
             dismiss()
         } catch {
             self.error = pin == nil ? error.localizedDescription : L("Feil PIN. Prøv igjen.")
+            // feltet tømmes ikke på Apple TV: da lukkes tastaturet, og det som skrives etterpå, kommer ikke fram
+            #if os(iOS)
             self.pin = ""
+            #endif
         }
     }
 

@@ -706,14 +706,9 @@ final class FyrlysUITests: XCTestCase {
         app.typeText("0000")
         XCTAssertTrue(find(app, "bruker-feil").waitForExistence(timeout: 10), "feil PIN ga ingen feilmelding")
         wait(1)
-        // inn i feltet igjen (tastaturet lukkes når feltet tømmes); Menu lukker tastaturet om det står åpent
-        if !focusCovers(app, pin) {
-            remote.press(.menu)
-            wait(1)
-        }
-        XCTAssertTrue(focusUpTo(app, pin) || focusDown(app, pin, label: "PIN", tries: 4), "fikk ikke fokus på PIN-feltet igjen (\(focusText(app)))")
-        remote.press(.select)
-        wait(2)
+        // feltet beholder det gale PIN-et på Apple TV (tastaturet står): slett det, og skriv det riktige
+        for _ in 0..<4 { app.typeText(XCUIKeyboardKey.delete.rawValue) }
+        wait(1)
         app.typeText("1234")
         if !until(20, { who.exists && who.label.contains("Barna") }) {
             dumpScreen(app, "byttet ikke til Barna (\(focusText(app)))", shotName: "62-plex-pin-mangler")
