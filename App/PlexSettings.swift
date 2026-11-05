@@ -297,10 +297,15 @@ struct PlexUserSheet: View {
         if let asking {
             Text(L("PIN for {name}", ["name": asking.name]))
                 .font(.headline)
+            // fire siffer (som PIN-ene i Plex) bytter med en gang; «Bytt» for dem som har lengre
             SecureField(L("PIN"), text: $pin)
                 #if os(iOS)
                 .keyboardType(.numberPad)
                 #endif
+                .onChange(of: pin) { _, new in
+                    if new.count == 4, !plex.switching { Task { await choose(asking, pin: new) } }
+                }
+                .onSubmit { if !pin.isEmpty { Task { await choose(asking, pin: pin) } } }
                 .accessibilityIdentifier("bruker-pin")
             if let error {
                 Text(error)
