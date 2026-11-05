@@ -1,5 +1,11 @@
 # Endringer
 
+## v0.1.33
+
+- Radene på Hjem i Plex-fanen følger rekkefølgen på bibliotekene også når Plex ikke sier hvilket bibliotek det som står
+  i raden, kommer fra (da hører raden til det første biblioteket med serier eller filmer). I 0.1.32 havnet en slik rad
+  til slutt.
+
 ## v0.1.32
 
 - Plex-fanen: hold inne på et bibliotek for å flytte det opp eller ned (på iPhone til venstre eller høyre) eller skjule

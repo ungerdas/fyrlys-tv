@@ -429,8 +429,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `AppModel.libraryOrder` («<server>/<bibliotek>», iCloud-nøkkelen `plex-rekkefolge`), `orderedSections`,
   `moveLibrary(_:by:among:)` (bytter med naboen som vises; de skjulte beholder plassen bak) → `VODModel.setOrder`
   (uten å hente på nytt) og `reset(…order:)`; `ordered` sorterer bibliotekene, og `arranged` radene på Hjem etter
-  biblioteket det meste i raden kommer fra (`plexRows` er radene slik Plex sendte dem; uten valgt rekkefølge står de
-  som i Plex). Testene `test27PlexBiblioteker` (Apple TV) og `test26PlexBiblioteker` (iPhone og iPad).
+  biblioteket det meste i raden kommer fra (`library(of:)`; uten `librarySectionID` i svaret, som episodene i den
+  falske Plex, det første biblioteket med samme slag i rekkefølgen: fra 0.1.33, i 0.1.32 havnet raden til slutt;
+  `plexRows` er radene slik Plex sendte dem; uten valgt rekkefølge står de som i Plex). Testene `test27PlexBiblioteker` (Apple TV) og `test26PlexBiblioteker` (iPhone og iPad).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -692,3 +693,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   ikke plass i fanelinja (iPadOS 18), Innstillinger står bak pila til høyre (sagt til eieren). Ikke prøvd på hans
   enheter: Plex-fanen mot hans server, pause/tilbakespoling med leverandøren hans, M3U, multiview (trenger to
   innlogginger eller to tilkoblinger), markørene og undertekstfilene fra Plex.
+- 5.11.2026: eieren hadde 0.1.31 på Apple TV-en med Plex-fanen mot sin server (bilde: «Fortsett å se» med en serie og
+  en film, «Nyeste Filmer», sidemenyen Hjem, Filmer, TV-serier). Ønsket hold inne for å skjule og flytte bibliotekene i
+  stedet for «Velg biblioteker» → 0.1.32 (bygg 57, VALID for TV_OS og IOS, alle testene grønne på første forsøk).
+  Skjermbildet viste at «Nytt fra Kystkanalen» (episodene uten bibliotek i den falske Plex) havnet til slutt etter
+  flyttingen → 0.1.33 (`library(of:)` faller tilbake på slaget; `test26PlexBiblioteker` sjekker radene).

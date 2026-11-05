@@ -451,12 +451,21 @@ final class VODModel {
 
     /// Radene fra Plex med bibliotekene i rekkefølgen som er valgt (uten valgt rekkefølge: som Plex sendte dem).
     private func arranged(_ rows: [VODRow]) -> [VODRow] {
-        ordered(rows) { row in
-            // biblioteket det meste i raden kommer fra
-            var count: [String: Int] = [:]
-            for entry in row.items where !entry.item.categoryId.isEmpty { count[entry.item.categoryId, default: 0] += 1 }
-            return count.max { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }?.key ?? ""
+        ordered(rows) { library(of: $0) }
+    }
+
+    /// Biblioteket en rad hører til: det det meste i raden kommer fra. Sier ikke Plex det (episodene i en samling har det
+    /// ikke alltid; i 0.1.32 havnet en slik rad til slutt), det første biblioteket med samme slag (serier eller filmer) i
+    /// rekkefølgen som er valgt.
+    private func library(of row: VODRow) -> String {
+        var count: [String: Int] = [:]
+        for entry in row.items where !entry.item.categoryId.isEmpty { count[entry.item.categoryId, default: 0] += 1 }
+        if let most = count.max(by: { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }) {
+            return most.key
         }
+        let series = row.items.filter { $0.item.kind == .series }.count
+        let kind: VODKind = series * 2 >= row.items.count ? .series : .movies
+        return order.first { libraryKinds[$0] == kind } ?? ""
     }
 
     /// Plex: alle bibliotekene er skjult (siden sier det, med valget av bibliotekene)

@@ -736,6 +736,10 @@ final class FyrlysMobilUITests: XCTestCase {
         up.tap()
         XCTAssertTrue(until(10) { series.exists && movies.exists && before(series, movies) },
                       "Serier ble ikke flyttet fram")
+        // radene på Hjem følger: episodene (fra Serier, uten bibliotek i svaret) foran «Nylig lagt til» (mest Filmer)
+        let episodes = app.staticTexts["Nytt fra Kystkanalen"], recent = app.staticTexts["Nylig lagt til"]
+        XCTAssertTrue(until(10) { episodes.exists && recent.exists && episodes.frame.minY < recent.frame.minY },
+                      "radene på Hjem fulgte ikke rekkefølgen")
         wait(1)
         shot("42-plex-rekkefolge")
         // «Andre videoer» står til slutt i raden på iPhone: dra raden til siden når den står utenfor skjermen
