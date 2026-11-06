@@ -716,3 +716,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (`onChange`), «Bytt» for lengre. 0.1.34 (bygg 62) er i TestFlight, VALID for TV_OS og IOS. `test17Mkv` (iPad) og
   `test22PlexEpisoder` (iPhone) flakset én gang i bygg 61 (timing). Ikke prøvd mot hans Plex Home ennå (brukere med
   begrenset tilgang, PIN, bildene fra plex.tv).
+- 6.11.2026: eieren prøvde «Hvem ser på?» på Apple TV-en (bilde: fire brukere med bilder fra plex.tv): byttet ga
+  «Plex svarte HTTP 404» → 0.1.35 (uuid i adressen, id som reserve). Bygg 63 i TestFlight, VALID for TV_OS og IOS
+  (iPhone-jobben kjørt på nytt: `test22PlexEpisoder` flakset igjen på «Hopp over introen»; bør få lengre
+  tidsfrist om det fortsetter). Ikke bekreftet av eieren at byttet virker nå.
