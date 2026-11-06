@@ -212,20 +212,35 @@ public struct PlexAccountClient: Sendable {
     /// Bytter til [user] i Plex Home og gir nøkkelen til den brukeren ([pin] når brukeren har en). Nøkkelen til
     /// kontoen som er logget inn, må brukes (den du fikk fra plex.tv/link; en annen brukers nøkkel kan ikke bytte).
     public func switchUser(_ user: PlexHomeUser, pin: String?, token: String) async throws -> String {
-        var path = "/api/v2/home/users/\(user.id)/switch"
+        var query = ""
         if let pin, !pin.isEmpty, let encoded = pin.addingPercentEncoding(withAllowedCharacters: .alphanumerics) {
-            path += "?pin=\(encoded)"
+            query = "?pin=\(encoded)"
         }
-        let json = try await self.json(request(path, method: "POST", token: token))
-        let newToken = text((json as? [String: Any])?["authToken"])
-        guard !newToken.isEmpty else { throw SourceError(L("Plex svarte ikke som ventet")) }
-        return newToken
+        // plex.tv vil ha uuid-en i adressen (det numeriske id-et ga 404 hos eieren 6.11); uten uuid prøves id-et
+        let keys = [user.uuid, String(user.id)].compactMap { $0 }.filter { !$0.isEmpty }
+        var lastError: Error = SourceError(L("Plex svarte ikke som ventet"))
+        for key in keys {
+            do {
+                let json = try await self.json(request("/api/v2/home/users/\(key)/switch" + query, method: "POST",
+                                                       token: token))
+                let newToken = text((json as? [String: Any])?["authToken"])
+                guard !newToken.isEmpty else { throw SourceError(L("Plex svarte ikke som ventet")) }
+                return newToken
+            } catch {
+                lastError = error
+                // 404: feil nøkkel i adressen, prøv den neste; alt annet (galt PIN = 403) gis videre
+                guard (error as? SourceError)?.message.contains("404") == true else { throw error }
+            }
+        }
+        throw lastError
     }
 }
 
 /// En bruker i Plex Home.
 public struct PlexHomeUser: Codable, Hashable, Identifiable, Sendable {
     public let id: Int
+    /// uuid-en plex.tv vil ha i adressen for å bytte
+    public var uuid: String?
     public let name: String
     /// bildet (avataren)
     public let thumb: String?
@@ -235,9 +250,10 @@ public struct PlexHomeUser: Codable, Hashable, Identifiable, Sendable {
     /// en begrenset bruker (barn)
     public let restricted: Bool
 
-    public init(id: Int, name: String, thumb: String? = nil, admin: Bool = false, protected: Bool = false,
-                restricted: Bool = false) {
+    public init(id: Int, uuid: String? = nil, name: String, thumb: String? = nil, admin: Bool = false,
+                protected: Bool = false, restricted: Bool = false) {
         self.id = id
+        self.uuid = uuid
         self.name = name
         self.thumb = thumb
         self.admin = admin
@@ -253,7 +269,7 @@ public func parseHomeUsers(_ json: Any) -> [PlexHomeUser] {
         guard let id = int(u["id"]) else { return nil }
         let name = nonEmpty(u["friendlyName"]) ?? nonEmpty(u["title"]) ?? nonEmpty(u["username"]) ?? ""
         guard !name.isEmpty else { return nil }
-        return PlexHomeUser(id: id, name: name, thumb: nonEmpty(u["thumb"]), admin: flag(u["admin"]),
+        return PlexHomeUser(id: id, uuid: nonEmpty(u["uuid"]), name: name, thumb: nonEmpty(u["thumb"]), admin: flag(u["admin"]),
                             protected: flag(u["protected"]), restricted: flag(u["restricted"]))
     }
     return users.filter(\.admin) + users.filter { !$0.admin }

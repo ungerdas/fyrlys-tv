@@ -435,7 +435,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - **Plex Home fra 0.1.34** (eieren 5.11: «jeg har plex home og vil da gjerne kunne velge hvem som skal se på»):
   Core `PlexAccountClient.homeUsers` (`GET /api/v2/home/users`, `parseHomeUsers`: `PlexHomeUser` id/name/thumb/
   admin/protected/restricted, eieren først) og `switchUser` (`POST /api/v2/home/users/<id>/switch?pin=`, gir
-  `authToken`; bare kontonøkkelen kan bytte). `PlexModel`: `accountToken` (fra plex.tv/link, lagret i `Saved`) ved
+  `authToken`; bare kontonøkkelen kan bytte; adressen må ha `uuid` fra brukerlista, det numeriske `id` ga 404 hos
+  eieren 6.11 (0.1.35: uuid først, id som reserve ved 404)). `PlexModel`: `accountToken` (fra plex.tv/link, lagret i `Saved`) ved
   siden av `token` (brukerens), `users`/`user`/`switching`, `loadUsers()` (tom liste uten Plex Home; eieren er valgt
   fra start), `switchUser(_:pin:)` (ny nøkkel → serverne på nytt (hver bruker har sin egen `accessToken` til
   serveren) → `connect` → `onChange` → Plex-fanen hentes på nytt). `PlexUserSheet` (`PlexSettings.swift`,

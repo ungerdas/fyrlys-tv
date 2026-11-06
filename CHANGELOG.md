@@ -1,5 +1,10 @@
 # Endringer
 
+## v0.1.35
+
+- Plex Home: byttet til en annen bruker ga «Plex svarte HTTP 404» (plex.tv vil ha brukerens uuid i adressen, ikke
+  nummeret). Rettet.
+
 ## v0.1.34
 
 - Plex Home: «Hvem ser på?» øverst i sidemenyen i Plex-fanen (på iPhone den første knappen på raden) når kontoen har

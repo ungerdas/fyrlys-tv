@@ -24,11 +24,13 @@ final class PlexTests: XCTestCase {
         let users = parseHomeUsers(json("""
         {"users": [
           {"id": 2, "title": "Barna", "friendlyName": "Barna", "admin": false, "protected": false, "restricted": true},
-          {"id": 1, "title": "paal", "friendlyName": "Pål", "admin": true, "protected": true, "thumb": "https://plex.tv/u/1"},
+          {"id": 1, "uuid": "abc", "title": "paal", "friendlyName": "Pål", "admin": true, "protected": true, "thumb": "https://plex.tv/u/1"},
           {"title": "Uten id"}]}
         """))
         XCTAssertEqual(users.map(\.id), [1, 2])
         XCTAssertEqual(users[0].name, "Pål")
+        XCTAssertEqual(users[0].uuid, "abc")
+        XCTAssertNil(users[1].uuid)
         XCTAssertTrue(users[0].protected)
         XCTAssertEqual(users[0].thumb, "https://plex.tv/u/1")
         XCTAssertTrue(users[1].restricted)

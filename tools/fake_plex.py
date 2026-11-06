@@ -176,7 +176,8 @@ class Handler(BaseHTTPRequestHandler):
             PIN["polls"] = 0
             return self.json({"id": PIN["id"], "code": PIN["code"], "authToken": None}, 201)
         # Plex Home: bytt bruker (bare kontonøkkelen kan); «Barna» har PIN 1234
-        m = re.fullmatch(r"/api/v2/home/users/(\d+)/switch", url.path)
+        # som plex.tv: uuid-en i adressen (det numeriske id-et gir 404)
+        m = re.fullmatch(r"/api/v2/home/users/uuid-(\d+)/switch", url.path)
         if m:
             if self.token(q) != TOKEN:
                 return self.send(401)
@@ -206,9 +207,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.token(q) not in (TOKEN, TOKEN_CHILD):
                 return self.send(401)
             return self.json({"users": [
-                {"id": 1, "title": "test", "friendlyName": "Eieren", "admin": True, "protected": False},
-                {"id": 2, "title": "barna", "friendlyName": "Barna", "admin": False, "protected": True,
-                 "restricted": True}]})
+                {"id": 1, "uuid": "uuid-1", "title": "test", "friendlyName": "Eieren", "admin": True,
+                 "protected": False},
+                {"id": 2, "uuid": "uuid-2", "title": "barna", "friendlyName": "Barna", "admin": False,
+                 "protected": True, "restricted": True}]})
         if path == "/api/v2/resources":
             if self.token(q) not in (TOKEN, TOKEN_CHILD):
                 return self.send(401)
