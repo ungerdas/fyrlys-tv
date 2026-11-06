@@ -803,7 +803,26 @@ public func parseDetails(_ m: [String: Any], client: PlexClient) -> VODDetails {
     d.age = nonEmpty(m["contentRating"])
     d.country = tags(m["Country"], limit: 1).isEmpty ? nil : tags(m["Country"], limit: 1)
     d.quality = plexQuality(m)
+    d.logo = client.imageURL(plexImage(m, type: "clearLogo"), width: 800, height: 310)
+    d.tagline = nonEmpty(m["tagline"])
+    d.studio = nonEmpty(m["studio"])
+    d.people = plexPeople(m["Role"], client: client)
     return d
+}
+
+/// Et bilde av typen [type] («clearLogo», «background», «coverPoster») i lista Image, når Plex har det.
+func plexImage(_ m: [String: Any], type: String) -> String? {
+    (m["Image"] as? [[String: Any]] ?? []).first { text($0["type"]) == type }.flatMap { nonEmpty($0["url"]) }
+}
+
+/// Rollene med rollenavn og bilde (høyst 12).
+func plexPeople(_ value: Any?, client: PlexClient, limit: Int = 12) -> [VODPerson] {
+    var seen = Set<String>()
+    return (value as? [[String: Any]] ?? []).compactMap { r -> VODPerson? in
+        guard let name = nonEmpty(r["tag"]), seen.insert(name).inserted else { return nil }
+        return VODPerson(name: name, role: nonEmpty(r["role"]),
+                         image: client.imageURL(nonEmpty(r["thumb"]), width: 200, height: 200))
+    }.prefix(limit).map { $0 }
 }
 
 /// Bildet og lyden fra den første fila: oppløsningen (høyden, ellers videoResolution), HDR (fra videostrømmen, bare

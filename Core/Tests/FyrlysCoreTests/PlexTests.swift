@@ -98,12 +98,25 @@ final class PlexTests: XCTestCase {
         let details = parseDetails((container("""
         {"MediaContainer": {"Metadata": [{"ratingKey": "101", "type": "movie", "title": "Fyret", "summary": "Om et fyr.",
           "duration": 6720000, "viewOffset": 754000, "year": 2021, "Genre": [{"tag": "Drama"}, {"tag": "Krim"}],
-          "Role": [{"tag": "A"}, {"tag": "B"}], "Director": [{"tag": "C"}],
+          "Role": [{"tag": "A", "role": "Vokteren", "thumb": "/library/metadata/101/role/1"}, {"tag": "B"}, {"tag": "A"}],
+          "Director": [{"tag": "C"}], "tagline": "Lyset.", "studio": "Fyrlys Film",
+          "Image": [{"type": "coverPoster", "url": "/library/metadata/101/thumb/1"},
+                    {"type": "clearLogo", "url": "/library/metadata/101/clearLogo/1"}],
           "Media": [{"container": "mp4", "Part": [{"key": "/library/parts/9/1/file.mp4"}]}]}]}}
         """)["Metadata"] as! [[String: Any]])[0], client: client)
         XCTAssertEqual(details.plot, "Om et fyr.")
         XCTAssertEqual(details.genre, "Drama, Krim")
-        XCTAssertEqual(details.cast, "A, B")
+        XCTAssertEqual(details.cast, "A, B, A")
+        XCTAssertEqual(details.people.map(\.name), ["A", "B"])
+        XCTAssertEqual(details.people[0].role, "Vokteren")
+        XCTAssertTrue(details.people[0].image?.contains("role/1") ?? false, details.people[0].image ?? "nil")
+        XCTAssertNil(details.people[1].image)
+        XCTAssertEqual(details.tagline, "Lyset.")
+        XCTAssertEqual(details.studio, "Fyrlys Film")
+        XCTAssertTrue(details.logo?.contains("clearLogo/1") ?? false, details.logo ?? "nil")
+        XCTAssertTrue(details.logo?.contains("width=800") ?? false)
+        XCTAssertEqual(peopleFromNames("Kari Fyr, Ola Strand,, kari fyr; Siri").map(\.name),
+                       ["Kari Fyr", "Ola Strand", "Siri"])
         XCTAssertEqual(details.duration, "1 t 52 min")
         XCTAssertEqual(details.resume, 754)
         XCTAssertEqual(details.ext, "mp4")

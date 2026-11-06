@@ -137,8 +137,38 @@ public struct VODDetails: Sendable {
     public var country: String?
     /// bildet og lyden: «4K», «HDR», «H.265», «5.1», «Dolby Digital+» …
     public var quality: [String] = []
+    /// logoen til filmen eller serien (Plex «clearLogo»), vist i stedet for tittelen
+    public var logo: String?
+    /// slagordet og studioet (Plex)
+    public var tagline: String?
+    public var studio: String?
+    /// de medvirkende med rolle og bilde (Plex), eller bare navnene (leverandøren, fra [cast])
+    public var people: [VODPerson] = []
 
     public init() {}
+}
+
+/// En medvirkende: navnet, rollen og bildet når de er kjent.
+public struct VODPerson: Sendable, Hashable, Identifiable {
+    public var name: String
+    public var role: String?
+    public var image: String?
+    public var id: String { name + "|" + (role ?? "") }
+
+    public init(name: String, role: String? = nil, image: String? = nil) {
+        self.name = name
+        self.role = role
+        self.image = image
+    }
+}
+
+/// Navnene i en liste med komma mellom («Kari Fyr, Ola Strand») som medvirkende, uten bilde.
+public func peopleFromNames(_ names: String, limit: Int = 12) -> [VODPerson] {
+    var seen = Set<String>()
+    return names.split(whereSeparator: { $0 == "," || $0 == ";" })
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
+        .prefix(limit).map { VODPerson(name: $0) }
 }
 
 extension XtreamClient {
@@ -399,6 +429,7 @@ public func parseMovieInfo(_ json: Any) -> VODDetails {
     d.plot = meaningful(info["plot"]) ?? meaningful(info["description"]) ?? ""
     d.genre = meaningful(info["genre"]) ?? ""
     d.cast = meaningful(info["cast"]) ?? meaningful(info["actors"]) ?? ""
+    d.people = peopleFromNames(d.cast)
     d.director = meaningful(info["director"]) ?? ""
     if let seconds = int(info["duration_secs"]), seconds > 0 {
         d.duration = minutesText(Int((Double(seconds) / 60).rounded()))
@@ -430,6 +461,7 @@ public func parseSeriesInfo(_ json: Any) -> VODDetails {
     d.plot = meaningful(info["plot"]) ?? ""
     d.genre = meaningful(info["genre"]) ?? ""
     d.cast = meaningful(info["cast"]) ?? ""
+    d.people = peopleFromNames(d.cast)
     d.director = meaningful(info["director"]) ?? ""
     d.year = year(info["releaseDate"], info["release_date"], name: text(info["name"]))
     d.backdrop = firstURL(info["backdrop_path"])

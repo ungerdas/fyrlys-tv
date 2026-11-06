@@ -419,6 +419,9 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(openPage(app, "rad-1001", then: "spill-av", timeout: 15), "siden for filmen kom ikke")
         wait(2)
         XCTAssertTrue(find(app, "spill-av").label.contains("0:12"), "«Fortsett» der Plex sier du slapp mangler")
+        // logoen fra Plex i stedet for tittelen, og de medvirkende med bilde
+        XCTAssertTrue(find(app, "vod-logo").exists, "logoen til filmen mangler")
+        XCTAssertTrue(find(app, "medvirkende").exists, "«Medvirkende» mangler")
         shot("26-plex-film")
         // «Se alle» for «Nylig lagt til»: hele raden fra Plex (med filmen som ikke står i raden)
         XCTAssertTrue(goBack(app, to: "vod-hjem"), "kom ikke tilbake til Hjem")

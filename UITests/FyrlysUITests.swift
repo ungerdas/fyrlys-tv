@@ -908,6 +908,10 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(play.waitForExistence(timeout: 15), "siden for filmen kom ikke")
         wait(2)
         XCTAssertTrue(play.label.contains("0:12"), "«Fortsett» der Plex sier du slapp mangler: \(play.label)")
+        // logoen fra Plex i stedet for tittelen, og de medvirkende med bilde
+        XCTAssertTrue(find(app, "vod-logo").exists, "logoen til filmen mangler")
+        XCTAssertTrue(find(app, "medvirkende").exists, "«Medvirkende» mangler")
+        XCTAssertTrue(app.staticTexts["Fyrvokteren"].exists, "rollen mangler under skuespilleren")
         shot("29-plex-film")
         remote.press(.select)
         let time = find(app, "vod-tid")

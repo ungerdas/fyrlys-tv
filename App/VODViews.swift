@@ -817,6 +817,42 @@ private struct VODMessage: View {
     }
 }
 
+// ── en medvirkende ──
+
+/// Bildet i en sirkel (ellers forbokstavene på en rolig flate), navnet og rollen under.
+struct PersonCard: View {
+    let person: VODPerson
+
+    var body: some View {
+        VStack(spacing: 8) {
+            RemoteImage(url: person.image.flatMap { URL(string: $0) }, fill: true) {
+                ZStack {
+                    Theme.surface2
+                    Text(initials(person.name))
+                        .font(.system(size: Metrics.person * 0.34, weight: .semibold))
+                        .foregroundStyle(Theme.ink2)
+                }
+            }
+            .frame(width: Metrics.person, height: Metrics.person)
+            .clipShape(Circle())
+            Text(person.name)
+                .font(.system(size: Metrics.detailText - 4, weight: .medium))
+                .foregroundStyle(Theme.ink)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+            if let role = person.role {
+                Text(role)
+                    .font(.system(size: Metrics.detailText - 6))
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(width: Metrics.personWidth)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 // ── siden for en film eller serie ──
 
 /// Plakaten, tittelen, år, sjanger, lengde og terningkast, handlingen og «Spill av» (filmer, med «Fortsett» når du
@@ -844,6 +880,7 @@ struct VODDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 34) {
                 header
+                peopleRow
                 if item.kind == .series {
                     episodes
                 }
@@ -858,7 +895,7 @@ struct VODDetailView: View {
             #endif
         }
         .scrollIndicators(.never)
-        .background(Theme.bg.ignoresSafeArea())
+        .background(backdropLayer)
         .task { await load() }
         #if os(tvOS)
         .fullScreenCover(item: $playing, onDismiss: closed) { play in
@@ -922,10 +959,13 @@ struct VODDetailView: View {
             .frame(width: Metrics.detailPoster, height: Metrics.detailPoster * 1.5)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             VStack(alignment: .leading, spacing: 14) {
-                Text(item.name)
-                    .font(.system(size: Metrics.detailTitle, weight: .bold))
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(3)
+                titleView
+                if let tagline = details?.tagline {
+                    Text(tagline)
+                        .font(.system(size: Metrics.detailText, weight: .medium).italic())
+                        .foregroundStyle(Theme.ink2)
+                        .lineLimit(2)
+                }
                 let badges = badgeList
                 if !badges.isEmpty {
                     FlowLayout(spacing: Metrics.badge * 0.5) {
@@ -942,11 +982,18 @@ struct VODDetailView: View {
                             .lineLimit(8)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if !details.cast.isEmpty {
+                    // de medvirkende står i raden under når de finnes, ellers som en linje
+                    if details.people.isEmpty, !details.cast.isEmpty {
                         Text(L("Med: {cast}", ["cast": details.cast]))
                             .font(.system(size: Metrics.detailText - 3))
                             .foregroundStyle(Theme.muted)
                             .lineLimit(2)
+                    }
+                    if !details.director.isEmpty {
+                        Text(L("Regi: {name}", ["name": details.director]))
+                            .font(.system(size: Metrics.detailText - 3))
+                            .foregroundStyle(Theme.muted)
+                            .lineLimit(1)
                     }
                 } else if let error {
                     Text(error)
@@ -977,6 +1024,81 @@ struct VODDetailView: View {
                 #endif
                 noticeText
             }
+        }
+    }
+
+    /// Tittelen: logoen til filmen eller serien når Plex har den (ellers, og til den er lastet, navnet som tekst).
+    @ViewBuilder
+    private var titleView: some View {
+        if let logo = details?.logo.flatMap({ URL(string: $0) }) {
+            RemoteImage(url: logo) {
+                titleText
+            }
+            .frame(maxWidth: Metrics.detailLogo, maxHeight: Metrics.detailLogo * 0.38, alignment: .leading)
+            .accessibilityLabel(item.name)
+            .accessibilityIdentifier("vod-logo")
+        } else {
+            titleText
+        }
+    }
+
+    private var titleText: some View {
+        Text(item.name)
+            .font(.system(size: Metrics.detailTitle, weight: .bold))
+            .foregroundStyle(Theme.ink)
+            .lineLimit(3)
+    }
+
+    /// Bakgrunnsbildet til filmen eller serien øverst, tonet over i bakgrunnen nedover og mot venstre, så teksten
+    /// og plakaten står på noe rolig. Står fast mens siden rulles.
+    private var backdropLayer: some View {
+        ZStack(alignment: .top) {
+            Theme.bg
+            if let url = details?.backdrop.flatMap({ URL(string: $0) }) {
+                RemoteImage(url: url, fill: true) {
+                    Color.clear
+                }
+                .frame(height: Metrics.detailBackdrop)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                .overlay(LinearGradient(colors: [Theme.bg.opacity(0.35), Theme.bg.opacity(0.75), Theme.bg],
+                                        startPoint: .top, endPoint: .bottom))
+                .overlay(LinearGradient(colors: [Theme.bg.opacity(0.8), Theme.bg.opacity(0.2), .clear],
+                                        startPoint: .leading, endPoint: .trailing))
+                .accessibilityHidden(true)
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    /// «Medvirkende»: rollene med bilde (Plex) eller bare navnene (leverandøren). På Apple TV de første som får
+    /// plass på én linje, på iPhone og iPad en rad som kan rulles.
+    @ViewBuilder
+    private var peopleRow: some View {
+        if let details, !details.people.isEmpty {
+            VStack(alignment: .leading, spacing: Metrics.shelfTitleGap) {
+                Text(L("Medvirkende"))
+                    .font(.system(size: Metrics.shelfTitle, weight: .semibold))
+                    .foregroundStyle(Theme.ink2)
+                #if os(tvOS)
+                HStack(alignment: .top, spacing: Metrics.personGap) {
+                    ForEach(details.people.prefix(Metrics.personCount)) { person in
+                        PersonCard(person: person)
+                    }
+                }
+                #else
+                ScrollView(.horizontal) {
+                    HStack(alignment: .top, spacing: Metrics.personGap) {
+                        ForEach(details.people) { person in
+                            PersonCard(person: person)
+                        }
+                    }
+                }
+                .scrollIndicators(.never)
+                #endif
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("medvirkende")
         }
     }
 
@@ -1097,7 +1219,7 @@ struct VODDetailView: View {
         } else {
             plain.append(d.map(\.duration).flatMap { $0.isEmpty ? nil : $0 })
         }
-        plain += [(d?.rating ?? item.rating).map(ratingText), d?.age, d?.country]
+        plain += [(d?.rating ?? item.rating).map(ratingText), d?.age, d?.country, d?.studio]
         list += plain.compactMap { $0 }.map { (text: $0, accent: false) }
         list += (d?.quality ?? []).map { (text: $0, accent: false) }
         return list

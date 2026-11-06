@@ -117,6 +117,13 @@ enum Metrics {
     static let detailPoster: CGFloat = 340
     static let detailTitle: CGFloat = 52
     static let detailText: CGFloat = 26
+    /// logoen til filmen (bredden; høyden 0,38 av den), bakgrunnsbildet øverst og de medvirkende
+    static let detailLogo: CGFloat = 760
+    static let detailBackdrop: CGFloat = 700
+    static let person: CGFloat = 140
+    static let personWidth: CGFloat = 176
+    static let personGap: CGFloat = 26
+    static let personCount = 8
     // Hjem i Filmer og Serier: radene, plakatene i dem og «Fortsett å se» (bredbilder)
     static let homeGap: CGFloat = 40
     static let rowPoster: CGFloat = 230
@@ -176,6 +183,13 @@ enum Metrics {
     static let detailPoster: CGFloat = 120
     static let detailTitle: CGFloat = 22
     static let detailText: CGFloat = 15
+    /// logoen til filmen (bredden; høyden 0,38 av den), bakgrunnsbildet øverst og de medvirkende
+    static let detailLogo: CGFloat = 230
+    static let detailBackdrop: CGFloat = 320
+    static let person: CGFloat = 68
+    static let personWidth: CGFloat = 84
+    static let personGap: CGFloat = 14
+    static let personCount = 12
     // Hjem i Filmer og Serier: radene, plakatene i dem og «Fortsett å se» (bredbilder, som i IPTV-appene)
     static let homeGap: CGFloat = 26
     static let rowPoster: CGFloat = 134

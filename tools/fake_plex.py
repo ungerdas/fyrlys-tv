@@ -58,6 +58,30 @@ def poster(rgb, size=(120, 180)):
 COLORS = [(0x2B, 0x4C, 0x7E), (0x8C, 0x3B, 0x2E), (0x2E, 0x6B, 0x4F), (0x6B, 0x4A, 0x8C), (0x8C, 0x7A, 0x2E)]
 
 
+def logo(size=(400, 150)):
+    """En «logo» med gjennomsiktig bakgrunn: tre lyse striper av ulik lengde, som en tittel i to linjer og en
+    strek under (clearLogo hos Plex)."""
+    w, h = size
+    rows = []
+    bars = [(0.10, 0.36, 0.95), (0.44, 0.62, 0.70), (0.76, 0.84, 0.40)]
+    for y in range(h):
+        row = bytearray()
+        fy = y / h
+        for x in range(w):
+            on = any(a <= fy < b and x < w * frac for a, b, frac in bars)
+            row += bytes((0xF2, 0xE8, 0xD0, 0xFF)) if on else bytes((0, 0, 0, 0))
+        rows.append(b"\0" + bytes(row))
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(b"".join(rows))) + chunk(b"IEND", b""))
+
+
+LOGO = logo()
+
+
 def media(rid, ext="mkv"):
     return [{"container": ext, "Part": [{"key": f"/library/parts/{rid}/1700000000/file.{ext}", "container": ext}]}]
 
@@ -65,9 +89,15 @@ def media(rid, ext="mkv"):
 MOVIES = [
     {"ratingKey": "1001", "type": "movie", "title": "Nordlys over fjorden", "year": 2022, "audienceRating": 8.1,
      "summary": "En oppdiktet film om en fyrvokter som ser nordlyset for første gang.", "duration": 30000,
-     "viewOffset": 12000, "Genre": [{"tag": "Drama"}], "Role": [{"tag": "Kari Fyr"}, {"tag": "Ola Strand"}],
+     "viewOffset": 12000, "Genre": [{"tag": "Drama"}], "tagline": "Lyset kommer alltid tilbake.",
+     "studio": "Fyrlys Film",
+     "Role": [{"tag": "Kari Fyr", "role": "Fyrvokteren", "thumb": "/library/metadata/1001/role/1"},
+              {"tag": "Ola Strand", "role": "Losen", "thumb": "/library/metadata/1001/role/2"},
+              {"tag": "Siri Bølge", "role": "Værvarsleren"}],
      "Director": [{"tag": "Ingrid Lykt"}], "Media": media(1001), "contentRating": "12",
-     "Country": [{"tag": "Norge"}]},
+     "Country": [{"tag": "Norge"}],
+     "Image": [{"alt": "Nordlys over fjorden", "type": "coverPoster", "url": "/library/metadata/1001/thumb/1"},
+               {"alt": "Nordlys over fjorden", "type": "clearLogo", "url": "/library/metadata/1001/clearLogo/1"}]},
     {"ratingKey": "1002", "type": "movie", "title": "Fjordbyen", "year": 2020, "audienceRating": 6.9,
      "summary": "Oppdiktet dokumentar om en by ved fjorden.", "duration": 30000, "viewCount": 1,
      "Genre": [{"tag": "Dokumentar"}], "Media": media(1002)},
@@ -76,7 +106,10 @@ MOVIES = [
 ]
 SHOW = {"ratingKey": "2001", "type": "show", "title": "Fyrvokterne", "year": 2021, "audienceRating": 7.7,
         "summary": "Oppdiktet serie om to fyrvoktere langs kysten.", "leafCount": 4, "viewedLeafCount": 1,
-        "childCount": 2, "Genre": [{"tag": "Drama"}]}
+        "childCount": 2, "Genre": [{"tag": "Drama"}], "studio": "Kystkanalen",
+        "Role": [{"tag": "Kari Fyr", "role": "Fyrvokteren", "thumb": "/library/metadata/1001/role/1"},
+                 {"tag": "Ola Strand", "role": "Losen", "thumb": "/library/metadata/1001/role/2"}],
+        "Image": [{"alt": "Fyrvokterne", "type": "clearLogo", "url": "/library/metadata/2001/clearLogo/1"}]}
 EPISODES = [
     {"ratingKey": "2101", "type": "episode", "title": "Første natt", "parentIndex": 1, "index": 1, "viewCount": 1},
     {"ratingKey": "2102", "type": "episode", "title": "Stormvarsel", "parentIndex": 1, "index": 2, "viewOffset": 9000},
@@ -284,7 +317,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.container(Metadata=[e for e in EPISODES if e["grandparentRatingKey"] == m.group(1)])
             return self.container(Metadata=[METADATA[k] for k in m.group(1).split(",")])
         if path == "/photo/:/transcode":
-            n = int(re.sub(r"\D", "", q.get("url", "0"))[:4] or 0)
+            url = q.get("url", "0")
+            if "/clearLogo/" in url:
+                return self.send(200, LOGO, "image/png")
+            n = int(re.sub(r"\D", "", url)[:4] or 0)
+            if "/role/" in url:
+                n += int(re.sub(r"\D", "", url)[-1:] or 0)
             return self.send(200, poster(COLORS[n % len(COLORS)]), "image/png")
         m = re.fullmatch(r"/library/parts/(\d+)/\d+/file\.(\w+)", path)
         if m:

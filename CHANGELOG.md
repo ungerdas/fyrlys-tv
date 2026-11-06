@@ -1,5 +1,11 @@
 # Endringer
 
+## v0.1.36
+
+- Siden for en film eller serie er fylt ut: bakgrunnsbildet øverst (tonet over i bakgrunnen), logoen til filmen eller
+  serien fra Plex i stedet for tittelen når Plex har den, slagordet, studioet blant merkene, «Regi:» og raden
+  «Medvirkende» med bilde og rolle (fra Plex; hos IPTV-leverandøren bare navnene).
+
 ## v0.1.35
 
 - Plex Home: byttet til en annen bruker ga «Plex svarte HTTP 404» (plex.tv vil ha brukerens uuid i adressen, ikke

@@ -217,6 +217,8 @@ public let english: [String: String] = [
     "Ingen her.": "Nothing here.",
     "Ikke logget inn": "Not signed in",
     "Med: {cast}": "With: {cast}",
+    "Regi: {name}": "Directed by {name}",
+    "Medvirkende": "Cast",
     "Fortsett ({time})": "Continue ({time})",
     "Fra start": "From the start",
     "Ingen episoder.": "No episodes.",
