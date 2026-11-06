@@ -744,4 +744,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `/library/metadata/<id>` hos ham (Plex legger dem der når metadataagenten har dem), og bildene på rollene.
 - 6.11.2026 kl. 18: eieren om 0.1.36 på Apple TV-en: «Liker det, men syntes oppløsingen virker å være lav? gjelder
   også Postere. i vanlig plex app så er de i høy oppløsing.» → 0.1.37 (se Arkitektur: alle bildene ble krympet til
-  360 piksler). Ikke sett på en ekte Apple TV 4K ennå.
+  360 piksler). Bygg 65 fikk ingen Mac; 0.1.37 (bygg 66, startet med `workflow_dispatch`) er i TestFlight, VALID for
+  TV_OS og IOS, alle testene grønne på første forsøk. Skarpheten synes ikke i simulatoren (den falske Plex sender
+  alltid små, ensfargede bilder); ikke sett på en ekte Apple TV 4K ennå. Logoen bes om med `minSize=0&upscale=0` uten
+  `format=`: i 0.1.36 (`minSize=1`, uten `format=`) så logoene riktige ut hos eieren, så Plex beholder
+  gjennomsiktigheten; står de med svart boks bak, prøv `format=png`.
