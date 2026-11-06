@@ -462,12 +462,16 @@ public struct PlexClient: Sendable {
     // ── adresser (med nøkkelen i adressen: brukes av avspillerne og bildene) ──
 
     /// Et bilde fra Plex skalert på serveren.
-    public func imageURL(_ path: String?, width: Int = 400, height: Int = 600) -> String? {
+    /// Et bilde fra serveren i [width] × [height] (plakater 720 × 1080: skarpt på Apple TV 4K, som tegner med to
+    /// piksler per punkt). Som Plex selv: bildet fyller rammen og beskjæres (`minSize=1`); med [fit] holdes hele
+    /// bildet innenfor rammen i stedet, uten å forstørres (logoene, som har alle slags bredder).
+    public func imageURL(_ path: String?, width: Int = 720, height: Int = 1080, fit: Bool = false) -> String? {
         guard let path, !path.isEmpty else { return nil }
         var c = URLComponents(string: base + "/photo/:/transcode")!
         c.queryItems = [URLQueryItem(name: "width", value: String(width)),
                         URLQueryItem(name: "height", value: String(height)),
-                        URLQueryItem(name: "minSize", value: "1"), URLQueryItem(name: "upscale", value: "1"),
+                        URLQueryItem(name: "minSize", value: fit ? "0" : "1"),
+                        URLQueryItem(name: "upscale", value: fit ? "0" : "1"),
                         URLQueryItem(name: "url", value: path), URLQueryItem(name: "X-Plex-Token", value: token)]
         return c.url?.absoluteString
     }
@@ -792,7 +796,7 @@ public func parseDetails(_ m: [String: Any], client: PlexClient) -> VODDetails {
     d.director = tags(m["Director"], limit: 2)
     d.duration = minutes(m["duration"])
     d.year = int(m["year"]).map { String($0) }
-    d.backdrop = client.imageURL(nonEmpty(m["art"]), width: 1280, height: 720)
+    d.backdrop = client.imageURL(nonEmpty(m["art"]), width: 1920, height: 1080)
     d.poster = client.imageURL(nonEmpty(m["thumb"]))
     d.rating = plexRating(m)
     let part = firstPart(m)
@@ -803,7 +807,7 @@ public func parseDetails(_ m: [String: Any], client: PlexClient) -> VODDetails {
     d.age = nonEmpty(m["contentRating"])
     d.country = tags(m["Country"], limit: 1).isEmpty ? nil : tags(m["Country"], limit: 1)
     d.quality = plexQuality(m)
-    d.logo = client.imageURL(plexImage(m, type: "clearLogo"), width: 800, height: 310)
+    d.logo = client.imageURL(plexImage(m, type: "clearLogo"), width: 1600, height: 800, fit: true)
     d.tagline = nonEmpty(m["tagline"])
     d.studio = nonEmpty(m["studio"])
     d.people = plexPeople(m["Role"], client: client)
@@ -821,7 +825,7 @@ func plexPeople(_ value: Any?, client: PlexClient, limit: Int = 12) -> [VODPerso
     return (value as? [[String: Any]] ?? []).compactMap { r -> VODPerson? in
         guard let name = nonEmpty(r["tag"]), seen.insert(name).inserted else { return nil }
         return VODPerson(name: name, role: nonEmpty(r["role"]),
-                         image: client.imageURL(nonEmpty(r["thumb"]), width: 200, height: 200))
+                         image: client.imageURL(nonEmpty(r["thumb"]), width: 400, height: 400))
     }.prefix(limit).map { $0 }
 }
 
@@ -857,7 +861,7 @@ func plexEpisode(_ e: [String: Any], client: PlexClient) -> Episode? {
     return Episode(id: id, season: int(e["parentIndex"]) ?? 1, number: n,
                    title: nonEmpty(e["title"]) ?? L("Episode {n}", ["n": n]),
                    plot: nonEmpty(e["summary"]) ?? "", duration: minutes(e["duration"]),
-                   image: client.imageURL(nonEmpty(e["thumb"]), width: 480, height: 270),
+                   image: client.imageURL(nonEmpty(e["thumb"]), width: 960, height: 540),
                    ext: part.container ?? "mkv", source: "plex", fileKey: part.key,
                    resume: Double(int(e["viewOffset"]) ?? 0) / 1000,
                    watched: (int(e["viewCount"]) ?? 0) > 0)
@@ -911,7 +915,7 @@ func fraction(_ offset: Any?, of duration: Any?) -> Double {
 /// Det første bildet som finnes av [keys], i bredformat.
 func wideImage(_ m: [String: Any], _ keys: [String], client: PlexClient) -> String? {
     for key in keys {
-        if let path = nonEmpty(m[key]) { return client.imageURL(path, width: 640, height: 360) }
+        if let path = nonEmpty(m[key]) { return client.imageURL(path, width: 1280, height: 720) }
     }
     return nil
 }

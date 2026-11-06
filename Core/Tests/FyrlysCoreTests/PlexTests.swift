@@ -114,7 +114,7 @@ final class PlexTests: XCTestCase {
         XCTAssertEqual(details.tagline, "Lyset.")
         XCTAssertEqual(details.studio, "Fyrlys Film")
         XCTAssertTrue(details.logo?.contains("clearLogo/1") ?? false, details.logo ?? "nil")
-        XCTAssertTrue(details.logo?.contains("width=800") ?? false)
+        XCTAssertTrue(details.logo?.contains("width=1600&height=800&minSize=0&upscale=0") ?? false, details.logo ?? "nil")
         XCTAssertEqual(peopleFromNames("Kari Fyr, Ola Strand,, kari fyr; Siri").map(\.name),
                        ["Kari Fyr", "Ola Strand", "Siri"])
         XCTAssertEqual(details.duration, "1 t 52 min")
@@ -159,7 +159,7 @@ final class PlexTests: XCTestCase {
         XCTAssertEqual(series[0].progress, 0.25, accuracy: 0.001)
         // bakgrunnen til serien i bredformat
         XCTAssertTrue(series[0].image?.contains("art") == true, series[0].image ?? "")
-        XCTAssertTrue(series[0].image?.contains("width=640") == true, series[0].image ?? "")
+        XCTAssertTrue(series[0].image?.contains("width=1280") == true, series[0].image ?? "")
         let movies = parseContinue(deck, kind: .movies, client: client)
         XCTAssertEqual(movies.map(\.item.name), ["Fyret"])
         XCTAssertNil(movies[0].episode)

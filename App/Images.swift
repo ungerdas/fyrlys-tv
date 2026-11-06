@@ -2,42 +2,63 @@ import FyrlysCore
 import SwiftUI
 import UIKit
 
-/// Logoene: hentes én gang (User-Agent som VLC, som leverandørene liker), gjøres små og tas vare på i minnet sammen
-/// med fargen bak dem. En adresse som svarte med en feil eller ikke var et bilde, prøves ikke igjen før etter ti
-/// minutter; var nettet borte eller tok det for lang tid, prøves den igjen etter et halvt minutt.
+/// Bildene fra nettet: hentes én gang (User-Agent som VLC, som leverandørene liker), krympes til det de trengs i
+/// (piksler, etter skjermen: Apple TV 4K og iPhone tegner med 2–3 piksler per punkt) og tas vare på i minnet sammen
+/// med fargen bak dem (kanallogoene). Et bilde som er krympet mer enn et nytt sted trenger, hentes på nytt (fra
+/// mellomlageret på disk) i den større størrelsen. En adresse som svarte med en feil eller ikke var et bilde, prøves
+/// ikke igjen før etter ti minutter; var nettet borte eller tok det for lang tid, prøves den igjen etter et halvt minutt.
 final class Images: @unchecked Sendable {
     static let shared = Images()
 
+    /// piksler per punkt på denne skjermen (Apple TV HD 1, Apple TV 4K 2, iPhone 2–3)
+    static let scale: CGFloat = max(1, UIScreen.main.scale)
+    /// det største et bilde holdes i (bakgrunnsbildene på Apple TV 4K ville ellers blitt 3840 piksler brede)
+    static let maxPixels: CGFloat = 2048
+
+    /// Piksler for et bilde som vises høyst [points] punkter bredt eller høyt.
+    static func pixels(for points: CGFloat) -> CGFloat { min(maxPixels, (points * scale).rounded(.up)) }
+
     /// bildet og bakgrunnsfargen bak det (de store kortene), regnet ut én gang; sammen, så fargen ikke blir borte
     /// fra et bilde som fortsatt er i minnet
-    private final class Logo {
+    private final class Entry {
         let image: UIImage
         let tint: Color?
-        init(image: UIImage, tint: Color?) { self.image = image; self.tint = tint }
+        /// bildet er krympet til høyst så mange piksler (0: hele bildet, det var ikke større)
+        let limit: CGFloat
+        init(image: UIImage, tint: Color?, limit: CGFloat) { self.image = image; self.tint = tint; self.limit = limit }
     }
 
-    private let cache = NSCache<NSURL, Logo>()
+    private let cache = NSCache<NSURL, Entry>()
     private let lock = NSLock()
     /// når en adresse som feilet, kan prøves igjen
     private var failed: [URL: Date] = [:]
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.urlCache = URLCache(memoryCapacity: 8 << 20, diskCapacity: 150 << 20)
+        config.urlCache = URLCache(memoryCapacity: 8 << 20, diskCapacity: 400 << 20)
         config.requestCachePolicy = .returnCacheDataElseLoad
         config.timeoutIntervalForRequest = 20
         config.httpMaximumConnectionsPerHost = 4
         return URLSession(configuration: config)
     }()
 
-    init() { cache.countLimit = 600 }
+    init() {
+        cache.countLimit = 600
+        // plakater og bakgrunnsbilder i full størrelse er store; de eldste glemmes og hentes fra disken igjen
+        cache.totalCostLimit = 180 << 20
+    }
 
-    func cached(_ url: URL) -> UIImage? { cache.object(forKey: url as NSURL)?.image }
+    /// Bildet, når det er hentet og ikke er krympet mer enn [maxPixels] (nil: hent det).
+    func cached(_ url: URL, maxPixels: CGFloat = Images.pixels(for: 180)) -> UIImage? {
+        guard let entry = cache.object(forKey: url as NSURL) else { return nil }
+        return entry.limit == 0 || entry.limit >= maxPixels ? entry.image : nil
+    }
 
     /// Fargen bak logoen, når bildet er hentet (nil: ikke hentet ennå, eller standardflaten).
     func tint(for url: URL) -> Color? { cache.object(forKey: url as NSURL)?.tint }
 
-    func load(_ url: URL, maxPixels: CGFloat = 360) async -> UIImage? {
-        if let image = cached(url) { return image }
+    /// Bildet, høyst [maxPixels] bredt eller høyt (kanallogoene trenger ikke mer enn 180 punkter).
+    func load(_ url: URL, maxPixels: CGFloat = Images.pixels(for: 180)) async -> UIImage? {
+        if let image = cached(url, maxPixels: maxPixels) { return image }
         let waiting = lock.withLock { failed[url].map { Date() < $0 } ?? false }
         if waiting { return nil }
         var request = URLRequest(url: url)
@@ -46,10 +67,12 @@ final class Images: @unchecked Sendable {
             let (data, response) = try await session.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 200
             guard status < 400, let image = UIImage(data: data) else { throw URLError(.cannotDecodeContentData) }
-            let scale = min(1, maxPixels / max(image.size.width, image.size.height, 1))
+            let largest = max(image.size.width, image.size.height, 1)
+            let scale = min(1, maxPixels / largest)
             let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
             let small = await image.byPreparingThumbnail(ofSize: size) ?? image
-            cache.setObject(Logo(image: small, tint: logoTint(small)), forKey: url as NSURL)
+            let entry = Entry(image: small, tint: logoTint(small), limit: scale < 1 ? maxPixels : 0)
+            cache.setObject(entry, forKey: url as NSURL, cost: Int(size.width * size.height * 4))
             lock.withLock { _ = failed.removeValue(forKey: url) }
             return small
         } catch {
@@ -69,19 +92,22 @@ final class Images: @unchecked Sendable {
     }
 }
 
-/// Et bilde fra nettet, eller [fallback] mens det hentes og når det ikke finnes.
+/// Et bilde fra nettet, eller [fallback] mens det hentes og når det ikke finnes. [maxPoints] er det største bildet
+/// vises (bredt eller høyt), så det hentes skarpt nok for skjermen uten å ta mer minne enn det må.
 struct RemoteImage<Fallback: View>: View {
     let url: URL?
     /// fyll rammen (plakater), ellers hele bildet inni (logoer)
     var fill = false
+    var maxPoints: CGFloat = 180
     @ViewBuilder let fallback: () -> Fallback
     @State private var image: UIImage?
 
-    init(url: URL?, fill: Bool = false, @ViewBuilder fallback: @escaping () -> Fallback) {
+    init(url: URL?, fill: Bool = false, maxPoints: CGFloat = 180, @ViewBuilder fallback: @escaping () -> Fallback) {
         self.url = url
         self.fill = fill
+        self.maxPoints = maxPoints
         self.fallback = fallback
-        _image = State(initialValue: url.flatMap { Images.shared.cached($0) })
+        _image = State(initialValue: url.flatMap { Images.shared.cached($0, maxPixels: Images.pixels(for: maxPoints)) })
     }
 
     var body: some View {
@@ -98,7 +124,7 @@ struct RemoteImage<Fallback: View>: View {
         }
         .task(id: url) {
             guard let url, image == nil else { return }
-            image = await Images.shared.load(url)
+            image = await Images.shared.load(url, maxPixels: Images.pixels(for: maxPoints))
         }
     }
 }

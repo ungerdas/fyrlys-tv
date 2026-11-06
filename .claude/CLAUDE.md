@@ -452,7 +452,15 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   0,38), «Regi: …», `peopleRow` («Medvirkende», `medvirkende`; `PersonCard` med sirkelbilde eller forbokstaver; Apple
   TV de første `personCount` på én linje uten fokus, iPhone/iPad en rad som rulles). Falsk Plex: logoen (`logo()`, PNG
   med gjennomsiktighet, `/clearLogo/`), rollene med bilde (`/role/<n>`), slagord og studio på 1001 og 2001. Sjekkes
-  i `test17Plex` (Apple TV) og `test18Plex` (iPhone og iPad).
+  i `test17Plex` (Apple TV) og `test18Plex` (iPhone og iPad). **Skarpe bilder fra 0.1.37** (eieren: «oppløsingen
+  virker å være lav? gjelder også Postere»): `Images.load(url, maxPixels:)` krympet før alt til 360 piksler (for
+  kanallogoene); nå `Images.pixels(for: punkter)` = punkter × `UIScreen.main.scale` (Apple TV 4K 2, iPhone 3), høyst
+  2048, og `RemoteImage(maxPoints:)` per sted (`Metrics.posterPoints`, `backdropPoints`, `detailPoster * 1.5`,
+  `detailLogo`, `resumeWidth`, `person`, avataren; kanallogoene 180 pt som før). Mellomlageret husker hvor mye et
+  bilde er krympet (`Entry.limit`) og henter det på nytt (fra disken, 400 MB) når et sted trenger det større;
+  `totalCostLimit` 180 MB. Plex bes om plakater 720 × 1080 (`imageURL` standard), bakgrunn 1920 × 1080, bredbilder
+  1280 × 720, episoder 960 × 540, roller 400 × 400 og logoen 1600 × 800 med `fit: true` (`minSize=0&upscale=0`:
+  hele logoen innenfor rammen, ikke beskåret som plakatene).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -734,3 +742,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Arkitektur). 0.1.36 (bygg 64) er i TestFlight, VALID for TV_OS og IOS; alle testene grønne (`test22PlexEpisoder`
   på iPhone på andre forsøk igjen). Ikke prøvd mot hans Plex: om logoene (clearLogo) finnes i `Image` på
   `/library/metadata/<id>` hos ham (Plex legger dem der når metadataagenten har dem), og bildene på rollene.
+- 6.11.2026 kl. 18: eieren om 0.1.36 på Apple TV-en: «Liker det, men syntes oppløsingen virker å være lav? gjelder
+  også Postere. i vanlig plex app så er de i høy oppløsing.» → 0.1.37 (se Arkitektur: alle bildene ble krympet til
+  360 piksler). Ikke sett på en ekte Apple TV 4K ennå.

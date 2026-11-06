@@ -713,7 +713,8 @@ struct PosterCard: View {
         Color.clear
             .aspectRatio(2 / 3, contentMode: .fit)
             .overlay {
-                RemoteImage(url: item.poster.flatMap { URL(string: $0) }, fill: true) {
+                RemoteImage(url: item.poster.flatMap { URL(string: $0) }, fill: true,
+                            maxPoints: Metrics.posterPoints) {
                     ZStack {
                         LinearGradient(colors: [Theme.surface2, Theme.logoBg], startPoint: .top, endPoint: .bottom)
                         Text(item.name)
@@ -825,7 +826,7 @@ struct PersonCard: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            RemoteImage(url: person.image.flatMap { URL(string: $0) }, fill: true) {
+            RemoteImage(url: person.image.flatMap { URL(string: $0) }, fill: true, maxPoints: Metrics.person) {
                 ZStack {
                     Theme.surface2
                     Text(initials(person.name))
@@ -953,7 +954,8 @@ struct VODDetailView: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: Metrics.detailPadding * 0.8) {
-            RemoteImage(url: (details?.poster ?? item.poster).flatMap { URL(string: $0) }, fill: true) {
+            RemoteImage(url: (details?.poster ?? item.poster).flatMap { URL(string: $0) }, fill: true,
+                        maxPoints: Metrics.detailPoster * 1.5) {
                 LinearGradient(colors: [Theme.surface2, Theme.logoBg], startPoint: .top, endPoint: .bottom)
             }
             .frame(width: Metrics.detailPoster, height: Metrics.detailPoster * 1.5)
@@ -1031,7 +1033,7 @@ struct VODDetailView: View {
     @ViewBuilder
     private var titleView: some View {
         if let logo = details?.logo.flatMap({ URL(string: $0) }) {
-            RemoteImage(url: logo) {
+            RemoteImage(url: logo, maxPoints: Metrics.detailLogo) {
                 titleText
             }
             .frame(maxWidth: Metrics.detailLogo, maxHeight: Metrics.detailLogo * 0.38, alignment: .leading)
@@ -1055,7 +1057,7 @@ struct VODDetailView: View {
         ZStack(alignment: .top) {
             Theme.bg
             if let url = details?.backdrop.flatMap({ URL(string: $0) }) {
-                RemoteImage(url: url, fill: true) {
+                RemoteImage(url: url, fill: true, maxPoints: Metrics.backdropPoints) {
                     Color.clear
                 }
                 .frame(height: Metrics.detailBackdrop)

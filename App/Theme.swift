@@ -120,6 +120,9 @@ enum Metrics {
     /// logoen til filmen (bredden; høyden 0,38 av den), bakgrunnsbildet øverst og de medvirkende
     static let detailLogo: CGFloat = 760
     static let detailBackdrop: CGFloat = 700
+    /// det største plakatene (høyden, i rutenettet) og bakgrunnsbildet (bredden) vises, så de hentes skarpt nok
+    static let posterPoints: CGFloat = 480
+    static let backdropPoints: CGFloat = 1920
     static let person: CGFloat = 140
     static let personWidth: CGFloat = 176
     static let personGap: CGFloat = 26
@@ -186,6 +189,9 @@ enum Metrics {
     /// logoen til filmen (bredden; høyden 0,38 av den), bakgrunnsbildet øverst og de medvirkende
     static let detailLogo: CGFloat = 230
     static let detailBackdrop: CGFloat = 320
+    /// det største plakatene (høyden, i rutenettet på iPad) og bakgrunnsbildet (bredden) vises
+    static let posterPoints: CGFloat = 340
+    static let backdropPoints: CGFloat = 1366
     static let person: CGFloat = 68
     static let personWidth: CGFloat = 84
     static let personGap: CGFloat = 14

@@ -1,5 +1,12 @@
 # Endringer
 
+## v0.1.37
+
+- Plakatene, bakgrunnsbildene og logoene var uskarpe: appen krympet alle bilder til 360 piksler (ment for
+  kanallogoene) og ba Plex om små bilder. Nå hentes hvert bilde så stort som det vises på skjermen (Apple TV 4K og
+  iPhone tegner med 2–3 piksler per punkt), og Plex spørres om plakater i 720 × 1080, bakgrunner i 1920 × 1080 og
+  logoer i full størrelse.
+
 ## v0.1.36
 
 - Siden for en film eller serie er fylt ut: bakgrunnsbildet øverst (tonet over i bakgrunnen), logoen til filmen eller

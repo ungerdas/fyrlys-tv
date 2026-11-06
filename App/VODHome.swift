@@ -393,7 +393,8 @@ struct ResumeCard: View {
             Color.clear
                 .aspectRatio(16 / 9, contentMode: .fit)
                 .overlay {
-                    RemoteImage(url: (entry.image ?? entry.item.poster).flatMap { URL(string: $0) }, fill: true) {
+                    RemoteImage(url: (entry.image ?? entry.item.poster).flatMap { URL(string: $0) }, fill: true,
+                                maxPoints: Metrics.resumeWidth) {
                         ZStack {
                             LinearGradient(colors: [Theme.surface2, Theme.logoBg], startPoint: .top, endPoint: .bottom)
                             Text(entry.item.name)

@@ -333,7 +333,7 @@ struct PlexUserSheet: View {
                     }
                 } label: {
                     HStack(spacing: 14) {
-                        RemoteImage(url: user.thumb.flatMap { URL(string: $0) }, fill: true) {
+                        RemoteImage(url: user.thumb.flatMap { URL(string: $0) }, fill: true, maxPoints: Self.avatar) {
                             Image(systemName: "person.circle.fill")
                                 .resizable()
                                 .foregroundStyle(Theme.muted)
