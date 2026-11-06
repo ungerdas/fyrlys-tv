@@ -443,6 +443,16 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `plex-brukere`, `bruker-<id>`, `bruker-pin`, `bruker-bytt`, `bruker-feil`) fra knappen `plex-bruker` øverst i
   sidemenyen/først på raden (bare når `plex.users` ikke er tom). Falsk Plex: brukerne 1 «Eieren» og 2 «Barna» (PIN
   1234, nøkkelen `barna-token`). Testene `test32PlexHome` (Apple TV, iPhone, iPad).
+- **Filmsiden fra 0.1.36** (eieren 6.11: «Syntes filmsiden er litt tom, mangler også logo på filmer og serier, plex
+  har det nå.»): `VODDetails.logo` (Plex `Image` med `type` «clearLogo», `plexImage`, 800×310 via `imageURL`),
+  `tagline`, `studio` (blant merkene) og `people: [VODPerson]` (navn, rolle, bilde; Plex `Role` med `role`/`thumb`
+  (`plexPeople`), leverandøren `peopleFromNames(cast)` uten bilder). `VODDetailView`: `backdropLayer` (bakgrunnsbildet
+  `Metrics.detailBackdrop` høyt som `.background` på rullelista, står fast, tonet mot `Theme.bg` nedover og mot
+  venstre), `titleView` (`RemoteImage` av logoen med tittelen som reserve, `vod-logo`, høyst `Metrics.detailLogo` ×
+  0,38), «Regi: …», `peopleRow` («Medvirkende», `medvirkende`; `PersonCard` med sirkelbilde eller forbokstaver; Apple
+  TV de første `personCount` på én linje uten fokus, iPhone/iPad en rad som rulles). Falsk Plex: logoen (`logo()`, PNG
+  med gjennomsiktighet, `/clearLogo/`), rollene med bilde (`/role/<n>`), slagord og studio på 1001 og 2001. Sjekkes
+  i `test17Plex` (Apple TV) og `test18Plex` (iPhone og iPad).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -720,3 +730,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   «Plex svarte HTTP 404» → 0.1.35 (uuid i adressen, id som reserve). Bygg 63 i TestFlight, VALID for TV_OS og IOS
   (iPhone-jobben kjørt på nytt: `test22PlexEpisoder` flakset igjen på «Hopp over introen»; bør få lengre
   tidsfrist om det fortsetter). Ikke bekreftet av eieren at byttet virker nå.
+- 6.11.2026: «Syntes filmsiden er litt tom, mangler også logo på filmer og serier, plex har det nå.» → 0.1.36 (se
+  Arkitektur). Ikke prøvd mot hans Plex: om logoene (clearLogo) finnes i `Image` på `/library/metadata/<id>` hos ham
+  (Plex legger dem der når metadataagenten har dem), og bildene på rollene.
