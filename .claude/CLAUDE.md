@@ -731,5 +731,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (iPhone-jobben kjørt på nytt: `test22PlexEpisoder` flakset igjen på «Hopp over introen»; bør få lengre
   tidsfrist om det fortsetter). Ikke bekreftet av eieren at byttet virker nå.
 - 6.11.2026: «Syntes filmsiden er litt tom, mangler også logo på filmer og serier, plex har det nå.» → 0.1.36 (se
-  Arkitektur). Ikke prøvd mot hans Plex: om logoene (clearLogo) finnes i `Image` på `/library/metadata/<id>` hos ham
-  (Plex legger dem der når metadataagenten har dem), og bildene på rollene.
+  Arkitektur). 0.1.36 (bygg 64) er i TestFlight, VALID for TV_OS og IOS; alle testene grønne (`test22PlexEpisoder`
+  på iPhone på andre forsøk igjen). Ikke prøvd mot hans Plex: om logoene (clearLogo) finnes i `Image` på
+  `/library/metadata/<id>` hos ham (Plex legger dem der når metadataagenten har dem), og bildene på rollene.
