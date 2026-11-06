@@ -1,0 +1,524 @@
+== feilene
+
+    t =    35.59s Swipe left "vodkat-1" Button
+    t =    35.59s     Wait for no.fyrlys.tv to idle
+    t =    35.60s     Find the "vodkat-1" Button
+    t =    35.97s     Check for interrupting elements affecting "vodkat-1" Button
+    t =    36.15s     Synthesize event
+    t =    36.67s     Wait for no.fyrlys.tv to idle
+    t =    38.24s Find the "vodkat-4" Button
+    t =    38.61s Find the "vodkat-4" Button
+    t =    38.90s Find the "vodkat-4" Button
+    t =    39.53s Find the "vodkat-4" Button
+    t =    39.93s Press "vodkat-4" Button for 1.2 seconds
+    t =    39.93s     Wait for no.fyrlys.tv to idle
+    t =    39.93s     Find the "vodkat-4" Button
+    t =    40.19s     Check for interrupting elements affecting "vodkat-4" Button
+    t =    40.37s     Synthesize event
+    t =    41.82s     Wait for no.fyrlys.tv to idle
+    t =    42.42s Waiting 5.0s for "Skjul" Button to exist
+    t =    43.48s     Checking `Expect predicate `existsNoRetry == 1` for object "Skjul" Button`
+    t =    43.49s         Checking existence of `"Skjul" Button`
+    t =    43.68s Tap "Skjul" Button
+    t =    43.68s     Wait for no.fyrlys.tv to idle
+    t =    43.68s     Find the "Skjul" Button
+    t =    43.81s     Check for interrupting elements affecting "eye.slash" Button
+    t =    43.94s     Synthesize event
+    t =    44.28s     Wait for no.fyrlys.tv to idle
+    t =    46.13s Checking existence of `"vodkat-1" Button`
+    t =    46.66s Checking existence of `"vodkat-4" Button`
+    t =    47.37s Checking existence of `"vodkat-2" Button`
+    t =    47.87s Find the "vodkat-2" Button
+    t =    48.25s Find the "vodkat-1" Button
+    t =    48.88s Find the "vodkat-2" Button
+    t =    49.43s Find the "vodkat-1" Button
+    t =    49.75s Find the "vodkat-2" Button
+    t =    50.09s Find the "vodkat-1" Button
+    t =    50.64s Added attachment named '43-iphone-plex-skjult'
+    t =    50.64s Tear Down
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test26PlexBiblioteker]' passed (50.906 seconds).
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test27NavnOgFeilrapport]' started (Iteration 1 of 2).
+    t =     0.00s Start Test at 2026-11-06 17:39:03.462
+    t =     0.05s Set Up
+    t =     0.05s     Setting device orientation to Portrait
+    t =     0.07s         Wait for no.fyrlys.tv to idle
+    t =     0.08s Open no.fyrlys.tv
+    t =     0.09s     Launch no.fyrlys.tv
+    t =     0.09s         Terminate no.fyrlys.tv:33592
+    t =     2.44s         Setting up automation session
+    t =     5.52s         Wait for no.fyrlys.tv to idle
+    t =    10.55s Waiting 30.0s for "innstillinger" Any to exist
+    t =    11.57s     Checking `Expect predicate `existsNoRetry == 1` for object "innstillinger" Any`
+    t =    11.58s         Checking existence of `"innstillinger" Any`
+    t =    12.08s Waiting 10.0s for "gi-nytt-navn" Any to exist
+    t =    13.11s     Checking `Expect predicate `existsNoRetry == 1` for object "gi-nytt-navn" Any`
+    t =    13.12s         Checking existence of `"gi-nytt-navn" Any`
+    t =    13.31s Tap "gi-nytt-navn" Any
+    t =    13.31s     Wait for no.fyrlys.tv to idle
+    t =    13.32s     Find the "gi-nytt-navn" Any
+    t =    13.52s     Check for interrupting elements affecting "gi-nytt-navn" Button
+    t =    13.73s     Synthesize event
+    t =    14.07s     Wait for no.fyrlys.tv to idle
+    t =    16.06s Waiting 5.0s for TextField (First Match) to exist
+    t =    17.09s     Checking `Expect predicate `existsNoRetry == 1` for object TextField (First Match)`
+    t =    17.10s         Checking existence of `TextField (First Match)`
+    t =    17.61s Tap TextField (First Match)
+    t =    17.62s     Wait for no.fyrlys.tv to idle
+    t =    17.76s     Find the TextField (First Match)
+    t =    18.68s     Check for interrupting elements affecting "Navn" TextField
+    t =    18.93s     Synthesize event
+    t =    19.27s     Wait for no.fyrlys.tv to idle
+    t =    20.03s Type 'Hjemme' into "Navn" TextField
+    t =    20.03s     Wait for no.fyrlys.tv to idle
+    t =    20.06s     Find the "Navn" TextField
+    t =    20.48s     Check for interrupting elements affecting "Navn" TextField
+    t =    20.66s     Synthesize event
+    t =    21.16s     Wait for no.fyrlys.tv to idle
+    t =    21.37s Tap "Lagre" Button
+    t =    21.38s     Wait for no.fyrlys.tv to idle
+    t =    21.40s     Find the "Lagre" Button
+    t =    21.84s     Check for interrupting elements affecting "lagre-navn" Button
+    t =    22.15s     Synthesize event
+    t =    22.76s     Wait for no.fyrlys.tv to idle
+    t =    23.32s Checking existence of `"innlogget-som" Any`
+    t =    23.53s Find the "innlogget-som" Any
+    t =    23.99s Added attachment named '44-iphone-nytt-navn'
+    t =    23.99s Checking existence of `"feilrapport-knapp" Any`
+    t =    24.66s Find the "feilrapport-knapp" Any
+    t =    25.40s Checking existence of `"feilrapport-knapp" Button`
+    t =    25.96s Find the "feilrapport-knapp" Button
+    t =    26.37s Checking existence of `"feilrapport-knapp" Button`
+    t =    26.71s Find the "feilrapport-knapp" Button
+    t =    26.91s Checking existence of `"feilrapport-knapp" Button`
+    t =    27.91s Find the "feilrapport-knapp" Button
+    t =    28.22s Checking existence of `"feilrapport-knapp" Button`
+    t =    28.49s Find the "feilrapport-knapp" Button
+    t =    28.83s Checking existence of `"feilrapport-knapp" Button`
+    t =    29.11s Find the "feilrapport-knapp" Button
+    t =    29.46s Checking existence of `"feilrapport-knapp" Button`
+    t =    29.77s Tap "feilrapport-knapp" Button
+    t =    29.77s     Wait for no.fyrlys.tv to idle
+    t =    29.78s     Find the "feilrapport-knapp" Button
+    t =    30.12s     Check for interrupting elements affecting "feilrapport-knapp" Button
+    t =    30.25s     Synthesize event
+    t =    30.57s     Wait for no.fyrlys.tv to idle
+    t =    31.15s Waiting 10.0s for "kopier-rapport" Any to exist
+    t =    32.18s     Checking `Expect predicate `existsNoRetry == 1` for object "kopier-rapport" Any`
+    t =    32.18s         Checking existence of `"kopier-rapport" Any`
+    t =    32.70s Checking existence of `StaticText (First Match)`
+    t =    34.07s Added attachment named '45-iphone-feilrapport'
+    t =    34.07s Tear Down
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test27NavnOgFeilrapport]' passed (34.367 seconds).
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test28M3U]' started (Iteration 1 of 2).
+    t =     0.00s Start Test at 2026-11-06 17:39:37.830
+    t =     0.08s Set Up
+    t =     0.08s     Setting device orientation to Portrait
+    t =     0.10s         Wait for no.fyrlys.tv to idle
+    t =     0.11s Open no.fyrlys.tv
+    t =     0.12s     Launch no.fyrlys.tv
+    t =     0.12s         Terminate no.fyrlys.tv:35138
+    t =     2.57s         Setting up automation session
+    t =     5.22s         Wait for no.fyrlys.tv to idle
+    t =     7.21s Waiting 30.0s for "m3u-lenke" Any to exist
+    t =     8.26s     Checking `Expect predicate `existsNoRetry == 1` for object "m3u-lenke" Any`
+    t =     8.26s         Checking existence of `"m3u-lenke" Any`
+    t =     8.35s Checking existence of `"epg-lenke" Any`
+    t =     8.43s Tap "m3u-lenke" Any
+    t =     8.43s     Wait for no.fyrlys.tv to idle
+    t =     8.45s     Find the "m3u-lenke" Any
+    t =     8.54s     Check for interrupting elements affecting "m3u-lenke" TextField
+    t =     8.66s     Synthesize event
+    t =     8.98s     Wait for no.fyrlys.tv to idle
+    t =     9.40s Type 'http://127.0.0.1:8...' into "m3u-lenke" TextField
+    t =     9.40s     Wait for no.fyrlys.tv to idle
+    t =     9.79s     Find the "m3u-lenke" TextField
+    t =    10.02s     Check for interrupting elements affecting "m3u-lenke" TextField
+    t =    10.12s     Synthesize event
+    t =    10.86s     Wait for no.fyrlys.tv to idle
+    t =    12.29s Added attachment named '46-iphone-m3u-innlogging'
+    t =    12.29s Tap "logg-inn" Any
+    t =    12.29s     Wait for no.fyrlys.tv to idle
+    t =    12.29s     Find the "logg-inn" Any
+    t =    12.35s     Check for interrupting elements affecting "logg-inn" Button
+    t =    12.39s     Synthesize event
+    t =    12.71s     Wait for no.fyrlys.tv to idle
+    t =    13.05s Waiting 30.0s for "hylle-Kyst og fjord" Any to exist
+    t =    14.09s     Checking `Expect predicate `existsNoRetry == 1` for object "hylle-Kyst og fjord" Any`
+    t =    14.09s         Checking existence of `"hylle-Kyst og fjord" Any`
+    t =    14.38s Checking existence of `"hylle-Uten kategori" Any`
+    t =    14.66s Tap "hylle-alle" Any
+    t =    14.66s     Wait for no.fyrlys.tv to idle
+    t =    14.68s     Find the "hylle-alle" Any
+    t =    14.84s     Check for interrupting elements affecting "hylle-alle" Button
+    t =    14.98s     Synthesize event
+    t =    15.31s     Wait for no.fyrlys.tv to idle
+    t =    15.81s Waiting 7.5s for "kanal-3c9f81ff222d790b" Any to exist
+    t =    16.82s     Checking `Expect predicate `existsNoRetry == 1` for object "kanal-3c9f81ff222d790b" Any`
+    t =    16.82s         Checking existence of `"kanal-3c9f81ff222d790b" Any`
+    t =    17.12s Waiting 30.0s for Any (First Match) to exist
+    t =    18.14s     Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`
+    t =    18.14s         Checking existence of `Any (First Match)`
+    t =    18.29s Checking existence of `"Filmer" Button`
+    t =    20.56s Added attachment named '47-iphone-m3u'
+    t =    20.56s Tear Down
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test28M3U]' passed (20.793 seconds).
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test29Multiview]' started (Iteration 1 of 2).
+    t =     0.00s Start Test at 2026-11-06 17:39:58.624
+    t =     0.03s Set Up
+    t =     0.03s     Setting device orientation to Portrait
+    t =     0.04s         Wait for no.fyrlys.tv to idle
+    t =     0.05s Open no.fyrlys.tv
+    t =     0.05s     Launch no.fyrlys.tv
+    t =     0.05s         Terminate no.fyrlys.tv:36095
+    t =     2.19s         Setting up automation session
+    t =     4.28s         Wait for no.fyrlys.tv to idle
+    t =     6.27s Waiting 40.0s for "multiview-bilde-0" Any to exist
+    t =     7.33s     Checking `Expect predicate `existsNoRetry == 1` for object "multiview-bilde-0" Any`
+    t =     7.33s         Checking existence of `"multiview-bilde-0" Any`
+    t =     7.54s Checking existence of `"multiview-bilde-1" Any`
+    t =     7.74s Tap "multiview-bilde-1" Any
+    t =     7.74s     Wait for no.fyrlys.tv to idle
+    t =     7.75s     Find the "multiview-bilde-1" Any
+    t =     8.14s     Check for interrupting elements affecting "multiview-bilde-1" Button
+    t =     8.49s     Synthesize event
+    t =     8.84s     Wait for no.fyrlys.tv to idle
+    t =     8.85s Waiting 10.0s for "velg-631b7e73e1541bf5" Any to exist
+    t =     9.87s     Checking `Expect predicate `existsNoRetry == 1` for object "velg-631b7e73e1541bf5" Any`
+    t =     9.87s         Checking existence of `"velg-631b7e73e1541bf5" Any`
+    t =    12.12s         Capturing element debug description
+    t =    12.88s     Checking `Expect predicate `existsNoRetry == 1` for object "velg-631b7e73e1541bf5" Any`
+    t =    12.88s         Checking existence of `"velg-631b7e73e1541bf5" Any`
+    t =    13.90s Waiting 20.0s for "velg-631b7e73e1541bf5" Any to exist
+    t =    14.94s     Checking `Expect predicate `existsNoRetry == 1` for object "velg-631b7e73e1541bf5" Any`
+    t =    14.95s         Checking existence of `"velg-631b7e73e1541bf5" Any`
+    t =    17.00s Added attachment named '48-iphone-multiview-velg'
+    t =    17.00s Tap "velg-631b7e73e1541bf5" Any
+    t =    17.00s     Wait for no.fyrlys.tv to idle
+    t =    17.00s     Find the "velg-631b7e73e1541bf5" Any
+    t =    17.68s     Check for interrupting elements affecting "velg-631b7e73e1541bf5" Button
+    t =    17.90s     Synthesize event
+    t =    18.24s     Wait for no.fyrlys.tv to idle
+    t =    18.32s Waiting 15.0s for Any (First Match) to exist
+    t =    19.41s     Checking `Expect predicate `existsNoRetry == 1` for object Any (First Match)`
+    t =    19.41s         Checking existence of `Any (First Match)`
+    t =    27.77s Added attachment named '49-iphone-multiview'
+    t =    27.77s Double tap "multiview-bilde-0" Any
+    t =    27.77s     Wait for no.fyrlys.tv to idle
+    t =    27.78s     Find the "multiview-bilde-0" Any
+    t =    28.21s     Check for interrupting elements affecting "multiview-bilde-0" Button
+    t =    28.46s     Synthesize event
+    t =    28.84s     Wait for no.fyrlys.tv to idle
+    t =    31.34s Added attachment named '50-iphone-multiview-stort'
+    t =    31.35s Tap "lukk-multiview" Any
+    t =    31.35s     Wait for no.fyrlys.tv to idle
+    t =    31.39s     Find the "lukk-multiview" Any
+    t =    32.23s     Check for interrupting elements affecting "lukk-multiview" Button
+    t =    32.37s     Synthesize event
+    t =    32.74s     Wait for no.fyrlys.tv to idle
+    t =    33.14s Checking existence of `"multiview" Any`
+    t =    34.26s Checking existence of `"multiview" Any`
+    t =    35.20s Checking existence of `"multiview" Any`
+    t =    35.99s Checking existence of `"multiview" Any`
+    t =    36.68s Checking existence of `"multiview" Any`
+    t =    37.11s Checking existence of `"multiview" Any`
+    t =    37.43s Checking existence of `"multiview" Any`
+    t =    37.77s Checking existence of `"multiview" Any`
+    t =    38.04s Checking existence of `"multiview" Any`
+    t =    38.30s Checking existence of `"multiview" Any`
+    t =    38.63s Checking existence of `"multiview" Any`
+    t =    38.97s Tear Down
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test29Multiview]' passed (39.272 seconds).
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test30Strominfo]' started (Iteration 1 of 2).
+    t =     0.00s Start Test at 2026-11-06 17:40:37.896
+    t =     0.04s Set Up
+    t =     0.04s     Setting device orientation to Portrait
+    t =     0.06s         Wait for no.fyrlys.tv to idle
+    t =     0.07s Open no.fyrlys.tv
+    t =     0.07s     Launch no.fyrlys.tv
+    t =     0.07s         Terminate no.fyrlys.tv:37058
+    t =     1.84s         Setting up automation session
+    t =     3.92s         Wait for no.fyrlys.tv to idle
+    t =     7.19s Waiting 30.0s for "spiller" Any to exist
+    t =     8.26s     Checking `Expect predicate `existsNoRetry == 1` for object "spiller" Any`
+    t =     8.26s         Checking existence of `"spiller" Any`
+    t =     8.44s Waiting 10.0s for "spiller-mer" Any to exist
+    t =     9.51s     Checking `Expect predicate `existsNoRetry == 1` for object "spiller-mer" Any`
+    t =     9.51s         Checking existence of `"spiller-mer" Any`
+    t =    18.06s Tap "spiller-mer" Any
+    t =    18.06s     Wait for no.fyrlys.tv to idle
+    t =    18.07s     Find the "spiller-mer" Any
+    t =    18.28s     Check for interrupting elements affecting "spiller-mer" Button
+    t =    18.65s     Synthesize event
+    t =    19.04s     Wait for no.fyrlys.tv to idle
+    t =    19.63s Waiting 5.0s for "Vis strøminfo" Button to exist
+    t =    20.74s     Checking `Expect predicate `existsNoRetry == 1` for object "Vis strøminfo" Button`
+    t =    20.74s         Checking existence of `"Vis strøminfo" Button`
+    t =    21.02s Tap "Vis strøminfo" Button
+    t =    21.02s     Wait for no.fyrlys.tv to idle
+    t =    21.02s     Find the "Vis strøminfo" Button
+    t =    21.18s     Check for interrupting elements affecting "info.circle" Button
+    t =    21.28s     Synthesize event
+    t =    21.62s     Wait for no.fyrlys.tv to idle
+    t =    23.30s Waiting 5.0s for "strominfo" Any to exist
+    t =    24.37s     Checking `Expect predicate `existsNoRetry == 1` for object "strominfo" Any`
+    t =    24.37s         Checking existence of `"strominfo" Any`
+    t =    24.51s Find the "strominfo" Any
+    t =    24.67s Tap "spiller-mer" Button
+    t =    24.67s     Wait for no.fyrlys.tv to idle
+    t =    24.67s     Find the "spiller-mer" Button
+    t =    24.75s     Check for interrupting elements affecting "spiller-mer" Button
+    t =    24.87s     Synthesize event
+    t =    25.19s     Wait for no.fyrlys.tv to idle
+    t =    26.52s Waiting 5.0s for Button (First Match) to exist
+    t =    27.58s     Checking `Expect predicate `existsNoRetry == 1` for object Button (First Match)`
+    t =    27.59s         Checking existence of `Button (First Match)`
+    t =    27.97s Tap Button (First Match)
+    t =    27.97s     Wait for no.fyrlys.tv to idle
+    t =    27.98s     Find the Button (First Match)
+    t =    28.38s     Check for interrupting elements affecting "aspectratio" Button
+    t =    28.51s     Synthesize event
+    t =    28.86s     Wait for no.fyrlys.tv to idle
+    t =    30.09s Waiting 5.0s for Button (First Match) to exist
+    t =    31.14s     Checking `Expect predicate `existsNoRetry == 1` for object Button (First Match)`
+    t =    31.14s         Checking existence of `Button (First Match)`
+    t =    31.52s Tap Button (First Match)
+    t =    31.52s     Wait for no.fyrlys.tv to idle
+    t =    31.53s     Find the Button (First Match)
+    t =    32.05s     Check for interrupting elements affecting "Fyll skjermen" Button
+    t =    32.18s     Synthesize event
+    t =    32.48s     Wait for no.fyrlys.tv to idle
+    t =    36.29s Added attachment named '51-iphone-strominfo'
+    t =    36.29s Tear Down
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test30Strominfo]' passed (36.626 seconds).
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test31Tilbakespoling]' started (Iteration 1 of 2).
+    t =     0.00s Start Test at 2026-11-06 17:41:14.522
+    t =     0.05s Set Up
+    t =     0.05s     Setting device orientation to Portrait
+    t =     0.06s         Wait for no.fyrlys.tv to idle
+    t =     0.07s Open no.fyrlys.tv
+    t =     0.07s     Launch no.fyrlys.tv
+    t =     0.07s         Terminate no.fyrlys.tv:38432
+    t =    27.70s         Setting up automation session
+    t =    29.87s         Wait for no.fyrlys.tv to idle
+    t =    31.40s Waiting 30.0s for "spiller" Any to exist
+    t =    32.43s     Checking `Expect predicate `existsNoRetry == 1` for object "spiller" Any`
+    t =    32.43s         Checking existence of `"spiller" Any`
+    t =    32.77s Find the "spiller" Any
+    t =    34.13s Find the "spiller" Other
+    t =    34.34s Find the "spiller" Other
+    t =    34.64s Find the "spiller" Other
+    t =    34.90s Find the "spiller" Other
+    t =    35.01s Find the "spiller" Other
+    t =    35.27s Find the "spiller" Other
+    t =    35.41s Find the "spiller" Other
+    t =    35.60s Find the "spiller" Other
+    t =    35.75s Find the "spiller" Other
+    t =    35.95s Find the "spiller" Other
+    t =    36.08s Find the "spiller" Other
+    t =    36.22s Find the "spiller" Other
+    t =    36.42s Find the "spiller" Other
+    t =    36.56s Find the "spiller" Other
+    t =    36.75s Find the "spiller" Other
+    t =    36.88s Find the "spiller" Other
+    t =    37.03s Find the "spiller" Other
+    t =    37.21s Find the "spiller" Other
+    t =    37.34s Find the "spiller" Other
+    t =    37.45s Find the "spiller" Other
+    t =    47.61s Checking existence of `"spiller-feil" Any`
+    t =    49.27s Added attachment named '52-iphone-tilbakespoling'
+    t =    49.27s Tear Down
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test31Tilbakespoling]' passed (49.580 seconds).
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test32PlexHome]' started (Iteration 1 of 2).
+    t =     0.00s Start Test at 2026-11-06 17:42:04.104
+    t =     0.05s Set Up
+    t =     0.05s     Setting device orientation to Portrait
+    t =     0.06s         Wait for no.fyrlys.tv to idle
+    t =     0.06s Open no.fyrlys.tv
+    t =     0.06s     Launch no.fyrlys.tv
+    t =     0.06s         Terminate no.fyrlys.tv:39490
+    t =     1.76s         Setting up automation session
+    t =     4.04s         Wait for no.fyrlys.tv to idle
+    t =     6.51s Waiting 40.0s for "vod-hjem" Any to exist
+    t =     7.59s     Checking `Expect predicate `existsNoRetry == 1` for object "vod-hjem" Any`
+    t =     7.59s         Checking existence of `"vod-hjem" Any`
+    t =     8.48s Waiting 10.0s for "plex-bruker" Any to exist
+    t =     9.54s     Checking `Expect predicate `existsNoRetry == 1` for object "plex-bruker" Any`
+    t =     9.54s         Checking existence of `"plex-bruker" Any`
+    t =    10.31s Find the "plex-bruker" Any
+    t =    10.96s Tap "plex-bruker" Button
+    t =    10.96s     Wait for no.fyrlys.tv to idle
+    t =    10.97s     Find the "plex-bruker" Button
+    t =    11.59s     Check for interrupting elements affecting "plex-bruker" Button
+    t =    11.78s     Synthesize event
+    t =    12.12s     Wait for no.fyrlys.tv to idle
+    t =    12.48s Waiting 10.0s for "bruker-2" Any to exist
+    t =    13.51s     Checking `Expect predicate `existsNoRetry == 1` for object "bruker-2" Any`
+    t =    13.51s         Checking existence of `"bruker-2" Any`
+    t =    15.45s Added attachment named '46-iphone-plex-hvem'
+    t =    15.45s Tap "bruker-2" Any
+    t =    15.45s     Wait for no.fyrlys.tv to idle
+    t =    15.46s     Find the "bruker-2" Any
+    t =    15.82s     Check for interrupting elements affecting "bruker-2" Button
+    t =    16.03s     Synthesize event
+    t =    16.39s     Wait for no.fyrlys.tv to idle
+    t =    16.44s Waiting 10.0s for "bruker-pin" Any to exist
+    t =    17.45s     Checking `Expect predicate `existsNoRetry == 1` for object "bruker-pin" Any`
+    t =    17.45s         Checking existence of `"bruker-pin" Any`
+    t =    18.26s Tap "bruker-pin" Any
+    t =    18.26s     Wait for no.fyrlys.tv to idle
+    t =    18.28s     Find the "bruker-pin" Any
+    t =    18.90s     Check for interrupting elements affecting "bruker-pin" SecureTextField
+    t =    19.17s     Synthesize event
+    t =    19.50s     Wait for no.fyrlys.tv to idle
+    t =    20.70s Type '0000' into "bruker-pin" SecureTextField
+    t =    20.71s     Wait for no.fyrlys.tv to idle
+    t =    21.08s     Find the "bruker-pin" SecureTextField
+    t =    22.63s     Check for interrupting elements affecting "bruker-pin" SecureTextField
+    t =    22.86s     Synthesize event
+    t =    23.14s     Wait for no.fyrlys.tv to idle
+    t =    23.28s Waiting 10.0s for "bruker-feil" Any to exist
+    t =    24.32s     Checking `Expect predicate `existsNoRetry == 1` for object "bruker-feil" Any`
+    t =    24.32s         Checking existence of `"bruker-feil" Any`
+    t =    24.96s Tap "bruker-pin" SecureTextField
+    t =    24.96s     Wait for no.fyrlys.tv to idle
+    t =    24.97s     Find the "bruker-pin" SecureTextField
+    t =    25.54s     Check for interrupting elements affecting "bruker-pin" SecureTextField
+    t =    25.70s     Synthesize event
+    t =    26.02s     Wait for no.fyrlys.tv to idle
+    t =    26.03s Type '1234' into "bruker-pin" SecureTextField
+    t =    26.03s     Wait for no.fyrlys.tv to idle
+    t =    26.03s     Find the "bruker-pin" SecureTextField
+    t =    27.24s     Check for interrupting elements affecting "bruker-pin" SecureTextField
+    t =    27.58s     Synthesize event
+    t =    27.86s     Wait for no.fyrlys.tv to idle
+    t =    28.38s Checking existence of `"plex-bruker" Button`
+    t =    32.26s Checking existence of `"plex-bruker" Button`
+    t =    32.85s Find the "plex-bruker" Button
+    t =    34.68s Added attachment named '47-iphone-plex-barna'
+    t =    34.68s Tear Down
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test32PlexHome]' passed (34.937 seconds).
+Test Suite 'FyrlysMobilUITests' passed at 2026-11-06 17:42:39.042.
+Test Suite 'FyrlysMobilUITests.xctest' passed at 2026-11-06 17:42:39.043.
+Test Suite 'All tests' passed at 2026-11-06 17:42:39.043.
+
+== slutten
+    t =     0.05s     Setting device orientation to Portrait
+    t =     0.06s         Wait for no.fyrlys.tv to idle
+    t =     0.07s Open no.fyrlys.tv
+    t =     0.07s     Launch no.fyrlys.tv
+    t =     0.07s         Terminate no.fyrlys.tv:38432
+    t =    27.70s         Setting up automation session
+    t =    29.87s         Wait for no.fyrlys.tv to idle
+    t =    31.40s Waiting 30.0s for "spiller" Any to exist
+    t =    32.43s     Checking `Expect predicate `existsNoRetry == 1` for object "spiller" Any`
+    t =    32.43s         Checking existence of `"spiller" Any`
+    t =    32.77s Find the "spiller" Any
+    t =    34.13s Find the "spiller" Other
+    t =    34.34s Find the "spiller" Other
+    t =    34.64s Find the "spiller" Other
+    t =    34.90s Find the "spiller" Other
+    t =    35.01s Find the "spiller" Other
+    t =    35.27s Find the "spiller" Other
+    t =    35.41s Find the "spiller" Other
+    t =    35.60s Find the "spiller" Other
+    t =    35.75s Find the "spiller" Other
+    t =    35.95s Find the "spiller" Other
+    t =    36.08s Find the "spiller" Other
+    t =    36.22s Find the "spiller" Other
+    t =    36.42s Find the "spiller" Other
+    t =    36.56s Find the "spiller" Other
+    t =    36.75s Find the "spiller" Other
+    t =    36.88s Find the "spiller" Other
+    t =    37.03s Find the "spiller" Other
+    t =    37.21s Find the "spiller" Other
+    t =    37.34s Find the "spiller" Other
+    t =    37.45s Find the "spiller" Other
+    t =    47.61s Checking existence of `"spiller-feil" Any`
+    t =    49.27s Added attachment named '52-iphone-tilbakespoling'
+    t =    49.27s Tear Down
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test31Tilbakespoling]' passed (49.580 seconds).
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test32PlexHome]' started (Iteration 1 of 2).
+    t =     0.00s Start Test at 2026-11-06 17:42:04.104
+    t =     0.05s Set Up
+    t =     0.05s     Setting device orientation to Portrait
+    t =     0.06s         Wait for no.fyrlys.tv to idle
+    t =     0.06s Open no.fyrlys.tv
+    t =     0.06s     Launch no.fyrlys.tv
+    t =     0.06s         Terminate no.fyrlys.tv:39490
+    t =     1.76s         Setting up automation session
+    t =     4.04s         Wait for no.fyrlys.tv to idle
+    t =     6.51s Waiting 40.0s for "vod-hjem" Any to exist
+    t =     7.59s     Checking `Expect predicate `existsNoRetry == 1` for object "vod-hjem" Any`
+    t =     7.59s         Checking existence of `"vod-hjem" Any`
+    t =     8.48s Waiting 10.0s for "plex-bruker" Any to exist
+    t =     9.54s     Checking `Expect predicate `existsNoRetry == 1` for object "plex-bruker" Any`
+    t =     9.54s         Checking existence of `"plex-bruker" Any`
+    t =    10.31s Find the "plex-bruker" Any
+    t =    10.96s Tap "plex-bruker" Button
+    t =    10.96s     Wait for no.fyrlys.tv to idle
+    t =    10.97s     Find the "plex-bruker" Button
+    t =    11.59s     Check for interrupting elements affecting "plex-bruker" Button
+    t =    11.78s     Synthesize event
+    t =    12.12s     Wait for no.fyrlys.tv to idle
+    t =    12.48s Waiting 10.0s for "bruker-2" Any to exist
+    t =    13.51s     Checking `Expect predicate `existsNoRetry == 1` for object "bruker-2" Any`
+    t =    13.51s         Checking existence of `"bruker-2" Any`
+    t =    15.45s Added attachment named '46-iphone-plex-hvem'
+    t =    15.45s Tap "bruker-2" Any
+    t =    15.45s     Wait for no.fyrlys.tv to idle
+    t =    15.46s     Find the "bruker-2" Any
+    t =    15.82s     Check for interrupting elements affecting "bruker-2" Button
+    t =    16.03s     Synthesize event
+    t =    16.39s     Wait for no.fyrlys.tv to idle
+    t =    16.44s Waiting 10.0s for "bruker-pin" Any to exist
+    t =    17.45s     Checking `Expect predicate `existsNoRetry == 1` for object "bruker-pin" Any`
+    t =    17.45s         Checking existence of `"bruker-pin" Any`
+    t =    18.26s Tap "bruker-pin" Any
+    t =    18.26s     Wait for no.fyrlys.tv to idle
+    t =    18.28s     Find the "bruker-pin" Any
+    t =    18.90s     Check for interrupting elements affecting "bruker-pin" SecureTextField
+    t =    19.17s     Synthesize event
+    t =    19.50s     Wait for no.fyrlys.tv to idle
+    t =    20.70s Type '0000' into "bruker-pin" SecureTextField
+    t =    20.71s     Wait for no.fyrlys.tv to idle
+    t =    21.08s     Find the "bruker-pin" SecureTextField
+    t =    22.63s     Check for interrupting elements affecting "bruker-pin" SecureTextField
+    t =    22.86s     Synthesize event
+    t =    23.14s     Wait for no.fyrlys.tv to idle
+    t =    23.28s Waiting 10.0s for "bruker-feil" Any to exist
+    t =    24.32s     Checking `Expect predicate `existsNoRetry == 1` for object "bruker-feil" Any`
+    t =    24.32s         Checking existence of `"bruker-feil" Any`
+    t =    24.96s Tap "bruker-pin" SecureTextField
+    t =    24.96s     Wait for no.fyrlys.tv to idle
+    t =    24.97s     Find the "bruker-pin" SecureTextField
+    t =    25.54s     Check for interrupting elements affecting "bruker-pin" SecureTextField
+    t =    25.70s     Synthesize event
+    t =    26.02s     Wait for no.fyrlys.tv to idle
+    t =    26.03s Type '1234' into "bruker-pin" SecureTextField
+    t =    26.03s     Wait for no.fyrlys.tv to idle
+    t =    26.03s     Find the "bruker-pin" SecureTextField
+    t =    27.24s     Check for interrupting elements affecting "bruker-pin" SecureTextField
+    t =    27.58s     Synthesize event
+    t =    27.86s     Wait for no.fyrlys.tv to idle
+    t =    28.38s Checking existence of `"plex-bruker" Button`
+    t =    32.26s Checking existence of `"plex-bruker" Button`
+    t =    32.85s Find the "plex-bruker" Button
+    t =    34.68s Added attachment named '47-iphone-plex-barna'
+    t =    34.68s Tear Down
+Test Case '-[FyrlysMobilUITests.FyrlysMobilUITests test32PlexHome]' passed (34.937 seconds).
+Test Suite 'FyrlysMobilUITests' passed at 2026-11-06 17:42:39.042.
+	 Executed 32 tests, with 0 failures (0 unexpected) in 1078.753 (1078.782) seconds
+Test Suite 'FyrlysMobilUITests.xctest' passed at 2026-11-06 17:42:39.043.
+	 Executed 32 tests, with 0 failures (0 unexpected) in 1078.753 (1078.784) seconds
+Test Suite 'All tests' passed at 2026-11-06 17:42:39.043.
+	 Executed 32 tests, with 0 failures (0 unexpected) in 1078.753 (1078.785) seconds
+2026-11-06 17:43:20.447 xcodebuild[5948:20254] [MT] IDETestOperationsObserverDebug: 1292.639 elapsed -- Testing started completed.
+2026-11-06 17:43:20.450 xcodebuild[5948:20254] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-06 17:43:20.450 xcodebuild[5948:20254] [MT] IDETestOperationsObserverDebug: 1292.639 sec, +1292.639 sec -- end
+
+Test session results, code coverage, and logs:
+	build/iphone.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

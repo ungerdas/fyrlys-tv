@@ -1,0 +1,124 @@
+== feilene
+
+
+== slutten
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der build/dd/Build/Products/Debug-iphonesimulator/Fyrlys.app
+
+RegisterExecutionPolicyException build/dd/Build/Products/Debug-iphonesimulator/Fyrlys.app (in target 'FyrlysMobil' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-RegisterExecutionPolicyException build/dd/Build/Products/Debug-iphonesimulator/Fyrlys.app
+
+Validate build/dd/Build/Products/Debug-iphonesimulator/Fyrlys.app (in target 'FyrlysMobil' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-validationUtility build/dd/Build/Products/Debug-iphonesimulator/Fyrlys.app -shallow-bundle -infoplist-subpath Info.plist
+
+Touch build/dd/Build/Products/Debug-iphonesimulator/Fyrlys.app (in target 'FyrlysMobil' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    /usr/bin/touch -c build/dd/Build/Products/Debug-iphonesimulator/Fyrlys.app
+
+ProcessInfoPlistFile build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest/Info.plist build/dd/Build/Intermediates.noindex/Fyrlys.build/Debug-iphonesimulator/FyrlysMobilUITests.build/empty-FyrlysMobilUITests.plist (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-infoPlistUtility build/dd/Build/Intermediates.noindex/Fyrlys.build/Debug-iphonesimulator/FyrlysMobilUITests.build/empty-FyrlysMobilUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile build/dd/Build/Intermediates.noindex/Fyrlys.build/Debug-iphonesimulator/FyrlysMobilUITests.build/Product
+
+SwiftDriverJobDiscovery normal arm64 Compiling FyrlysMobilUITests.swift (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+
+SwiftDriver\ Compilation FyrlysMobilUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-Swift-Compilation -- /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name FyrlysMobilUITests -Onone -enforce-exclusivity\=checked @build/dd/Build/Intermediates.noindex/Fyrlys.build/Debug-iphonesimulator/FyrlysMobilUITests.build/Objects-normal/arm64/FyrlysMobilUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavail
+
+Ld build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest/FyrlysMobilUITests normal (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -bundle -isysroot /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -O0 -Lbuild/dd/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -Lbuild/dd/Buil
+
+ExtractAppIntentsMetadata (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v17.3.7003.10.XpKFjZ/Metal.xctoolchain --module-name FyrlysMobilUITests --sdk-root /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/i
+2026-11-06 17:21:38.111 appintentsmetadataprocessor[5938:20210] Starting appintentsmetadataprocessor export
+2026-11-06 17:21:38.113 appintentsmetadataprocessor[5938:20210] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CopySwiftLibs build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest/FyrlysMobilUITests --scan-folder build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest/Frameworks --scan-folder build/dd/Build/Products/Debug-iphonesimulator/Fyrl
+
+AppIntentsSSUTraining (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest/Info.plist --temp-dir-path build/dd/Build/Intermediates.noindex/Fyrlys.build/Debug-iphonesimulator/FyrlysMobilUITests.build/ssu --bundle-id no.fyrl
+2026-11-06 17:21:38.147 appintentsnltrainingprocessor[5939:20211] Parsing options for appintentsnltrainingprocessor
+2026-11-06 17:21:38.149 appintentsnltrainingprocessor[5939:20211] No AppShortcuts found - Skipping.
+
+CopyPlistFile build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Info.plist /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Xcode/Agents/XCTRunner.app/Info.plist (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-copyPlist --validate --convert xml1 --macro-expansion WRAPPEDPRODUCTNAME FyrlysMobilUITests-Runner --macro-expansion WRAPPEDPRODUCTBUNDLEIDENTIFIER no.fyrlys.tv.mobil.uitests.xctrunner --macro-expansion TESTPRODUCTNAME FyrlysMobilUITests --macro-expansion TESTPRODUCTBUNDLEIDENTIFIER no.fyrlys.tv.mobil.uitests --copy-value UIDeviceFamily build/dd/Build/Products/Debug-iphonesimulator/Fyr
+
+MkDir build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    /bin/mkdir -p build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app
+
+CopyAndPreserveArchs build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/FyrlysMobilUITests-Runner (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Xcode/Agents/XCTRunner.app/XCTRunner -output build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/FyrlysMobilUITests-Runner -extract arm64
+
+Copy build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PkgInfo /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Xcode/Agents/XCTRunner.app/PkgInfo (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Xcode/Agents/XCTRunner.app/PkgInfo build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app
+
+Copy build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Frameworks/libXCTestSwiftSupport.dylib /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Framework
+
+Copy build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Frameworks/XCUnit.framework /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCUnit.framework (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCUnit.framework build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Fr
+
+Copy build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Frameworks/XCUIAutomation.framework /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/XCUIAutomation.framework (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/XCUIAutomation.framework build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/F
+
+Copy build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Frameworks/XCTestSupport.framework /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTestSupport.framework (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTestSupport.framework build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner
+
+Copy build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Frameworks/XCTestCore.framework /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTestCore.framework (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTestCore.framework build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.ap
+
+Copy build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Frameworks/XCTest.framework /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/XCTest.framework (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/XCTest.framework build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Framework
+
+Copy build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Frameworks/XCTAutomationSupport.framework /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests
+
+Copy build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Frameworks/Testing.framework /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/Testing.framework (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/Testing.framework build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/Framewor
+
+CodeSign build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest
+
+RegisterExecutionPolicyException build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    builtin-RegisterExecutionPolicyException build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest
+
+CodeSign build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app
+build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app: replacing existing signature
+
+Touch build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest (in target 'FyrlysMobilUITests' from project 'Fyrlys')
+    cd /Users/runner/work/fyrlys-tv/fyrlys-tv
+    /usr/bin/touch -c build/dd/Build/Products/Debug-iphonesimulator/FyrlysMobilUITests-Runner.app/PlugIns/FyrlysMobilUITests.xctest
+
+** TEST BUILD SUCCEEDED **
+
