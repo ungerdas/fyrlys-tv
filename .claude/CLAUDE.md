@@ -709,3 +709,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Skjermbildet viste at «Nytt fra Kystkanalen» (episodene uten bibliotek i den falske Plex) havnet til slutt etter
   flyttingen → 0.1.33 (`library(of:)` faller tilbake på slaget; `test26PlexBiblioteker` sjekker radene). 0.1.33
   (bygg 58) er i TestFlight, VALID for TV_OS og IOS; alle testene grønne, også radene i `test26` på iPhone og iPad.
+- 5.11.2026 kveld: Plex Home → 0.1.34 (se Arkitektur). Bygg 59–61 feilet bare i `test32PlexHome` på Apple TV: etter
+  feil PIN tømte appen feltet, tastaturet på tvOS ble lukket, og `typeText` etterpå kom ikke fram (dumpet skjerm viste
+  tastaturet med fokus og tomt felt). Nå tømmes feltet bare på iOS; PIN på fire siffer bytter av seg selv
+  (`onChange`), «Bytt» for lengre. 0.1.34 (bygg 62) er i TestFlight, VALID for TV_OS og IOS. `test17Mkv` (iPad) og
+  `test22PlexEpisoder` (iPhone) flakset én gang i bygg 61 (timing). Ikke prøvd mot hans Plex Home ennå (brukere med
+  begrenset tilgang, PIN, bildene fra plex.tv).
