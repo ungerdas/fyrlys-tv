@@ -408,7 +408,9 @@ jobs:
           mkdir -p build/bilder
           n=1
           for screen in tv guide movies series plex settings player login; do
-            pkill -f "MacOS/Fyrlys" 2>/dev/null; sleep 1
+            # pkill feiler når ingen kjører (og steget stopper ved første feil)
+            pkill -f "MacOS/Fyrlys" 2>/dev/null || true
+            sleep 1
             rm -f "$shot"
             open -n --env FYRLYS_TEST_SERVER=http://127.0.0.1:8899 --env FYRLYS_TEST_PLEX=http://127.0.0.1:8897 \
               --env FYRLYS_TEST_LANG=nb --env FYRLYS_TEST_THEME=dark --env FYRLYS_TEST_SNAPSHOT=1 \
@@ -418,7 +420,7 @@ jobs:
             if [ -f "$shot" ]; then cp "$shot" "build/bilder/$name"; echo "$name"; else echo "::warning title=mac $screen::ingen skjermbilde"; fi
             n=$((n + 1))
           done
-          pkill -f "MacOS/Fyrlys" 2>/dev/null
+          pkill -f "MacOS/Fyrlys" 2>/dev/null || true
           ls build/bilder/*.png > /dev/null 2>&1
 
       - name: Legg skjermbildene i grenen skjermbilder-mac
