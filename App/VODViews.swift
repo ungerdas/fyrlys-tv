@@ -1444,7 +1444,7 @@ struct VODDetailView: View {
     }
 }
 
-/// En episode: nummeret, tittelen, handlingen og lengden, og hvor langt du har sett.
+/// En episode: bildet (ellers nummeret), nummeret og tittelen, handlingen og lengden, og hvor langt du har sett.
 private struct EpisodeRow: View {
     let episode: Episode
     let seen: Double
@@ -1452,14 +1452,11 @@ private struct EpisodeRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 18) {
-            Text(verbatim: "\(episode.number)")
-                .font(.system(size: Metrics.detailText + 4, weight: .bold))
-                .foregroundStyle(Theme.signal)
-                .frame(width: Metrics.detailText * 2.2, alignment: .leading)
+            still
             VStack(alignment: .leading, spacing: 6) {
-                Text(episode.title)
+                (Text(verbatim: "\(episode.number)  ").foregroundStyle(Theme.signal)
+                    + Text(episode.title).foregroundStyle(Theme.ink))
                     .font(.system(size: Metrics.detailText, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                 if !episode.plot.isEmpty {
                     Text(episode.plot)
@@ -1485,11 +1482,29 @@ private struct EpisodeRow: View {
                     .foregroundStyle(Theme.muted)
             }
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, 14)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    /// Bildet fra episoden i 16:9; uten bilde nummeret stort.
+    private var still: some View {
+        Color.clear
+            .frame(width: Metrics.episodeImage, height: Metrics.episodeImage * 9 / 16)
+            .overlay {
+                RemoteImage(url: episode.image.flatMap(URL.init(string:)), fill: true,
+                            maxPoints: Metrics.episodeImage) {
+                    ZStack {
+                        Theme.bg.opacity(0.5)
+                        Text(verbatim: "\(episode.number)")
+                            .font(.system(size: Metrics.detailText * 1.6, weight: .bold))
+                            .foregroundStyle(Theme.signal)
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

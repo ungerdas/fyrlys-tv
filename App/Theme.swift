@@ -119,6 +119,8 @@ enum Metrics {
     static let detailPoster: CGFloat = 340
     static let detailTitle: CGFloat = 52
     static let detailText: CGFloat = 26
+    /// bredden på episodebildet (16:9) i episodelista
+    static let episodeImage: CGFloat = 288
     /// logoen til filmen (bredden; høyden 0,38 av den), bakgrunnsbildet øverst og de medvirkende
     static let detailLogo: CGFloat = 760
     static let detailBackdrop: CGFloat = 700
@@ -189,6 +191,7 @@ enum Metrics {
     static let detailPoster: CGFloat = 120
     static let detailTitle: CGFloat = 22
     static let detailText: CGFloat = 15
+    static let episodeImage: CGFloat = 132
     /// logoen til filmen (bredden; høyden 0,38 av den), bakgrunnsbildet øverst og de medvirkende
     static let detailLogo: CGFloat = 230
     static let detailBackdrop: CGFloat = 320
