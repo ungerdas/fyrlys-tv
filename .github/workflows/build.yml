@@ -352,6 +352,108 @@ jobs:
             commit -q -m "Skjermbilder fra iPhone og iPad, bygg ${{ github.run_number }} [skip ci]"
           git push -q -f "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" skjermbilder-mobil
 
+  # Mac (fra 0.2.2): bygget, og skjermbilder av hovedskjermene mot den falske leverandøren. Appen lagrer selv et bilde
+  # av vinduet sitt (FYRLYS_TEST_SNAPSHOT, i sandkassen), så det trengs ingen tillatelse til skjermopptak.
+  mac:
+    name: Mac
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Velg Xcode
+        run: |
+          mkdir -p build
+          XCODE=$(python3 -c "
+          import glob, re
+          apps = [a for a in glob.glob('/Applications/Xcode_*.app') if re.fullmatch(r'.*/Xcode_[0-9.]+\.app', a)]
+          print(sorted(apps, key=lambda a: [int(x) for x in re.findall(r'\d+', a.split('Xcode_')[1])])[-1])")
+          echo "Xcode: $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version 2>&1 | tee build/xcode.log
+
+      - name: VLCKit (macOS) fra hurtiglageret
+        uses: actions/cache@v5
+        with:
+          path: Vendor/VLCKit.xcframework
+          key: vlckit-macOS-${{ hashFiles('tools/vlckit.sh') }}
+
+      - name: Hent VLCKit
+        run: tools/vlckit.sh macOS 2>&1 | tee build/vlckit.log
+
+      - name: Lag prosjektet (XcodeGen)
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen 2>&1 | tail -n 3
+          xcodegen generate 2>&1 | tee build/xcodegen.log
+
+      - name: Bygg
+        run: |
+          set +e
+          xcodebuild build -project Fyrlys.xcodeproj -scheme FyrlysMac -destination platform=macOS \
+            -derivedDataPath build/dd CURRENT_PROJECT_VERSION=${{ github.run_number }} > build/bygg-mac.log 2>&1
+          code=$?
+          grep -E "error:|\*\* .* \*\*" build/bygg-mac.log | tail -n 40
+          exit $code
+
+      - name: Skjermbilder
+        run: |
+          nohup python3 tools/fake_xtream.py --port 8899 > build/falsk.log 2>&1 &
+          nohup python3 tools/fake_plex.py --port 8897 > build/plex.log 2>&1 &
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            curl -sf "http://127.0.0.1:8899/player_api.php?username=test&password=test" > /dev/null && break
+            sleep 1
+          done
+          app="$PWD/build/dd/Build/Products/Debug/Fyrlys.app"
+          shot="$HOME/Library/Containers/no.fyrlys.tv/Data/Documents/vindu.png"
+          mkdir -p build/bilder
+          n=1
+          for screen in tv guide movies series plex settings player login; do
+            pkill -f "MacOS/Fyrlys" 2>/dev/null; sleep 1
+            rm -f "$shot"
+            open -n --env FYRLYS_TEST_SERVER=http://127.0.0.1:8899 --env FYRLYS_TEST_PLEX=http://127.0.0.1:8897 \
+              --env FYRLYS_TEST_LANG=nb --env FYRLYS_TEST_THEME=dark --env FYRLYS_TEST_SNAPSHOT=1 \
+              --env FYRLYS_TEST_SCREEN=$screen "$app"
+            sleep 15
+            name=$(printf "%02d-mac-%s.png" $n $screen)
+            if [ -f "$shot" ]; then cp "$shot" "build/bilder/$name"; echo "$name"; else echo "::warning title=mac $screen::ingen skjermbilde"; fi
+            n=$((n + 1))
+          done
+          pkill -f "MacOS/Fyrlys" 2>/dev/null
+          ls build/bilder/*.png > /dev/null 2>&1
+
+      - name: Legg skjermbildene i grenen skjermbilder-mac
+        if: always()
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          ls build/bilder/* > /dev/null 2>&1 || { echo "Ingen skjermbilder"; exit 0; }
+          cd build/bilder
+          {
+            echo "# Skjermbilder fra Mac"
+            echo
+            echo "Fra Mac-appen i bygg ${{ github.run_number }} (${GITHUB_SHA::7}), mot den falske leverandøren i"
+            echo "\`tools/fake_xtream.py\` (oppdiktede kanaler). Videobildet er ikke med. Lages på nytt av hvert bygg."
+            echo
+            for f in *.png; do [ -f "$f" ] && { echo "## ${f%.png}"; echo; echo "![${f%.png}]($f)"; echo; }; done
+          } > README.md
+          git init -q
+          git checkout -q -b skjermbilder-mac
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Skjermbilder fra Mac, bygg ${{ github.run_number }} [skip ci]"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" skjermbilder-mac
+
+      - name: Merknad ved feil
+        if: failure()
+        run: |
+          set +e
+          for f in build/xcode.log build/vlckit.log build/xcodegen.log build/bygg-mac.log; do
+            [ -f "$f" ] || continue
+            msg=$( { grep -E "error:|failed|\*\* BUILD FAILED" "$f" | sed "s#$GITHUB_WORKSPACE/##g" | awk 'length($0) < 500 && !seen[$0]++' | head -n 40; echo; tail -n 15 "$f"; } \
+              | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')
+            echo "::error title=$f::$msg"
+          done
+
   # TestFlight: bare når hemmelighetene for App Store Connect finnes (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8,
   # APPLE_TEAM_ID). Arkivene (Apple TV og iPhone/iPad, samme app) bygges usignert og signeres ad hoc; eksporten
   # signerer med et sertifikat og en profil per plattform for kjøringen (slettes etterpå) og laster opp selv, og jobben
@@ -413,8 +515,14 @@ jobs:
           path: Vendor/MobileVLCKit.xcframework
           key: vlckit-iOS-${{ hashFiles('tools/vlckit.sh') }}
 
+      - name: VLCKit (macOS) fra hurtiglageret
+        uses: actions/cache@v5
+        with:
+          path: Vendor/VLCKit.xcframework
+          key: vlckit-macOS-${{ hashFiles('tools/vlckit.sh') }}
+
       - name: Hent VLCKit
-        run: tools/vlckit.sh tvOS iOS 2>&1 | tee build/vlckit.log
+        run: tools/vlckit.sh tvOS iOS macOS 2>&1 | tee build/vlckit.log
 
       - name: Lag prosjektet (XcodeGen)
         run: |
@@ -459,6 +567,17 @@ jobs:
           grep -E "error:|\*\* .* \*\*" build/arkiv-ios.log | tail -n 40
           [ $code -eq 0 ] || exit $code
           tools/adhoc_sign.sh build/FyrlysMobil.xcarchive
+          # Mac (fra 0.2.2): samme app, eget arkiv (Intel og Apple Silicon); en feil her stopper ikke de andre
+          xcodebuild archive -project Fyrlys.xcodeproj -scheme FyrlysMac -configuration Release \
+            -destination generic/platform=macOS -archivePath build/FyrlysMac.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=${{ github.run_number }} > build/arkiv-mac.log 2>&1
+          code=$?
+          grep -E "error:|\*\* .* \*\*" build/arkiv-mac.log | tail -n 40
+          if [ $code -eq 0 ] && tools/adhoc_sign.sh build/FyrlysMac.xcarchive; then
+            echo "MAC_ARCHIVE=1" >> "$GITHUB_ENV"
+          else
+            echo "::warning title=macOS::Arkivet for Mac feilet; bare Apple TV og iPhone/iPad lastes opp%0A$(grep -E "error:" build/arkiv-mac.log | head -n 10 | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
+          fi
 
       # Apples skysignering (-allowProvisioningUpdates med API-nøkkelen) ga et bygg App Store Connect avviste
       # stille («Invalid Signature» for Fyrlys.app/Fyrlys), så bygget signeres med et distribusjonssertifikat (det
@@ -476,15 +595,19 @@ jobs:
           security import "$RUNNER_TEMP/wwdr.cer" -k "$kc" -t cert -f x509
           security import build/signering/distribution.key -k "$kc" -t priv -f openssl -T /usr/bin/codesign
           security import build/signering/distribution.cer -k "$kc" -t cert -f x509
+          # Mac: installasjonssertifikatet (samme nøkkel) for pakken som lastes opp
+          [ -f build/signering/installer.cer ] && security import build/signering/installer.cer -k "$kc" -t cert -f x509
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pw" "$kc" > /dev/null
           security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
           security find-identity -v -p codesigning "$kc"
           for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
             mkdir -p "$d"
             cp build/signering/*.mobileprovision "$d/"
+            cp build/signering/*.provisionprofile "$d/" 2>/dev/null || true
           done
           rm -rf build/export-*
           set +e
+          platforms="TV_OS IOS"
           # Apple TV og iPhone/iPad, hver med sin profil; eksporten laster opp selv
           for pair in "tvOS:Fyrlys:eksport" "iOS:FyrlysMobil:eksport-ios"; do
             platform=${pair%%:*}; rest=${pair#*:}; archive=${rest%%:*}; log=build/${rest#*:}.log
@@ -497,6 +620,22 @@ jobs:
             [ $code -eq 0 ] || exit $code
             echo "::notice title=opplasting $platform::$(grep -iE "upload|export succeeded|warning" "$log" | awk '!seen[$0]++' | tail -n 6 | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
           done
+          # Mac: bare når arkivet og profilen finnes; en feil gir en advarsel, og ventingen ser bort fra Mac
+          if [ "${MAC_ARCHIVE:-}" = "1" ] && [ -f build/signering/ExportOptions-macOS.plist ]; then
+            xcodebuild -exportArchive -archivePath build/FyrlysMac.xcarchive \
+              -exportOptionsPlist build/signering/ExportOptions-macOS.plist -exportPath build/export-macOS \
+              -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" \
+              -authenticationKeyIssuerID "$ASC_ISSUER_ID" > build/eksport-mac.log 2>&1
+            code=$?
+            echo "== macOS"; tail -n 30 build/eksport-mac.log
+            if [ $code -eq 0 ]; then
+              platforms="$platforms MAC_OS"
+              echo "::notice title=opplasting macOS::$(grep -iE "upload|export succeeded|warning" build/eksport-mac.log | awk '!seen[$0]++' | tail -n 6 | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); print}')"
+            else
+              echo "::warning title=opplasting macOS::$( { grep -E "error|rror:|ERROR|failed" build/eksport-mac.log | awk 'length($0) < 500 && !seen[$0]++' | tail -n 20; tail -n 10 build/eksport-mac.log; } | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')"
+            fi
+          fi
+          echo "ASC_PLATFORMS=$platforms" >> "$GITHUB_ENV"
 
       - name: Vent på at Apple har tatt imot bygget
         run: python3 tools/asc.py wait ${{ github.run_number }}
@@ -516,7 +655,7 @@ jobs:
         run: |
           # uten set +e stoppet steget ved første grep uten treff (pipefail), før merknadene for testene
           set +e
-          for f in build/vlckit.log build/asc.log build/arkiv.log build/arkiv-ios.log build/eksport.log build/eksport-ios.log; do
+          for f in build/vlckit.log build/asc.log build/arkiv.log build/arkiv-ios.log build/arkiv-mac.log build/eksport.log build/eksport-ios.log build/eksport-mac.log; do
             [ -f "$f" ] || continue
             msg=$( { grep -E "error|rror:|ERROR|failed" "$f" | awk 'length($0) < 500 && !seen[$0]++' | tail -n 30; echo; tail -n 15 "$f"; } \
               | sed "s#$GITHUB_WORKSPACE/##g" | cut -c1-300 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')

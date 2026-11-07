@@ -1,8 +1,8 @@
-# Fyrlys for Apple TV, iPhone og iPad
+# Fyrlys for Apple TV, iPhone, iPad og Mac
 
 ![Fyrlys](docs/ikon.png)
 
-En enkel IPTV-spiller for Apple TV, iPhone og iPad: logg inn med Xtream Codes eller en M3U-lenke fra
+En enkel IPTV-spiller for Apple TV, iPhone, iPad og Mac: logg inn med Xtream Codes eller en M3U-lenke fra
 IPTV-leverandøren din og se TV.
 
 - **TV**: favoritter, sist sett, alle kanaler og kategoriene, med det som går nå på hvert kanalkort. Legg kategoriene
@@ -27,6 +27,8 @@ IPTV-leverandøren din og se TV.
   dem). Med Plex Home velger du hvem som ser på. Hvor langt du har sett, og hva du har
   sett, holdes i takt med Plex. «Hopp over introen» og «Hopp over rulleteksten» der Plex har merket dem,
   undertekstfilene ved siden av filmene, og «Mer som dette».
+- **Mac**: som Fyrlys for Windows, med merket, seksjonene og søket øverst i vinduet, sidemenyen og kanalkortene, og
+  spilleren med kanallista ved siden av bildet (fullskjerm og bilde-i-bilde i kontrollene, Esc lukker).
 - **iPhone**: som Fyrlys på nettet på en telefon, med favorittene og det du har sett sist øverst, kategoriene som
   fliser, store kanalkort med logoens egen farge, og lys eller mørk modus.
 - Norsk og engelsk, etter språket på enheten.
@@ -34,7 +36,7 @@ IPTV-leverandøren din og se TV.
 Innloggingen lagres kryptert i nøkkelringen på enheten og sendes bare til leverandøren din. Appen har ingen kanaler
 selv og samler ingenting inn.
 
-Fyrlys trenger tvOS 17 eller iOS/iPadOS 17 eller nyere. Kanalene spilles som HLS (`.m3u8`), og det støtter de fleste
+Fyrlys trenger tvOS 17, iOS/iPadOS 17 eller macOS 14 (Sonoma) eller nyere. Kanalene spilles som HLS (`.m3u8`), og det støtter de fleste
 Xtream-leverandører. En M3U-lenke som er en Xtream-lenke (get.php med brukernavn og passord), logges inn som Xtream
 Codes, med filmer, serier og TV-arkiv; en annen M3U-liste gir kanalene og TV-guiden. Kanaler i en M3U-liste som ikke
 sendes som HLS, kan Apples avspiller ikke spille (en .ts-strøm fra en Xtream-server prøves som HLS først).
@@ -42,8 +44,9 @@ sendes som HLS, kan Apples avspiller ikke spille (en .ts-strøm fra en Xtream-se
 ## Status
 
 Under utvikling, og kommer via TestFlight. Skjermbilder fra testene ligger i grenene
-[`skjermbilder`](../../tree/skjermbilder) (Apple TV) og [`skjermbilder-mobil`](../../tree/skjermbilder-mobil) (iPhone og
-iPad), og de er tatt mot en falsk leverandør med oppdiktede kanaler.
+[`skjermbilder`](../../tree/skjermbilder) (Apple TV), [`skjermbilder-mobil`](../../tree/skjermbilder-mobil) (iPhone og
+iPad) og [`skjermbilder-mac`](../../tree/skjermbilder-mac) (Mac), og de er tatt mot en falsk leverandør med oppdiktede
+kanaler.
 
 ## Bygge selv
 
@@ -58,7 +61,8 @@ open Fyrlys.xcodeproj
 
 - Kjernen (`Core/`: Xtream, programinfo, favoritter, tekstene) er en Swift-pakke. Den kan testes på macOS og Linux med
   `swift test --package-path Core`.
-- Appen selv (`App/`) er SwiftUI, med to mål: `Fyrlys` (Apple TV) og `FyrlysMobil` (iPhone og iPad).
+- Appen selv (`App/`) er SwiftUI, med tre mål: `Fyrlys` (Apple TV), `FyrlysMobil` (iPhone og iPad) og `FyrlysMac`
+  (Mac). Mac-appen kan kjøres rett fra Xcode (skjemaet `FyrlysMac`).
 - Testene i simulatorene (`UITests/` og `UITestsMobil/`) bruker `tools/fake_xtream.py` og `tools/fake_plex.py`.
 
 ## Lisenser

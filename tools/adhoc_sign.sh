@@ -3,7 +3,9 @@
 # «xcodebuild -exportArchive» har dem når den signerer for App Store. Å bygge signert for en Apple TV ville krevd en
 # utviklerprofil, og den krever en registrert enhet.
 # Med ICLOUD_KVS=1 (satt av «asc.py check» når iCloud er slått på for app-id-en) også iCloud nøkkel–verdi-lagringen,
-# felles for Apple TV, iPhone og iPad (samme app-id), for favorittene.
+# felles for Apple TV, iPhone, iPad og Mac (samme app-id), for favorittene.
+# Mac (fra 0.2.2, Contents/ i appen): sandkassen og nettet ut og inn (som i project.yml), og rammeverkene (VLCKit) i
+# Contents/Frameworks.
 # Bruk: APPLE_TEAM_ID=… tools/adhoc_sign.sh build/Fyrlys.xcarchive
 set -eu
 team="${APPLE_TEAM_ID:?APPLE_TEAM_ID mangler}"
@@ -13,6 +15,28 @@ trap 'rm -rf "$tmp"' EXIT
 icloud=""
 if [ "${ICLOUD_KVS:-}" = "1" ]; then
   icloud="<key>com.apple.developer.ubiquity-kvstore-identifier</key><string>$team.no.fyrlys.tv</string>"
+fi
+if [ -f "$app/Contents/Info.plist" ]; then
+  cat > "$tmp/rettigheter.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.application-identifier</key><string>$team.no.fyrlys.tv</string>
+  <key>com.apple.developer.team-identifier</key><string>$team</string>
+  <key>com.apple.security.app-sandbox</key><true/>
+  <key>com.apple.security.network.client</key><true/>
+  <key>com.apple.security.network.server</key><true/>
+  $icloud
+</dict></plist>
+EOF
+  if [ -d "$app/Contents/Frameworks" ]; then
+    find "$app/Contents/Frameworks" -maxdepth 1 \( -name "*.framework" -o -name "*.dylib" \) -exec \
+      codesign --force --sign - --timestamp=none {} \;
+  fi
+  codesign --force --sign - --timestamp=none --options runtime --entitlements "$tmp/rettigheter.plist" "$app"
+  codesign --verify --deep --strict "$app"
+  echo "Signert ad hoc: $app (Mac)"
+  exit 0
 fi
 # den felles nøkkelring-gruppen med Top Shelf (favorittene); appens egen gruppe først, så den er standard
 shared="$team.no.fyrlys.tv.shared"

@@ -5,16 +5,18 @@ ASC_KEY_PATH (.p8-fila), ASC_KEY_ID, ASC_ISSUER_ID og APPLE_TEAM_ID. Valgfritt D
 per kjøring, og det trekkes tilbake etterpå (Apple sender en e-post om det hver gang).
 
     python3 tools/asc.py check                  sjekker nøkkelen, app-id-en og appen i App Store Connect, og legger
-                                                til iOS i appen første gang (Apple TV, iPhone og iPad er én app)
+                                                til iOS og macOS i appen første gang (Apple TV, iPhone, iPad og
+                                                Mac er én app)
     python3 tools/asc.py prepare <mappe>        finner eller lager distribusjonssertifikatet og lager en App
                                                 Store-profil per plattform for denne kjøringen (nøkkel, sertifikat,
-                                                profiler og ExportOptions-tvOS.plist/-iOS.plist, der eksporten laster
-                                                bygget rett opp til App Store Connect)
+                                                profiler og ExportOptions-tvOS.plist/-iOS.plist/-macOS.plist, der
+                                                eksporten laster bygget rett opp til App Store Connect; for Mac også
+                                                sertifikatet til installasjonspakken)
     python3 tools/asc.py cleanup <mappe>        sletter profilene, og trekker tilbake sertifikatet hvis det ble laget
                                                 bare for denne kjøringen (uten DIST_KEY_PATH)
     python3 tools/asc.py builds                 de siste byggene i App Store Connect og om de er klare for TestFlight
-    python3 tools/asc.py wait <byggnummer>      venter (høyst 25 min) til bygget for begge plattformene dukker opp i
-                                                App Store Connect
+    python3 tools/asc.py wait <byggnummer>      venter (høyst 25 min) til bygget for plattformene dukker opp i App
+                                                Store Connect (ASC_PLATFORMS, f.eks. «TV_OS IOS», ellers alle)
 
 Skriver aldri ut nøkler eller tokens. Bare standardbiblioteket og openssl.
 """
@@ -34,7 +36,10 @@ BUNDLE_ID = "no.fyrlys.tv"
 APP_NAME = "Fyrlys"
 OPENSSL = "/usr/bin/openssl" if Path("/usr/bin/openssl").exists() else "openssl"
 # plattformene: navnet i filene, profiltypen og plattformen i App Store Connect
-PLATFORMS = [("tvOS", "TVOS_APP_STORE", "TV_OS"), ("iOS", "IOS_APP_STORE", "IOS")]
+PLATFORMS = [("tvOS", "TVOS_APP_STORE", "TV_OS"), ("iOS", "IOS_APP_STORE", "IOS"),
+             ("macOS", "MAC_APP_STORE", "MAC_OS")]
+# Mac (fra 0.2.2) er valgfri: feiler noe for den, lastes Apple TV og iPhone/iPad opp likevel
+OPTIONAL = {"macOS"}
 # utvidelsene i appen per plattform (app-id og navn): Top Shelf på Apple TV
 EXTENSIONS = {"tvOS": [("no.fyrlys.tv.topshelf", "Fyrlys Top Shelf")]}
 
@@ -164,6 +169,8 @@ def check():
         sys.exit(f"Ingen app med {BUNDLE_ID} i App Store Connect (Apps → + → New App, tvOS)")
     print(f"Nøkkelen virker, og appen «{apps[0]['attributes'].get('name')}» finnes i App Store Connect")
     ensure_platform(asc, apps[0]["id"], "IOS")
+    if not ensure_platform(asc, apps[0]["id"], "MAC_OS", required=False):
+        github_env("MAC_OS_READY", "0")
     # iCloud (nøkkel–verdi-lagringen, for favorittene på alle enhetene): signeringen tar den med bare når den er på
     if ensure_capability(asc, bundle_id(asc)["id"], "ICLOUD",
                          [{"key": "ICLOUD_VERSION", "options": [{"key": "XCODE_6"}]}]):
@@ -195,20 +202,26 @@ def ensure_capability(asc, bundle, kind, settings=None):
     return True
 
 
-def ensure_platform(asc, app, platform):
-    """Legger plattformen til i appen (en App Store-versjon for den), så bygg for den kan lastes opp til samme app."""
+def ensure_platform(asc, app, platform, required=True):
+    """Legger plattformen til i appen (en App Store-versjon for den), så bygg for den kan lastes opp til samme app.
+    Sant når den er der."""
     versions = asc.call("GET", f"/v1/apps/{app}/appStoreVersions?limit=200").get("data", [])
     if any(v["attributes"].get("platform") == platform for v in versions):
-        return
+        return True
     code, res = asc.request("POST", "/v1/appStoreVersions", data("appStoreVersions", {
         "platform": platform, "versionString": "1.0"}, {"app": {"data": {"type": "apps", "id": app}}}))
     if code not in (200, 201):
-        sys.exit(f"Fikk ikke lagt {platform} til appen i App Store Connect: HTTP {code} {errors(res)} "
-                 "(legg den til for hånd: appen → + ved plattformene)")
-    print(f"La til {platform} i appen i App Store Connect")
+        message = (f"Fikk ikke lagt {platform} til appen i App Store Connect: HTTP {code} {errors(res)} "
+                   "(legg den til for hånd: appen → + ved plattformene)")
+        if required:
+            sys.exit(message)
+        print(f"::warning title={platform}::{message}")
+        return False
+    print(f"::notice title=App Store Connect::La til {platform} i appen")
+    return True
 
 
-def export_options(folder, manual_profile=None, file="ExportOptions.plist", extra=None):
+def export_options(folder, manual_profile=None, file="ExportOptions.plist", extra=None, installer=False):
     team = env("APPLE_TEAM_ID")
     if manual_profile:
         profiles = {BUNDLE_ID: manual_profile, **(extra or {})}
@@ -216,6 +229,9 @@ def export_options(folder, manual_profile=None, file="ExportOptions.plist", extr
         signing = ("<key>signingStyle</key><string>manual</string>"
                    "<key>signingCertificate</key><string>Apple Distribution</string>"
                    f"<key>provisioningProfiles</key><dict>{entries}</dict>")
+        if installer:
+            # Mac: pakken som lastes opp, signeres med installasjonssertifikatet
+            signing += "<key>installerSigningCertificate</key><string>Mac Installer Distribution</string>"
     else:
         signing = "<key>signingStyle</key><string>automatic</string>"
     Path(folder).mkdir(parents=True, exist_ok=True)
@@ -250,26 +266,32 @@ def prepare(folder):
     key, csr = folder / "distribution.key", folder / "distribution.csr"
     kept = os.environ.get("DIST_KEY_PATH", "").strip()
     rsa_key(kept or None, key)
-    cert = find_certificate(asc, key) if kept else None
-    # som merknad på bygget (loggen kan ikke leses fra Claude-økta)
-    if cert:
-        print(f"::notice title=sertifikat::Bruker distribusjonssertifikatet fra før (utløper "
-              f"{cert['attributes'].get('expirationDate')})")
-    else:
-        subprocess.run([OPENSSL, "req", "-new", "-key", str(key), "-out", str(csr), "-subj",
-                        f"/CN={APP_NAME} CI/O={env('APPLE_TEAM_ID')}"], check=True, capture_output=True)
-        cert = asc.call("POST", "/v1/certificates", data("certificates", {
-            "certificateType": "DISTRIBUTION", "csrContent": csr.read_text()}))["data"]
-        if kept:
-            print(f"::notice title=sertifikat::Laget distribusjonssertifikatet som beholdes til neste bygg (utløper "
+
+    def certificate(kind, title, out, state_key):
+        """Sertifikatet av typen [kind] for nøkkelen: det fra før (med DIST_KEY), ellers et nytt."""
+        cert = find_certificate(asc, key, kind) if kept else None
+        # som merknad på bygget (loggen kan ikke leses fra Claude-økta)
+        if cert:
+            print(f"::notice title=sertifikat::Bruker {title} fra før (utløper "
                   f"{cert['attributes'].get('expirationDate')})")
         else:
-            # trekkes tilbake av cleanup
-            state["certificate"] = cert["id"]
-            save()
-            print(f"Laget et distribusjonssertifikat for denne kjøringen (utløper "
-                  f"{cert['attributes'].get('expirationDate')})")
-    (folder / "distribution.cer").write_bytes(base64.b64decode(cert["attributes"]["certificateContent"]))
+            if not csr.exists():
+                subprocess.run([OPENSSL, "req", "-new", "-key", str(key), "-out", str(csr), "-subj",
+                                f"/CN={APP_NAME} CI/O={env('APPLE_TEAM_ID')}"], check=True, capture_output=True)
+            cert = asc.call("POST", "/v1/certificates", data("certificates", {
+                "certificateType": kind, "csrContent": csr.read_text()}))["data"]
+            if kept:
+                print(f"::notice title=sertifikat::Laget {title} som beholdes til neste bygg (utløper "
+                      f"{cert['attributes'].get('expirationDate')})")
+            else:
+                # trekkes tilbake av cleanup
+                state[state_key] = cert["id"]
+                save()
+                print(f"Laget {title} for denne kjøringen (utløper {cert['attributes'].get('expirationDate')})")
+        (folder / out).write_bytes(base64.b64decode(cert["attributes"]["certificateContent"]))
+        return cert
+
+    cert = certificate("DISTRIBUTION", "distribusjonssertifikatet", "distribution.cer", "certificate")
 
     run = f"{os.environ.get('GITHUB_RUN_ID', int(time.time()))}-{os.environ.get('GITHUB_RUN_ATTEMPT', 1)}"
 
@@ -288,19 +310,32 @@ def prepare(folder):
             profile = found[0]
         state["profiles"].append({"id": profile["id"], "name": name})
         save()
-        (folder / f"{profile['attributes']['uuid']}.mobileprovision").write_bytes(
+        suffix = "provisionprofile" if kind.startswith("MAC") else "mobileprovision"
+        (folder / f"{profile['attributes']['uuid']}.{suffix}").write_bytes(
             base64.b64decode(profile["attributes"]["profileContent"]))
         print(f"Laget App Store-profilen «{name}»")
 
-    for platform, kind, _ in PLATFORMS:
-        name = f"{APP_NAME} CI {run} {platform}"
-        make_profile(row, name, kind)
-        extra = {}
-        for identifier, title in EXTENSIONS.get(platform, []):
-            ext_name = f"{name} {identifier.rsplit('.', 1)[-1]}"
-            make_profile(ensure_bundle_id(asc, identifier, title), ext_name, kind)
-            extra[identifier] = ext_name
-        export_options(folder, manual_profile=name, file=f"ExportOptions-{platform}.plist", extra=extra)
+    for platform, kind, store in PLATFORMS:
+        if store == "MAC_OS" and os.environ.get("MAC_OS_READY") == "0":
+            print("::warning title=macOS::Mac er ikke lagt til appen i App Store Connect; bygget lastes ikke opp")
+            continue
+        try:
+            if store == "MAC_OS":
+                certificate("MAC_INSTALLER_DISTRIBUTION", "installasjonssertifikatet for Mac", "installer.cer",
+                            "installer")
+            name = f"{APP_NAME} CI {run} {platform}"
+            make_profile(row, name, kind)
+            extra = {}
+            for identifier, title in EXTENSIONS.get(platform, []):
+                ext_name = f"{name} {identifier.rsplit('.', 1)[-1]}"
+                make_profile(ensure_bundle_id(asc, identifier, title), ext_name, kind)
+                extra[identifier] = ext_name
+            export_options(folder, manual_profile=name, file=f"ExportOptions-{platform}.plist", extra=extra,
+                           installer=store == "MAC_OS")
+        except SystemExit as stop:
+            if platform not in OPTIONAL:
+                raise
+            print(f"::warning title={platform}::{stop}; bygget for {platform} lastes ikke opp")
 
 
 def rsa_key(source, out):
@@ -329,12 +364,12 @@ def modulus(args, data=None):
     return text.split("=", 1)[1].upper() if res.returncode == 0 and "=" in text else None
 
 
-def find_certificate(asc, key):
-    """Distribusjonssertifikatet hos Apple med samme offentlige nøkkel som [key]. Går det ut innen to uker, trekkes
+def find_certificate(asc, key, kind="DISTRIBUTION"):
+    """Sertifikatet av typen [kind] hos Apple med samme offentlige nøkkel som [key]. Går det ut innen to uker, trekkes
     det tilbake (en gang i året), så prepare lager et nytt."""
     mine = modulus(["rsa", "-in", str(key)])
     soon = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() + 14 * 86400))
-    rows = asc.call("GET", "/v1/certificates?filter[certificateType]=DISTRIBUTION&limit=200").get("data", [])
+    rows = asc.call("GET", f"/v1/certificates?filter[certificateType]={kind}&limit=200").get("data", [])
     for row in rows:
         content = row["attributes"].get("certificateContent")
         if not content or modulus(["x509", "-inform", "DER"], base64.b64decode(content)) != mine:
@@ -359,10 +394,12 @@ def cleanup(folder):
         if code not in (204, 404):
             print(f"::warning::Profilen {profile['name']} ble ikke slettet: HTTP {code} {errors(res)}")
             failed = True
-    if state.get("certificate"):
-        code, res = asc.request("DELETE", f"/v1/certificates/{state['certificate']}")
+    for field in ("certificate", "installer"):
+        if not state.get(field):
+            continue
+        code, res = asc.request("DELETE", f"/v1/certificates/{state[field]}")
         if code not in (204, 404):
-            print(f"::warning::Sertifikatet ble ikke trukket tilbake: HTTP {code} {errors(res)}")
+            print(f"::warning::Sertifikatet ({field}) ble ikke trukket tilbake: HTTP {code} {errors(res)}")
             failed = True
     if not failed:
         print("::notice title=opprydding::" + ("Slettet profilene og trakk tilbake sertifikatet fra denne kjøringen"
@@ -418,7 +455,7 @@ def wait(number, minutes=25):
     """Venter til bygget med [number] finnes i App Store Connect for alle plattformene (og helst er ferdig behandlet)."""
     asc = Asc()
     app = app_id(asc)
-    wanted = [store for _, _, store in PLATFORMS]
+    wanted = os.environ.get("ASC_PLATFORMS", "").split() or [store for _, _, store in PLATFORMS]
     deadline = time.time() + minutes * 60
     states = {}
     while time.time() < deadline:

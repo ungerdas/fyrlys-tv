@@ -1,5 +1,13 @@
 # Endringer
 
+## v0.2.2
+
+- **Fyrlys for Mac** (macOS 14 Sonoma eller nyere, Intel og Apple Silicon), som en del av den samme appen i
+  TestFlight. Den ser ut som Fyrlys for Windows: merket, seksjonene (TV, TV-guide, Filmer, Serier, Plex), søket, lys
+  eller mørk og innstillingene øverst i vinduet; sidemenyen og kanalkortene; TV-guiden; filmer og serier med VLC for
+  mkv og andre filtyper; Plex; multiview; spilleren med kanallista ved siden av bildet og Macens egne kontroller
+  (fullskjerm, bilde-i-bilde, AirPlay). Esc lukker spilleren, ⌘, åpner innstillingene.
+
 ## v0.2.1
 
 - Apple TV: sidemenyen i Filmer, Serier og Plex er smalere (220 i stedet for 340 punkter), så plakatene får mer

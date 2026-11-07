@@ -486,6 +486,37 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `totalCostLimit` 180 MB. Plex bes om plakater 720 × 1080 (`imageURL` standard), bakgrunn 1920 × 1080, bredbilder
   1280 × 720, episoder 960 × 540, roller 400 × 400 og logoen 1600 × 800 med `fit: true` (`minSize=0&upscale=0`:
   hele logoen innenfor rammen, ikke beskåret som plakatene).
+- **Mac fra 0.2.2** (eieren 7.11.2026: «det neste vi skal bygge er app til MacOS»; valgte egen Mac-app (ikke
+  Catalyst: MobileVLCKit har ingen del for Catalyst, og iPad-apper kjører ikke på hans Intel-Mac), utseendet som Fyrlys
+  for Windows, ut via TestFlight som de andre): målet `FyrlysMac` (macOS 14, samme bundle-id, sandkasse med
+  `network.client`/`network.server` (tilbakespolingen), hardened runtime, `CODE_SIGN_IDENTITY -` lokalt), skjemaet
+  `FyrlysMac`, VLCKit for Mac (`tools/vlckit.sh macOS`, universell, mappen «VLCKit - binary package»), ikonet i
+  `App/Mac.xcassets` fra iPhone-ikonet (`swift tools/mac_icon.swift`; de andre målene utelater det). Koden følger
+  iPad: `#if os(iOS)` i den felles koden ble `#if !os(tvOS)` (bare `PhoneHome.swift`/`PhoneTV.swift` og `Landscape` er
+  iOS), `usesPhoneLayout` er alltid nei på Mac. `App/MacSupport.swift`: navnene fra UIKit med AppKit under
+  (`UIImage`/`UIColor` = NS…, `Image(uiImage:)`, `UIApplication` (bare `isIdleTimerDisabled` via
+  `ProcessInfo.beginActivity`; «i bakgrunnen» aldri), `UIDevice`, `UIPasteboard`, `byPreparingThumbnail`,
+  `externalMetadata` (tom)) og iOS-modifikatorene (`keyboardType`, `textInputAutocapitalization`,
+  `navigationBarTitleDisplayMode`, `statusBarHidden`, `.topBarLeading/.topBarTrailing`, `navigationBarDrawer`,
+  `EditButton`) som ikke gjør noe eller det nærmeste; `fullScreenCover` (spilleren, multiview) er et ark like stort som
+  vinduet (`WindowCover`). Egne Mac-versjoner: `VLCSurfaceView` (NSView), `PlayerLayerView`, `VODPlayerController` og
+  `VideoSurface` i `PlayerViewMobil` (`AVPlayerView`, flytende kontroller, fullskjerm, bilde-i-bilde; Esc lukker),
+  `Theme.tone` (`NSColor(name:dynamicProvider:)`), knappene i spillerpanelet (ikon over tekst; panelet 420 bredt).
+  `HomeView.macHome`: ingen TabView, siden byttes etter `tab`; verktøylinja som toppen i Windows-appen (`MacBrand`,
+  seksjonene som segmentert `Picker` `seksjoner`, `SearchField` (søket viser `SearchView` mens det står noe der, så
+  tilbake), `MacThemeButton` `tema`, tannhjulet `innstillinger-knapp`; ⌘, via `.fyrlysOpenSettings`); skjemaene
+  `.formStyle(.grouped)`. **Se Mac-appen uten skjermopptak** (Claude har ikke den tillatelsen her): med
+  `FYRLYS_TEST_SNAPSHOT` lagrer appen et bilde av vinduet (eller arket) hvert andre sekund i
+  `~/Library/Containers/no.fyrlys.tv/Data/Documents/vindu.png` (`WindowSnapshot`; videobildet kommer ikke med). Start
+  med `open -n --env FYRLYS_TEST_SERVER=http://127.0.0.1:8899 --env FYRLYS_TEST_SNAPSHOT=1 --env
+  FYRLYS_TEST_SCREEN=<skjerm> build/DerivedDataMac/Build/Products/Debug/Fyrlys.app` (å starte programfila direkte
+  ga ingen vindu); bygg Mac med `-derivedDataPath build/DerivedDataMac` (ikke samme mappe som et annet bygg som går).
+  Workflowen: jobben `mac` bygger og tar bildene (grenen `skjermbilder-mac`, `NN-mac-<skjerm>.png`); TestFlight-jobben
+  arkiverer Mac (`MAC_ARCHIVE`), `adhoc_sign.sh` gir Mac-appen `com.apple.application-identifier`, sandkassen og
+  nettet, `asc.py`: `MAC_OS` i appen (`ensure_platform(required=False)`), profilen `MAC_APP_STORE`
+  (`.provisionprofile`), sertifikatet `MAC_INSTALLER_DISTRIBUTION` (`installer.cer`, samme nøkkel), `ExportOptions-
+  macOS.plist` med `installerSigningCertificate`; alt for Mac er valgfritt (`OPTIONAL`): feiler det, en advarsel, og
+  `ASC_PLATFORMS` (som `wait` bruker) er uten `MAC_OS`.
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -779,3 +810,11 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   alltid små, ensfargede bilder); ikke sett på en ekte Apple TV 4K ennå. Logoen bes om med `minSize=0&upscale=0` uten
   `format=`: i 0.1.36 (`minSize=1`, uten `format=`) så logoene riktige ut hos eieren, så Plex beholder
   gjennomsiktigheten; står de med svart boks bak, prøv `format=png`.
+- 7.11.2026 (på eierens Mac): 0.2.1 = smalere sidemeny i Filmer/Serier/Plex på Apple TV (`Metrics.vodSidebarWidth`
+  220; TV-siden 340 som før), «Fortsett å se» lagrer den neste episoden når en er sett ferdig (leverandøren), og
+  episodebildet i episodelista. Bygget fra 0.2.1: TestFlight venter ikke på UI-testene (8 min fra push), iPhone og iPad
+  testes samtidig (27 og 16 min). 0.2.1 (bygg 67) er i TestFlight, alle testene grønne. Eieren samler gjerne flere små
+  endringer før en push. 0.2.2 = Mac-appen (se Arkitektur); lokalt bygget, kjørt og sett på (TV, guide, filmer,
+  innstillinger, spilleren), Release-arkivet universelt og signert ad hoc. Ikke prøvd ennå: opplastingen av Mac til
+  App Store Connect (profilen for en app-id registrert som IOS, installasjonssertifikatet), avspilling med lyd og bilde
+  på Mac, VLC på Mac, iCloud og nøkkelringen i et signert bygg.
