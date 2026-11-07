@@ -376,10 +376,13 @@ final class VODPlayerModel {
             library.finishedHere.insert(play.progressKey)
             // Plex husker selv hva som er sett (og der kan det merkes som usett igjen)
             if play.plex == nil { app.setFinished(play.progressKey) }
-            // en ferdig film tas ut av «Fortsett å se»; en serie står (uten episoden: siden viser den neste)
+            // en ferdig film tas ut av «Fortsett å se»; en serie står med den neste episoden (kortet spiller den
+            // med en gang), eller uten episode etter den siste (siden viser hva som er igjen)
             if let item = play.item, !item.isPlex {
                 if item.kind == .movies {
                     app.forgetContinue(item)
+                } else if let next = around.next {
+                    app.rememberContinue(VODResume(item: item, episode: next, progress: 0, image: play.image))
                 } else {
                     app.rememberContinue(VODResume(item: item, image: play.image))
                 }
