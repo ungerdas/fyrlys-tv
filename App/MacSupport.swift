@@ -1,0 +1,230 @@
+#if os(macOS)
+import AppKit
+import SwiftUI
+
+// Mac (fra 0.2.2): navnene fra UIKit som resten av appen bruker, med AppKit under.
+
+typealias UIImage = NSImage
+typealias UIColor = NSColor
+
+extension NSImage {
+    /// som UIImage.cgImage
+    var cgImage: CGImage? {
+        var rect = CGRect(origin: .zero, size: size)
+        return cgImage(forProposedRect: &rect, context: nil, hints: nil)
+    }
+
+    /// som UIImage(cgImage:)
+    convenience init(cgImage: CGImage) {
+        self.init(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+    }
+}
+
+extension Image {
+    /// som Image(uiImage:)
+    init(uiImage: NSImage) {
+        self.init(nsImage: uiImage)
+    }
+}
+#endif
+
+#if os(macOS)
+/// Mac: aldri en telefon som skal legges ned (`Landscape` er for iPhone).
+enum Landscape {
+    static let isPhone = false
+    static let isLandscape = true
+    static func set(_ landscape: Bool) {}
+}
+
+/// Det UIKit-appen bruker av UIApplication: skjermspareren (en aktivitet som holder skjermen våken mens noe spilles)
+/// og «i bakgrunnen» (på Mac aldri: lyden fortsetter når vinduet er skjult, som i andre avspillere på Mac).
+final class UIApplication {
+    static let shared = UIApplication()
+    static let didEnterBackgroundNotification = Notification.Name("no.fyrlys.mac.aldri")
+    static let didBecomeActiveNotification = NSApplication.didBecomeActiveNotification
+    static let willResignActiveNotification = NSApplication.willResignActiveNotification
+
+    private var activity: NSObjectProtocol?
+
+    var isIdleTimerDisabled: Bool {
+        get { activity != nil }
+        set {
+            if newValue, activity == nil {
+                activity = ProcessInfo.processInfo.beginActivity(
+                    options: [.idleDisplaySleepDisabled, .userInitiated], reason: "Fyrlys spiller")
+            } else if !newValue, let activity {
+                ProcessInfo.processInfo.endActivity(activity)
+                self.activity = nil
+            }
+        }
+    }
+}
+
+/// Tastaturtypen og store forbokstaver finnes ikke på Mac (fysisk tastatur).
+enum UIKeyboardType {
+    case `default`, URL, numberPad, asciiCapable, emailAddress, decimalPad, numbersAndPunctuation
+}
+
+struct TextInputAutocapitalization {
+    static let never = TextInputAutocapitalization()
+    static let words = TextInputAutocapitalization()
+    static let sentences = TextInputAutocapitalization()
+    static let characters = TextInputAutocapitalization()
+}
+
+extension View {
+    func keyboardType(_ type: UIKeyboardType) -> some View { self }
+    func textInputAutocapitalization(_ style: TextInputAutocapitalization?) -> some View { self }
+}
+
+extension NSTextContentType {
+    static let URL = NSTextContentType(rawValue: "URL")
+}
+#endif
+
+#if os(macOS)
+/// Enheten i feilrapporten.
+final class UIDevice {
+    static let current = UIDevice()
+    let model = "Mac"
+    let systemName = "macOS"
+    var systemVersion: String {
+        let v = ProcessInfo.processInfo.operatingSystemVersion
+        return "\(v.majorVersion).\(v.minorVersion).\(v.patchVersion)"
+    }
+}
+
+/// «Kopier» i feilrapporten.
+final class UIPasteboard {
+    static let general = UIPasteboard()
+
+    var string: String? {
+        get { NSPasteboard.general.string(forType: .string) }
+        set {
+            NSPasteboard.general.clearContents()
+            if let newValue { NSPasteboard.general.setString(newValue, forType: .string) }
+        }
+    }
+}
+#endif
+
+#if os(macOS)
+import AVFoundation
+
+extension UIDevice {
+    /// navnet på Mac-en (Plex viser det i listen over enheter)
+    var name: String { Host.current().localizedName ?? "Mac" }
+}
+
+extension NSImage {
+    /// som UIImage.byPreparingThumbnail(ofSize:): tegnet på nytt i [size] piksler
+    func byPreparingThumbnail(ofSize size: CGSize) async -> NSImage? {
+        guard let source = cgImage, size.width >= 1, size.height >= 1 else { return nil }
+        let width = Int(size.width.rounded()), height = Int(size.height.rounded())
+        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(source, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage().map { NSImage(cgImage: $0) }
+    }
+}
+
+extension AVPlayerItem {
+    /// programinfoen i Apples kontroller finnes ikke på Mac (AVPlayerView viser ikke titler)
+    var externalMetadata: [AVMetadataItem] {
+        get { [] }
+        set {}
+    }
+}
+
+// Plasseringene og linjene fra iOS, det nærmeste på Mac.
+extension ToolbarItemPlacement {
+    static var topBarLeading: ToolbarItemPlacement { .navigation }
+    static var topBarTrailing: ToolbarItemPlacement { .primaryAction }
+}
+
+extension SearchFieldPlacement {
+    enum MacDrawerMode { case always, automatic }
+    static func navigationBarDrawer(displayMode: MacDrawerMode) -> SearchFieldPlacement { .toolbar }
+}
+
+extension ContentShapeKinds {
+    static var contextMenuPreview: ContentShapeKinds { .interaction }
+}
+
+enum MacTitleDisplayMode { case inline, large, automatic }
+
+/// Redigeringsknappen i lister finnes ikke på Mac (der flyttes rader med musa).
+struct EditButton: View {
+    var body: some View { EmptyView() }
+}
+
+extension View {
+    func navigationBarTitleDisplayMode(_ mode: MacTitleDisplayMode) -> some View { self }
+    func statusBarHidden(_ hidden: Bool = true) -> some View { self }
+
+    /// Spilleren og multiview (fullskjerm på iPhone og iPad): et ark like stort som vinduet.
+    func fullScreenCover<Item: Identifiable, Cover: View>(
+        item: Binding<Item?>, onDismiss: (() -> Void)? = nil, @ViewBuilder content: @escaping (Item) -> Cover
+    ) -> some View {
+        modifier(WindowCover(item: item, onDismiss: onDismiss, cover: content))
+    }
+}
+
+private struct WindowCover<Item: Identifiable, Cover: View>: ViewModifier {
+    @Binding var item: Item?
+    let onDismiss: (() -> Void)?
+    let cover: (Item) -> Cover
+    @State private var size = CGSize(width: 1280, height: 800)
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear { size = geo.size }
+                        .onChange(of: geo.size) { _, new in size = new }
+                }
+            }
+            .sheet(item: $item, onDismiss: onDismiss) { item in
+                cover(item)
+                    .frame(width: max(640, size.width), height: max(420, size.height))
+            }
+    }
+}
+#endif
+
+#if os(macOS)
+/// Testene og Claude-økta på Mac-en (uten tillatelse til skjermopptak): med FYRLYS_TEST_SNAPSHOT lagrer appen et bilde
+/// av vinduet sitt hvert andre sekund som «vindu.png» i Documents i sandkassen
+/// (~/Library/Containers/no.fyrlys.tv/Data/Documents). Videobildet kommer ikke med (det tegnes utenom vinduet).
+enum WindowSnapshot {
+    @MainActor
+    static func startIfRequested() {
+        guard TestSupport.isActive, TestSupport.env["FYRLYS_TEST_SNAPSHOT"] != nil,
+              let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let url = folder.appendingPathComponent("vindu.png")
+        NSLog("FYRLYS_SNAPSHOT %@", url.path)
+        Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+            MainActor.assumeIsolated { save(to: url) }
+        }
+    }
+
+    @MainActor
+    private static func save(to url: URL) {
+        guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }),
+              let view = window.contentView?.superview ?? window.contentView,
+              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+            NSLog("FYRLYS_SNAPSHOT ingen vindu (%d)", NSApp.windows.count)
+            return
+        }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        do {
+            try rep.representation(using: .png, properties: [:])?.write(to: url, options: .atomic)
+        } catch {
+            NSLog("FYRLYS_SNAPSHOT %@", "\(error)")
+        }
+    }
+}
+#endif

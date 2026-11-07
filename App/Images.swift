@@ -1,6 +1,10 @@
 import FyrlysCore
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#else
+import AppKit
+#endif
 
 /// Bildene fra nettet: hentes én gang (User-Agent som VLC, som leverandørene liker), krympes til det de trengs i
 /// (piksler, etter skjermen: Apple TV 4K og iPhone tegner med 2–3 piksler per punkt) og tas vare på i minnet sammen
@@ -11,7 +15,11 @@ final class Images: @unchecked Sendable {
     static let shared = Images()
 
     /// piksler per punkt på denne skjermen (Apple TV HD 1, Apple TV 4K 2, iPhone 2–3)
+    #if os(macOS)
+    static let scale: CGFloat = max(1, NSScreen.main?.backingScaleFactor ?? 2)
+    #else
     static let scale: CGFloat = max(1, UIScreen.main.scale)
+    #endif
     /// det største et bilde holdes i (bakgrunnsbildene på Apple TV 4K ville ellers blitt 3840 piksler brede)
     static let maxPixels: CGFloat = 2048
 

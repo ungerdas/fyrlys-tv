@@ -1,6 +1,10 @@
 import FyrlysCore
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#else
+import AppKit
+#endif
 
 /// Det store kanalkortet, som på Fyrlys-nettsiden (iPhone og Apple TV): stor logo på logoens egen farge, en strek for
 /// hvor langt programmet har kommet, det som går nå (eller kampen) og kanalnavnet under. På iPhone legger stjernen
@@ -41,7 +45,7 @@ struct BigChannelCard: View {
                     }
                 }
             }
-            #if os(iOS)
+            #if !os(tvOS)
             // ett element med de to knappene i, så «kanal-…» ikke skriver over id-en til stjerneknappen
             .accessibilityElement(children: .contain)
             #endif

@@ -16,7 +16,7 @@ struct HomeView: View {
     enum Tab: Hashable { case tv, guide, movies, series, plex, search, settings }
 
     @Environment(AppModel.self) private var model
-    #if os(iOS)
+    #if !os(tvOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
     #endif
     /// sidene som er åpnet fra TV-forsiden på iPhone (en kategori)
@@ -66,7 +66,7 @@ struct HomeView: View {
             .fullScreenCover(item: $playing, onDismiss: { model.showPendingReplay() }) { request in
                 PlayerView(request: request)
                     .environment(model)
-                    #if os(iOS)
+                    #if !os(tvOS)
                     // spilleren er alltid mørk, som på nettsiden
                     .preferredColorScheme(.dark)
                     // gjennomsiktig rundt, så TV-siden synes når spilleren dras ned for å lukkes
@@ -155,7 +155,7 @@ struct HomeView: View {
                 .tabItem { tabLabel(L("Innstillinger"), "gearshape") }
                 .tag(Tab.settings)
         }
-        #if os(iOS)
+        #if !os(tvOS)
         .tint(Theme.signal)
         #endif
     }
@@ -229,11 +229,16 @@ struct HomeView: View {
     }
 }
 
-#if os(iOS)
+#if !os(tvOS)
 /// Oppsettet for telefon: alltid på iPhone, og på iPad når appen er smal (delt skjerm). Ikke bare etter bredden: de
 /// store iPhonene (Pro Max, Plus, Air) har vanlig bredde på tvers, og da byttet hele oppsettet når telefonen ble lagt
 /// ned, så arket med filmen (og siden den var åpnet fra) ble borte (0.1.19–0.1.21: «tuller med å legge seg ned»).
 func usesPhoneLayout(_ sizeClass: UserInterfaceSizeClass?) -> Bool {
+    #if os(macOS)
+    // Mac: alltid sidemenyen og kortene (som Fyrlys for Windows), også i et smalt vindu
+    false
+    #else
     UIDevice.current.userInterfaceIdiom == .phone || sizeClass == .compact
+    #endif
 }
 #endif

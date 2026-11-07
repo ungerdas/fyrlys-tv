@@ -139,7 +139,7 @@ struct StreamSettings: View {
     #endif
 }
 
-#if os(iOS)
+#if !os(tvOS)
 /// iPhone: egne strømmer i et eget ark (fra Konto).
 struct StreamSheet: View {
     @Environment(\.dismiss) private var dismiss

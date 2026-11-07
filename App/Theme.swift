@@ -3,6 +3,8 @@ import FyrlysCore
 import SwiftUI
 #if os(iOS)
 import UIKit
+#elseif os(macOS)
+import AppKit
 #endif
 
 /// Fargene fra Fyrlys. Mørk «Fyrlys om natta» (havblått og fyrlys-ravgult) på Apple TV; på iPhone og iPad også lys
@@ -43,13 +45,17 @@ enum Theme {
         Color(uiColor: UIColor { traits in
             UIColor(hex: traits.userInterfaceStyle == .light ? light : dark)
         })
+        #elseif os(macOS)
+        Color(nsColor: NSColor(name: nil) { appearance in
+            NSColor(hex: appearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua ? light : dark)
+        })
         #else
         Color(hex: dark)
         #endif
     }
 }
 
-#if os(iOS)
+#if !os(tvOS)
 /// Lys eller mørk modus på iPhone og iPad: «light», «dark», eller tom for å følge enheten (som nettsiden).
 enum Appearance {
     static let key = "tema"

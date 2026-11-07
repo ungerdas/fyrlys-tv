@@ -75,7 +75,7 @@ struct ChannelsView: View {
                     .onAppear { if chosen == nil { chosen = shelf } }
             }
         }
-        #if os(iOS)
+        #if !os(tvOS)
         // fanene på iPad har ellers systemets bakgrunn (svart eller hvit), ikke fargen til Fyrlys
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.bg.ignoresSafeArea())
@@ -249,7 +249,7 @@ struct ChannelsView: View {
     #endif
 }
 
-#if os(iOS)
+#if !os(tvOS)
 /// Kategoriene på iPhone, som et ark: alle kanaler, favoritter og sist sett, «Dine kategorier» (dra for å sortere,
 /// stjernen tar dem bort fra toppen) og resten av kategoriene (stjernen legger dem øverst), med søk.
 struct CategoryPicker: View {

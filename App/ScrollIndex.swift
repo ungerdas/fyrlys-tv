@@ -1,5 +1,9 @@
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#else
+import AppKit
+#endif
 
 extension View {
     /// Legges på innholdet i en ScrollView: skrur av hurtigrullingen til Apple TV (prikker langs kanten og et lite felt

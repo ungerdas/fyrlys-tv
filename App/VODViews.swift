@@ -10,7 +10,7 @@ import SwiftUI
 /// åpnes som egen side (Menu eller tilbake går tilbake).
 struct VODTab: View {
     @Environment(AppModel.self) private var app
-    #if os(iOS)
+    #if !os(tvOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
     /// søket i filmene eller seriene
     @State private var query = ""
@@ -34,11 +34,13 @@ struct VODTab: View {
     var body: some View {
         NavigationStack(path: $path) {
             content
-                #if os(iOS)
+                #if !os(tvOS)
                 // på iPad ellers systemets bakgrunn (svart eller hvit)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.bg.ignoresSafeArea())
+                #if os(iOS)
                 .toolbar(.hidden, for: .navigationBar)
+                #endif
                 #endif
                 .navigationDestination(for: VODItem.self) { item in
                     VODDetailView(item: item)
@@ -111,7 +113,7 @@ struct VODTab: View {
                            : L("Ingen serier hos leverandøren."))
             }
         } else {
-            #if os(iOS)
+            #if !os(tvOS)
             if usesPhoneLayout(sizeClass) { phone } else { split }
             #else
             split
@@ -231,7 +233,7 @@ struct VODTab: View {
                 .fill(Theme.line)
                 .frame(width: 1)
                 .padding(.vertical, 12)
-            #if os(iOS)
+            #if !os(tvOS)
             VStack(spacing: 0) {
                 searchField
                     .padding(.horizontal, Metrics.pagePadding)
@@ -252,7 +254,7 @@ struct VODTab: View {
         #endif
     }
 
-    #if os(iOS)
+    #if !os(tvOS)
     /// iPhone: kategorien i en meny øverst (i Plex-fanen Hjem og bibliotekene som knapper på en rad), plakatene under.
     private var phone: some View {
         VStack(spacing: 0) {
@@ -1512,7 +1514,7 @@ extension View {
     /// «Spill av»: gul på iPhone og iPad (fokus gjør jobben på Apple TV).
     @ViewBuilder
     func vodPrimary() -> some View {
-        #if os(iOS)
+        #if !os(tvOS)
         buttonStyle(.borderedProminent)
             .tint(Theme.signal)
             .foregroundStyle(Theme.signalInk)
@@ -1524,7 +1526,7 @@ extension View {
     /// Sesong- og dagknappene: den valgte er gul (på Apple TV mørk tekst på lys flate når den har fokus).
     @ViewBuilder
     func vodSeason(selected: Bool) -> some View {
-        #if os(iOS)
+        #if !os(tvOS)
         buttonStyle(.bordered)
             .tint(selected ? Theme.signal : Theme.muted)
         #else

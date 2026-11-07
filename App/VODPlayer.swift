@@ -437,7 +437,7 @@ struct VODPlayerView: View {
     @Environment(\.dismiss) private var dismiss
     let play: VODPlay
     @State private var model: VODPlayerModel?
-    #if os(iOS)
+    #if !os(tvOS)
     /// telefonen sto liggende før spilleren ble åpnet (da står den slik etterpå også)
     @State private var wasLandscape = false
     /// legger telefonen ned når arket har kommet fram (avbrytes om spilleren lukkes før det)
@@ -488,7 +488,7 @@ struct VODPlayerView: View {
         .accessibilityValue(TestSupport.isActive ? (model?.play.progressKey ?? "") : "")
         .onAppear {
             guard model == nil else { return }
-            #if os(iOS)
+            #if !os(tvOS)
             // iPhone: liggende, som i Apple TV-appen (også når skjermretningen er låst); når arket har kommet fram
             // (mens det kommer inn, avvises det)
             wasLandscape = Landscape.isLandscape
@@ -507,7 +507,7 @@ struct VODPlayerView: View {
             // ikke når AVKit sin egen fullskjerm legger seg over (da forsvinner siden under, men det spilles videre)
             guard model?.inFullScreen != true else { return }
             model?.stop()
-            #if os(iOS)
+            #if !os(tvOS)
             turn?.cancel()
             if !wasLandscape {
                 Task {
@@ -540,7 +540,7 @@ private struct NativePlayer: View {
         ZStack(alignment: .bottomTrailing) {
             VODPlayerController(player: model.player, buttons: buttons) { model.inFullScreen = $0 }
                 .ignoresSafeArea()
-            #if os(iOS)
+            #if !os(tvOS)
             if let marker = model.marker {
                 SkipButton(title: model.skipTitle(marker)) { model.skip(marker) }
                     .padding(.trailing, 20)
@@ -631,6 +631,27 @@ struct PlayerButtons {
     var next: (() -> Void)?
 }
 
+#if os(macOS)
+/// Apples avspiller på Mac: AVPlayerView med Macens egne kontroller, fullskjerm og bilde-i-bilde.
+struct VODPlayerController: NSViewRepresentable {
+    let player: AVPlayer
+    var buttons = PlayerButtons()
+    var fullScreen: (Bool) -> Void = { _ in }
+
+    func makeNSView(context: Context) -> AVPlayerView {
+        let view = AVPlayerView()
+        view.player = player
+        view.controlsStyle = .floating
+        view.showsFullScreenToggleButton = true
+        view.allowsPictureInPicturePlayback = true
+        return view
+    }
+
+    func updateNSView(_ view: AVPlayerView, context: Context) {
+        if view.player !== player { view.player = player }
+    }
+}
+#else
 struct VODPlayerController: UIViewControllerRepresentable {
     let player: AVPlayer
     var buttons = PlayerButtons()
@@ -642,7 +663,7 @@ struct VODPlayerController: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> AVPlayerViewController {
         let controller = AVPlayerViewController()
         controller.player = player
-        #if os(iOS)
+        #if !os(tvOS)
         controller.allowsPictureInPicturePlayback = true
         controller.delegate = context.coordinator
         #endif
@@ -693,7 +714,7 @@ final class FullScreenWatcher: NSObject, AVPlayerViewControllerDelegate {
     var skipTitle: String?
     var episodeButtons = 0
 
-    #if os(iOS)
+    #if !os(tvOS)
     func playerViewController(_ playerViewController: AVPlayerViewController,
                               willBeginFullScreenPresentationWithAnimationCoordinator
                               coordinator: UIViewControllerTransitionCoordinator) {
@@ -709,3 +730,4 @@ final class FullScreenWatcher: NSObject, AVPlayerViewControllerDelegate {
     }
     #endif
 }
+#endif

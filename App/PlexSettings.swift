@@ -179,7 +179,7 @@ struct PlexLibrariesSheet: View {
             .navigationTitle(L("Biblioteker"))
             #endif
         }
-        #if os(iOS)
+        #if !os(tvOS)
         .tint(Theme.signal)
         #endif
         .accessibilityIdentifier("plex-bibliotekvalg")
@@ -220,7 +220,7 @@ struct PlexLibrariesSheet: View {
     }
 }
 
-#if os(iOS)
+#if !os(tvOS)
 /// iPhone: Plex i et eget ark (fra Konto).
 struct PlexSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -286,7 +286,7 @@ struct PlexUserSheet: View {
             }
             #endif
         }
-        #if os(iOS)
+        #if !os(tvOS)
         .tint(Theme.signal)
         #endif
         .accessibilityIdentifier("plex-brukere")
@@ -299,7 +299,7 @@ struct PlexUserSheet: View {
                 .font(.headline)
             // fire siffer (som PIN-ene i Plex) bytter med en gang; «Bytt» for dem som har lengre
             SecureField(L("PIN"), text: $pin)
-                #if os(iOS)
+                #if !os(tvOS)
                 .keyboardType(.numberPad)
                 #endif
                 .onChange(of: pin) { _, new in
@@ -370,7 +370,7 @@ struct PlexUserSheet: View {
         } catch {
             self.error = pin == nil ? error.localizedDescription : L("Feil PIN. Prøv igjen.")
             // feltet tømmes ikke på Apple TV: da lukkes tastaturet, og det som skrives etterpå, kommer ikke fram
-            #if os(iOS)
+            #if !os(tvOS)
             self.pin = ""
             #endif
         }

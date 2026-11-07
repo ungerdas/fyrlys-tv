@@ -380,42 +380,6 @@ private struct HeadClock: View {
     }
 }
 
-/// Søkefeltet øverst på TV-siden (og i Filmer og Serier).
-struct SearchField: View {
-    @Binding var text: String
-    var prompt = L("Søk etter kanal")
-    var id = "sok"
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Theme.muted)
-            TextField("", text: $text, prompt: Text(prompt).foregroundStyle(Theme.muted))
-                .font(.system(size: 16))
-                .foregroundStyle(Theme.ink)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-                .accessibilityIdentifier(id)
-            if !text.isEmpty {
-                Button {
-                    text = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(Theme.muted)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(L("Tøm søket"))
-            }
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 44)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.line, lineWidth: 1))
-    }
-}
-
 /// Første gang (ingen favoritter og ingenting sett): hvordan favorittene samles her.
 private struct TipBox: View {
     var body: some View {

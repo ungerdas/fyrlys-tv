@@ -1,7 +1,11 @@
 import FyrlysCore
 import Foundation
 import Observation
+#if canImport(UIKit)
 import UIKit
+#else
+import AppKit
+#endif
 
 /// Plex-tilkoblingen: koden til plex.tv/link, og serveren som er valgt (og adressen som svarte), for Plex-fanen.
 /// Nøkkelen og serveren ligger i nøkkelringen.

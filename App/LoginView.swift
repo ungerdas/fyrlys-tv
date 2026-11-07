@@ -122,7 +122,7 @@ struct LoginView: View {
                 .padding(.vertical, 6)
                 #endif
             }
-            #if os(iOS)
+            #if !os(tvOS)
             .buttonStyle(.borderedProminent)
             .tint(Theme.signal)
             #endif

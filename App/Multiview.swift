@@ -1,7 +1,11 @@
 import AVFoundation
 import FyrlysCore
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#else
+import AppKit
+#endif
 
 // Multiview: opptil fire kanaler samtidig, som i Fyrlys for Windows (`lib/ui/multiview_page.dart`). Hvert bilde bruker
 // én tilkobling: innloggingene i rekkefølge (den i bruk først), så mange bilder som hver av dem har tilkoblinger til,
@@ -513,7 +517,7 @@ struct MultiviewView: View {
         }
     }
 
-    #if os(iOS)
+    #if !os(tvOS)
     /// Lukk, «Multiview», og lyd av eller på.
     private func topBar(_ model: MultiviewModel) -> some View {
         HStack(spacing: 12) {
@@ -668,6 +672,43 @@ private struct MultiviewTileStyle: ButtonStyle {
 #endif
 
 /// AVPlayer i et lag uten kontroller.
+#if os(macOS)
+struct PlayerLayerView: NSViewRepresentable {
+    let player: AVPlayer
+
+    final class LayerView: NSView {
+        let playerLayer = AVPlayerLayer()
+
+        override init(frame: NSRect) {
+            super.init(frame: frame)
+            wantsLayer = true
+            layer?.backgroundColor = NSColor.black.cgColor
+            playerLayer.videoGravity = .resizeAspect
+            layer?.addSublayer(playerLayer)
+        }
+
+        required init?(coder: NSCoder) { nil }
+
+        override func layout() {
+            super.layout()
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            playerLayer.frame = bounds
+            CATransaction.commit()
+        }
+    }
+
+    func makeNSView(context: Context) -> LayerView {
+        let view = LayerView()
+        view.playerLayer.player = player
+        return view
+    }
+
+    func updateNSView(_ view: LayerView, context: Context) {
+        if view.playerLayer.player !== player { view.playerLayer.player = player }
+    }
+}
+#else
 struct PlayerLayerView: UIViewRepresentable {
     let player: AVPlayer
 
@@ -688,6 +729,7 @@ struct PlayerLayerView: UIViewRepresentable {
         if view.playerLayer.player !== player { view.playerLayer.player = player }
     }
 }
+#endif
 
 /// Kanalvalget for et bilde: kanalene til innloggingen bildet bruker, med søk og favorittene.
 struct MultiviewPicker: View {
@@ -705,7 +747,7 @@ struct MultiviewPicker: View {
         NavigationStack {
             content
                 .navigationTitle(severalLogins ? L("Velg kanal · {name}", ["name": tile.login.label]) : L("Velg kanal"))
-                #if os(iOS)
+                #if !os(tvOS)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {

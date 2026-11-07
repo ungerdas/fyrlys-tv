@@ -1,4 +1,4 @@
-#if os(iOS)
+#if !os(tvOS)
 import AVKit
 import FyrlysCore
 import SwiftUI
@@ -45,6 +45,9 @@ struct PlayerView: View {
             .offset(y: drag)
         }
         .statusBarHidden(vertical == .compact)
+        #if os(macOS)
+        .onExitCommand { dismiss() }
+        #endif
         .onAppear {
             guard model == nil else { return }
             let player = PlayerModel(app: app, channel: request.channel, list: request.list)
@@ -99,6 +102,31 @@ struct PlayerView: View {
     }
 }
 
+#if os(macOS)
+/// Mac: AVPlayerView med Macens kontroller (fullskjerm, bilde-i-bilde, AirPlay). Esc lukker spilleren.
+private struct VideoSurface: NSViewRepresentable {
+    let player: AVPlayer
+    var gravity: AVLayerVideoGravity = .resizeAspect
+    let dragged: (CGFloat) -> Void
+    let released: (CGFloat, CGFloat) -> Void
+    var fullScreen: (Bool) -> Void = { _ in }
+
+    func makeNSView(context: Context) -> AVPlayerView {
+        let view = AVPlayerView()
+        view.player = player
+        view.controlsStyle = .floating
+        view.showsFullScreenToggleButton = true
+        view.allowsPictureInPicturePlayback = true
+        view.videoGravity = gravity
+        return view
+    }
+
+    func updateNSView(_ view: AVPlayerView, context: Context) {
+        if view.player !== player { view.player = player }
+        if view.videoGravity != gravity { view.videoGravity = gravity }
+    }
+}
+#else
 /// AVPlayerViewController i siden (ikke fullskjerm), med bilde-i-bilde, og dra ned for å lukke.
 private struct VideoSurface: UIViewControllerRepresentable {
     let player: AVPlayer
@@ -188,6 +216,7 @@ private final class DragDown: NSObject, UIGestureRecognizerDelegate, AVPlayerVie
         true
     }
 }
+#endif
 
 /// Kanalen og programmet, knappene og kanallista under bildet.
 private struct PlayerPanel: View {

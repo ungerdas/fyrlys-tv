@@ -1,6 +1,10 @@
 import FyrlysCore
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#else
+import AppKit
+#endif
 
 /// Feilrapporten, som i Fyrlys for Windows: versjonen, enheten, innstillingene og de siste linjene i loggen, uten
 /// passord, brukernavn, adresser og navnet på leverandøren (alt renses med `scrub`, også det som ble lagt til nå).
@@ -93,7 +97,7 @@ struct ErrorReportView: View {
         NavigationStack {
             content
                 .navigationTitle(L("Feilrapport"))
-                #if os(iOS)
+                #if !os(tvOS)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -115,7 +119,7 @@ struct ErrorReportView: View {
                 }
                 #endif
         }
-        #if os(iOS)
+        #if !os(tvOS)
         .tint(Theme.signal)
         #endif
         .onAppear { report = ErrorReport.build(model) }
@@ -142,7 +146,7 @@ struct ErrorReportView: View {
                         .font(.system(size: Self.font + 1, weight: .semibold))
                         .foregroundStyle(Theme.signal)
                 }
-                #if os(iOS)
+                #if !os(tvOS)
                 if let sent = model.reportFromTV {
                     tvReport(sent)
                 }
@@ -178,7 +182,7 @@ struct ErrorReportView: View {
         #endif
     }
 
-    #if os(iOS)
+    #if !os(tvOS)
     /// Rapporten som er sendt fra Apple TV (via iCloud).
     private func tvReport(_ sent: (date: String, text: String)) -> some View {
         VStack(alignment: .leading, spacing: 10) {

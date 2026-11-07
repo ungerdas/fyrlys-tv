@@ -3,8 +3,10 @@ import MediaAccessibility
 import SwiftUI
 #if os(tvOS)
 import TVVLCKit
-#else
+#elseif os(iOS)
 import MobileVLCKit
+#else
+import VLCKit
 #endif
 
 /// VLC (VLCKit, LGPL) for filmer, episoder og TV-arkiv i filtyper Apples avspiller ikke kan (mkv, avi, MPEG-TS …).
@@ -18,7 +20,7 @@ final class VLCEngine {
     }
 
     /// der VLC tegner bildet
-    let surface: UIView
+    let surface: VLCSurfaceView
     /// sekunder
     private(set) var time: Double = 0
     /// sekunder; 0 når lengden ikke er kjent
@@ -56,7 +58,12 @@ final class VLCEngine {
     init() {
         player = VLCMediaPlayer(options: Self.subtitleStyle())
         surface = VLCSurfaceView()
+        #if os(macOS)
+        surface.wantsLayer = true
+        surface.layer?.backgroundColor = NSColor.black.cgColor
+        #else
         surface.backgroundColor = .black
+        #endif
         player.drawable = surface
         player.delegate = events
         events.engine = self
@@ -268,6 +275,33 @@ private final class VLCEvents: NSObject, VLCMediaPlayerDelegate {
 
 /// Der VLC tegner bildet: VLC legger sin egen visning inni, og den følger alltid størrelsen på denne (arket på iPhone
 /// og iPad endrer størrelse når det dras eller telefonen snus).
+#if os(macOS)
+final class VLCSurfaceView: NSView {
+    override func didAddSubview(_ subview: NSView) {
+        super.didAddSubview(subview)
+        subview.frame = bounds
+        subview.autoresizingMask = [.width, .height]
+        needsLayout = true
+    }
+
+    override func layout() {
+        super.layout()
+        for view in subviews where view.frame != bounds {
+            view.frame = bounds
+            view.needsLayout = true
+        }
+    }
+}
+
+/// Visningen VLC tegner bildet i.
+struct VLCSurface: NSViewRepresentable {
+    let engine: VLCEngine
+
+    func makeNSView(context: Context) -> NSView { engine.surface }
+
+    func updateNSView(_ view: NSView, context: Context) {}
+}
+#else
 final class VLCSurfaceView: UIView {
     override func didAddSubview(_ subview: UIView) {
         super.didAddSubview(subview)
@@ -293,6 +327,7 @@ struct VLCSurface: UIViewRepresentable {
 
     func updateUIView(_ view: UIView, context: Context) {}
 }
+#endif
 
 /// Hvor langt filmen har kommet: streken, med tiden som er gått og det som er igjen under.
 private struct VLCProgress: View {

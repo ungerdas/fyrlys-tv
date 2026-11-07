@@ -16,7 +16,12 @@ struct FyrlysApp: App {
 
     var body: some Scene {
         WindowGroup {
-            #if os(iOS)
+            #if os(macOS)
+            RootView()
+                .environment(model)
+                .modifier(ChosenAppearance())
+                .frame(minWidth: 900, minHeight: 560)
+            #elseif os(iOS)
             RootView()
                 .environment(model)
                 .modifier(ChosenAppearance())
@@ -26,10 +31,13 @@ struct FyrlysApp: App {
                 .preferredColorScheme(.dark)
             #endif
         }
+        #if os(macOS)
+        .defaultSize(width: 1400, height: 880)
+        #endif
     }
 }
 
-#if os(iOS)
+#if !os(tvOS)
 /// Lys eller mørk modus slik den er valgt (sola og månen øverst på iPhone, Innstillinger på iPad), ellers som enheten.
 private struct ChosenAppearance: ViewModifier {
     @AppStorage(Appearance.key, store: TestSupport.defaults) private var stored = ""
@@ -62,7 +70,12 @@ struct RootView: View {
                 }
             }
         }
-        .task { model.start() }
+        .task {
+            model.start()
+            #if os(macOS)
+            WindowSnapshot.startIfRequested()
+            #endif
+        }
         // fram igjen fra bakgrunnen (eller Apple TV-en har sovet): programinfo, Plex, filmer og kanallista
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { model.becameActive() }

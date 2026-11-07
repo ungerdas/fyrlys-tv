@@ -20,7 +20,7 @@ struct ArchiveView: View {
                     .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                #if os(iOS)
+                #if !os(tvOS)
                 Button(L("Lukk")) { dismiss() }
                     .accessibilityIdentifier("lukk-arkiv")
                 #endif

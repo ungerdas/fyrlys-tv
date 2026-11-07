@@ -286,7 +286,7 @@ struct SeeAllLabel: View {
     var body: some View {
         HStack(spacing: 4) {
             Text(L("Se alle"))
-            #if os(iOS)
+            #if !os(tvOS)
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
             #endif
@@ -413,7 +413,7 @@ struct ResumeCard: View {
                             .padding(.bottom, Metrics.resumeBarInset)
                     }
                 }
-                #if os(iOS)
+                #if !os(tvOS)
                 .clipShape(RoundedRectangle(cornerRadius: Metrics.posterRadius, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: Metrics.posterRadius, style: .continuous)
                     .strokeBorder(Theme.line, lineWidth: 0.5))
@@ -505,7 +505,7 @@ struct VODRowPage: View {
         .scrollIndicators(.never)
         .background(Theme.bg.ignoresSafeArea())
         .task { items = await model.rowItems(row) }
-        #if os(iOS)
+        #if !os(tvOS)
         .navigationTitle(row.title)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -555,7 +555,7 @@ struct VODSearchResults: View {
             .padding(.bottom, 24)
         }
         .scrollIndicators(.never)
-        #if os(iOS)
+        #if !os(tvOS)
         .scrollDismissesKeyboard(.immediately)
         #endif
         // litt etter siste tastetrykk; hos leverandøren hentes alle første gang
