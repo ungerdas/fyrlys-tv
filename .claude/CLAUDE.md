@@ -33,7 +33,14 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (se på det med Read). Ikke gjort ennå: kjøre fra Xcode på hans Apple TV og iPhone. Det krever teamet
   (`DEVELOPMENT_TEAM` er tom i `project.yml`; legg det i en lokal fil som ikke committes) og rettighetene som
   `tools/adhoc_sign.sh` gir TestFlight-byggene (iCloud-nøkkelverdiene, nøkkelring-gruppene for Top Shelf); uten dem
-  virker appen, men ikke iCloud-delingen og Top Shelf. Hans ekte innlogginger, Plex og adresser brukes bare på
+  virker appen, men ikke iCloud-delingen og Top Shelf.
+  **Satt opp 7.11.2026**: Xcode ligger i `~/Downloads/Xcode.app` og er ikke valgt med xcode-select (det krever sudo),
+  så alle kommandoene trenger `export DEVELOPER_DIR=~/Downloads/Xcode.app/Contents/Developer`. Homebrew finnes ikke
+  (støtter ikke Intel lenger); XcodeGen 2.44.1 ligger i `~/.local/xcodegen/bin/xcodegen` (fra GitHub-utgivelsen).
+  VLCKit ligger i `Vendor/`. Simulatorer: iOS 26.3 og tvOS 26.2 («Apple TV 4K (3rd generation)», «iPhone 17 Pro
+  Max», iPadene). Bruk `-derivedDataPath build/DerivedData`. Første bygg + én UI-test tok rundt 5 min for tvOS og
+  10 min for iPhone; første iPhone-test kan feile med «Timed out waiting for AX loaded notification» mens
+  simulatoren starter (bare kjør igjen). `swift test --package-path Core` virker også her (99 tester). Hans ekte innlogginger, Plex og adresser brukes bare på
   enhetene, aldri i repoet, testene, loggene som pushes eller commit-meldingene.
 - **Skjermbilder**: UI-testene (`UITests/FyrlysUITests.swift`) tar bilder i simulatoren, og workflowen legger dem i
   grenen `skjermbilder` (overskrives hver gang); iPhone og iPad (`UITestsMobil/FyrlysMobilUITests.swift`, «NN-iphone-…»
