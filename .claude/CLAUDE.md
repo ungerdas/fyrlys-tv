@@ -824,5 +824,5 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   har en grense på 15 min med `perl -e 'alarm …'`), 70 (App Store Connect avviste pakken: filer bare root kunne lese,
   fordi steget har `umask 077` for nøklene; nå `umask 022` før eksporten) og **71: 0.2.2 VALID for TV_OS, IOS og
   MAC_OS**. Skjermbildene fra Mac ligger i `skjermbilder-mac` (første gang i bygg 69; i bygg 68 stoppet steget på en
-  `pkill` uten treff, nå `|| true`). Ikke prøvd av eieren ennå (Mac-en hans er Intel med Sequoia; TestFlight for Mac
-  fra Mac App Store).
+  `pkill` uten treff, nå `|| true`). 8.11.2026: installert fra TestFlight på Mac-en hans (Intel, macOS 15.8; TestFlight-appen fantes
+  fra før). Ikke meldt tilbake ennå: avspilling, VLC, iCloud og nøkkelringen i det signerte bygget.
