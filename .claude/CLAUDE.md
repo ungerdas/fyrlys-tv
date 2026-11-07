@@ -492,9 +492,14 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   til i simulatoren); appen på `macos-15` med høyeste Xcode, XcodeGen, simulator fra
   `tools/simulator.py` (`[plattform] [slag] [variabel]`, f.eks. `iOS iPad IPAD_ID`; laster ned plattformen om den
   mangler), falsk leverandør, `xcodebuild test`, skjermbildene ut med `tools/screenshots.py` (`xcresulttool export
-  attachments`) og inn i grenen `skjermbilder`. Jobben `ios` bygger én gang (`build-for-testing`) og tester på iPhone
-  og så iPad (`test-without-building`, se Status) og legger bildene i `skjermbilder-mobil`.
-- **TestFlight** (jobbene `oppsett` og `testflight`, bare på main og når hemmelighetene `ASC_KEY_ID`, `ASC_ISSUER_ID`,
+  attachments`) og inn i grenen `skjermbilder`. Jobben `ios` er fra 0.2.1 en matrise (`iphone`, `ipad`)
+  som går samtidig: hver bygger (`build-for-testing`) og tester (`test-without-building`; iPad et utvalg) og legger
+  bildene som artefakten `skjermbilder-<enhet>`; jobben `skjermbilder-mobil` samler dem i grenen `skjermbilder-mobil`
+  (loggene heter `bygg-<enhet>`, `test-<enhet>`, `tider-<enhet>`; feilbildene `feil-<enhet>-…`). Før 0.2.1 testet én
+  jobb iPhone og så iPad (rundt 40 min).
+- **TestFlight** venter fra 0.2.1 bare på kjernen og `oppsett`, ikke på UI-testene (eieren 7.11.2026 ville ha
+  versjonene fortere: før rundt 47 min, nå rundt 10); UI-testene går samtidig, og bygget står som feilet om en av dem
+  feiler. Test derfor endringene lokalt før push. (Jobbene `oppsett` og `testflight`, bare på main og når hemmelighetene `ASC_KEY_ID`, `ASC_ISSUER_ID`,
   `ASC_KEY_P8` og `APPLE_TEAM_ID` finnes; Admin-nøkkel laget av eieren): `tools/asc.py check` (nøkkelen, app-id-en
   `no.fyrlys.tv`, appen i App Store Connect; `ensure_platform` legger IOS til appen med `POST /v1/appStoreVersions`
   første gang), arkiv uten signering for begge plattformene (`CODE_SIGNING_ALLOWED=NO`: å signere for en
