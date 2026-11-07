@@ -479,9 +479,29 @@ struct VODPlayerView: View {
                 } else {
                     NativePlayer(model: model)
                         .id(ObjectIdentifier(model))
+                    #if os(macOS)
+                        // Mac: AVPlayerView har ingen lukkeknapp (VLC har sin egen)
+                        .overlay(alignment: .topLeading) {
+                            Button { dismiss() } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 34, height: 34)
+                                    .background(Circle().fill(Color.black.opacity(0.55)))
+                            }
+                            .buttonStyle(.plain)
+                            .help(L("Lukk"))
+                            .accessibilityLabel(L("Lukk"))
+                            .accessibilityIdentifier("lukk-vod")
+                            .padding(14)
+                        }
+                    #endif
                 }
             }
         }
+        #if os(macOS)
+        .onExitCommand { dismiss() }
+        #endif
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(model?.error == nil ? "vod-spiller" : "vod-feil")
         // testene: det som spilles (filmen eller episoden)

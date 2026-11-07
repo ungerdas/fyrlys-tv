@@ -387,6 +387,7 @@ private struct VLCAudioMenu: View {
             VLCMenuLabel(title: L("Lyd"), icon: "speaker.wave.2")
         }
         .accessibilityIdentifier("vod-lyd")
+        .vlcMacMenu()
     }
 }
 
@@ -406,6 +407,18 @@ private struct VLCSubtitleMenu: View {
             VLCMenuLabel(title: L("Undertekster"), icon: "captions.bubble")
         }
         .accessibilityIdentifier("vod-tekst")
+        .vlcMacMenu()
+    }
+}
+
+private extension View {
+    /// Mac: menyen som et ikon (ellers en blå nedtrekksliste over hele bredden)
+    @ViewBuilder func vlcMacMenu() -> some View {
+        #if os(macOS)
+        self.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        #else
+        self
+        #endif
     }
 }
 
@@ -707,6 +720,10 @@ struct VLCPlayerScreen: View {
             }
             if controls || !engine.isPlaying {
                 controlsLayer
+                    #if os(macOS)
+                    // Mac: knappene uten de grå rammene til AppKit
+                    .buttonStyle(.plain)
+                    #endif
                     .transition(.opacity)
             }
             if let marker = model.marker {

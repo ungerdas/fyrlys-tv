@@ -81,7 +81,7 @@ struct ArchiveView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.bg.ignoresSafeArea())
         .task { await load() }
-        #if os(tvOS)
+        #if !os(iOS)
         .fullScreenCover(item: $playing) { play in
             VODPlayerView(play: play)
                 .environment(app)

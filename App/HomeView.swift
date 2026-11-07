@@ -78,7 +78,7 @@ struct HomeView: View {
                     #endif
             }
             // et program fra start (TV-arkivet), fra spilleren eller guiden
-            #if os(tvOS)
+            #if !os(iOS)
             .fullScreenCover(item: replay) { play in
                 VODPlayerView(play: play)
                     .environment(model)

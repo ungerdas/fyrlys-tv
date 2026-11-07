@@ -900,7 +900,7 @@ struct VODDetailView: View {
         .scrollIndicators(.never)
         .background(backdropLayer)
         .task { await load() }
-        #if os(tvOS)
+        #if !os(iOS)
         .fullScreenCover(item: $playing, onDismiss: closed) { play in
             VODPlayerView(play: play)
                 .environment(app)

@@ -22,7 +22,7 @@ struct VODHomeView: View {
                 withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo(Self.top, anchor: .top) }
             }
         }
-        #if os(tvOS)
+        #if !os(iOS)
         .fullScreenCover(item: $playing, onDismiss: closed) { play in
             VODPlayerView(play: play)
                 .environment(app)
