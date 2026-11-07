@@ -595,7 +595,9 @@ jobs:
           security unlock-keychain -p "$pw" "$kc"
           curl -fsSL -o "$RUNNER_TEMP/wwdr.cer" https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
           security import "$RUNNER_TEMP/wwdr.cer" -k "$kc" -t cert -f x509
-          security import build/signering/distribution.key -k "$kc" -t priv -f openssl -T /usr/bin/codesign
+          # codesign signerer appene, productbuild Mac-pakken (uten tilgang ventet den på et svar i 35 min, bygg 69)
+          security import build/signering/distribution.key -k "$kc" -t priv -f openssl -T /usr/bin/codesign \
+            -T /usr/bin/productbuild -T /usr/bin/pkgbuild -T /usr/bin/productsign
           security import build/signering/distribution.cer -k "$kc" -t cert -f x509
           # Mac: installasjonssertifikatet (samme nøkkel) for pakken som lastes opp
           [ -f build/signering/installer.cer ] && security import build/signering/installer.cer -k "$kc" -t cert -f x509
@@ -624,7 +626,8 @@ jobs:
           done
           # Mac: bare når arkivet og profilen finnes; en feil gir en advarsel, og ventingen ser bort fra Mac
           if [ "${MAC_ARCHIVE:-}" = "1" ] && [ -f build/signering/ExportOptions-macOS.plist ]; then
-            xcodebuild -exportArchive -archivePath build/FyrlysMac.xcarchive \
+            # høyst 15 min, så Mac aldri holder igjen jobben (Apple TV og iPhone/iPad er lastet opp før dette)
+            perl -e 'alarm shift; exec @ARGV' 900 xcodebuild -exportArchive -archivePath build/FyrlysMac.xcarchive \
               -exportOptionsPlist build/signering/ExportOptions-macOS.plist -exportPath build/export-macOS \
               -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" \
               -authenticationKeyIssuerID "$ASC_ISSUER_ID" > build/eksport-mac.log 2>&1
