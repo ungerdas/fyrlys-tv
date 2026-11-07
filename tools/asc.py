@@ -221,7 +221,7 @@ def ensure_platform(asc, app, platform, required=True):
     return True
 
 
-def export_options(folder, manual_profile=None, file="ExportOptions.plist", extra=None, installer=False):
+def export_options(folder, manual_profile=None, file="ExportOptions.plist", extra=None, installer=None):
     team = env("APPLE_TEAM_ID")
     if manual_profile:
         profiles = {BUNDLE_ID: manual_profile, **(extra or {})}
@@ -230,8 +230,8 @@ def export_options(folder, manual_profile=None, file="ExportOptions.plist", extr
                    "<key>signingCertificate</key><string>Apple Distribution</string>"
                    f"<key>provisioningProfiles</key><dict>{entries}</dict>")
         if installer:
-            # Mac: pakken som lastes opp, signeres med installasjonssertifikatet
-            signing += "<key>installerSigningCertificate</key><string>Mac Installer Distribution</string>"
+            # Mac: pakken som lastes opp, signeres med installasjonssertifikatet (typen fra navnet på det)
+            signing += f"<key>installerSigningCertificate</key><string>{installer}</string>"
     else:
         signing = "<key>signingStyle</key><string>automatic</string>"
     Path(folder).mkdir(parents=True, exist_ok=True)
@@ -320,9 +320,11 @@ def prepare(folder):
             print("::warning title=macOS::Mac er ikke lagt til appen i App Store Connect; bygget lastes ikke opp")
             continue
         try:
+            installer = None
             if store == "MAC_OS":
                 certificate("MAC_INSTALLER_DISTRIBUTION", "installasjonssertifikatet for Mac", "installer.cer",
                             "installer")
+                installer = certificate_kind(folder / "installer.cer")
             name = f"{APP_NAME} CI {run} {platform}"
             make_profile(row, name, kind)
             extra = {}
@@ -331,11 +333,23 @@ def prepare(folder):
                 make_profile(ensure_bundle_id(asc, identifier, title), ext_name, kind)
                 extra[identifier] = ext_name
             export_options(folder, manual_profile=name, file=f"ExportOptions-{platform}.plist", extra=extra,
-                           installer=store == "MAC_OS")
+                           installer=installer)
         except SystemExit as stop:
             if platform not in OPTIONAL:
                 raise
             print(f"::warning title={platform}::{stop}; bygget for {platform} lastes ikke opp")
+
+
+def certificate_kind(path):
+    """Typen fra navnet på sertifikatet («3rd Party Mac Developer Installer: Navn (TEAM)» → delen før kolon, så navnet
+    ikke havner i loggene); xcodebuild finner identiteten med den."""
+    res = subprocess.run([OPENSSL, "x509", "-inform", "DER", "-in", str(path), "-noout", "-subject",
+                          "-nameopt", "multiline,utf8"], capture_output=True)
+    for line in res.stdout.decode(errors="replace").splitlines():
+        line = line.strip()
+        if line.startswith("commonName"):
+            return line.split("=", 1)[1].strip().split(":", 1)[0].strip()
+    return "3rd Party Mac Developer Installer"
 
 
 def rsa_key(source, out):
