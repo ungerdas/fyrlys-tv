@@ -217,7 +217,7 @@ final class VLCEngine {
         if !sidecarNames.isEmpty, real >= sidecarBase + sidecarNames.count, subtitles.count >= sidecarNames.count {
             let first = subtitles.count - sidecarNames.count
             for (i, name) in sidecarNames.enumerated() {
-                subtitles[first + i] = Track(id: subtitles[first + i].id, name: name)
+                subtitles[first + i] = Track(id: subtitles[first + i].id, name: shortTrackName(name))
             }
         }
         if audio != audioTracks { audioTracks = audio }
@@ -251,7 +251,7 @@ final class VLCEngine {
         zip(names, ids).compactMap { name, id in
             guard let id = (id as? NSNumber)?.int32Value else { return nil }
             let text = (name as? String)?.trimmingCharacters(in: .whitespaces) ?? ""
-            return Track(id: id, name: id < 0 ? L("Av") : (text.isEmpty ? L("Spor {n}", ["n": id]) : text))
+            return Track(id: id, name: id < 0 ? L("Av") : (text.isEmpty ? L("Spor {n}", ["n": id]) : shortTrackName(text)))
         }
     }
 }
