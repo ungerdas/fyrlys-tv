@@ -818,3 +818,11 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   innstillinger, spilleren), Release-arkivet universelt og signert ad hoc. Ikke prøvd ennå: opplastingen av Mac til
   App Store Connect (profilen for en app-id registrert som IOS, installasjonssertifikatet), avspilling med lyd og bilde
   på Mac, VLC på Mac, iCloud og nøkkelringen i et signert bygg.
+  Mac i TestFlight tok fire bygg: 68 (Apple TV og iPhone/iPad VALID; Mac: installasjonssertifikatet heter
+  «3rd Party Mac Developer Installer: …», nå lest av `certificate_kind`), 69 (eksporten ventet i 35 min på tilgang
+  til nøkkelen for productbuild: nøkkelen importeres nå med `-T` for productbuild/pkgbuild/productsign, og Mac-eksporten
+  har en grense på 15 min med `perl -e 'alarm …'`), 70 (App Store Connect avviste pakken: filer bare root kunne lese,
+  fordi steget har `umask 077` for nøklene; nå `umask 022` før eksporten) og **71: 0.2.2 VALID for TV_OS, IOS og
+  MAC_OS**. Skjermbildene fra Mac ligger i `skjermbilder-mac` (første gang i bygg 69; i bygg 68 stoppet steget på en
+  `pkill` uten treff, nå `|| true`). Ikke prøvd av eieren ennå (Mac-en hans er Intel med Sequoia; TestFlight for Mac
+  fra Mac App Store).
