@@ -611,6 +611,9 @@ jobs:
           done
           rm -rf build/export-*
           set +e
+          # nøklene er på plass: eksporten skal lage filer alle kan lese (med 077 fikk Mac-pakken filer bare root kunne
+          # lese, og App Store Connect avviste den, bygg 70)
+          umask 022
           platforms="TV_OS IOS"
           # Apple TV og iPhone/iPad, hver med sin profil; eksporten laster opp selv
           for pair in "tvOS:Fyrlys:eksport" "iOS:FyrlysMobil:eksport-ios"; do
