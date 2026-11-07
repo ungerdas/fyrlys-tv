@@ -262,6 +262,8 @@ public let english: [String: String] = [
     "Neste: {episode}": "Next: {episode}",
     "Spill av {episode}": "Play {episode}",
     "Snu skjermen": "Rotate the screen",
+    "Fullskjerm": "Full screen",
+    "Avslutt fullskjerm": "Exit full screen",
     // egne strømmer
     "Egne strømmer": "Own streams",
     "Egne strømmer …": "Own streams …",

@@ -384,7 +384,8 @@ private struct VLCAudioMenu: View {
                 }
             }
         } label: {
-            VLCMenuLabel(title: L("Lyd"), icon: "speaker.wave.2")
+            VLCMenuLabel(title: L("Lyd"), icon: "speaker.wave.2",
+                         value: engine.audioTracks.first { $0.id == engine.audioTrack }?.name)
         }
         .accessibilityIdentifier("vod-lyd")
         .vlcMacMenu()
@@ -404,7 +405,8 @@ private struct VLCSubtitleMenu: View {
                 }
             }
         } label: {
-            VLCMenuLabel(title: L("Undertekster"), icon: "captions.bubble")
+            VLCMenuLabel(title: L("Undertekster"), icon: "captions.bubble",
+                         value: engine.subtitleTracks.first { $0.id == engine.subtitleTrack }?.name ?? L("Av"))
         }
         .accessibilityIdentifier("vod-tekst")
         .vlcMacMenu()
@@ -425,9 +427,30 @@ private extension View {
 private struct VLCMenuLabel: View {
     let title: String
     let icon: String
+    /// sporet som er valgt (vises på Mac)
+    var value: String? = nil
 
     var body: some View {
-        #if os(tvOS)
+        #if os(macOS)
+        // Mac: en pille nede til høyre med valget, som i Apple TV-appen på Mac
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+            Text(verbatim: value ?? title)
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .frame(maxWidth: 160)
+            Image(systemName: "chevron.up")
+                .font(.system(size: 9, weight: .bold))
+                .opacity(0.7)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 30)
+        .background(Capsule().fill(Color.white.opacity(0.16)))
+        .contentShape(Capsule())
+        .help(title)
+        .accessibilityLabel(title)
+        #elseif os(tvOS)
         Label(title, systemImage: icon)
             .font(.system(size: 24, weight: .semibold))
         #else
@@ -762,8 +785,10 @@ struct VLCPlayerScreen: View {
                     }
                 }
                 Spacer(minLength: 0)
+                #if !os(macOS)
                 if engine.hasAudioChoice { VLCAudioMenu(engine: engine) }
                 if engine.hasSubtitles { VLCSubtitleMenu(engine: engine) }
+                #endif
                 if Landscape.isPhone {
                     Button {
                         Landscape.set(!Landscape.isLandscape)
@@ -820,7 +845,22 @@ struct VLCPlayerScreen: View {
                     }
                     .tint(Theme.gold)
                 }
+                #if os(macOS)
+                HStack(spacing: 10) {
+                    Text(verbatim: engine.length > 0
+                         ? "\(playTime(scrub ?? engine.time)) / \(playTime(engine.length))"
+                         : playTime(scrub ?? engine.time))
+                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(Color.white.opacity(0.85))
+                        .accessibilityIdentifier("vod-tid")
+                    Spacer(minLength: 0)
+                    if engine.hasAudioChoice { VLCAudioMenu(engine: engine) }
+                    if engine.hasSubtitles { VLCSubtitleMenu(engine: engine) }
+                    MacFullScreenButton()
+                }
+                #else
                 VLCProgress(time: scrub ?? engine.time, length: engine.length, seeking: scrub != nil, bar: false)
+                #endif
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 10)

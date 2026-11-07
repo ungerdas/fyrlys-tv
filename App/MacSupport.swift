@@ -203,7 +203,13 @@ private struct WindowCover<Item: Identifiable, Cover: View>: ViewModifier {
 enum WindowSnapshot {
     @MainActor
     static func startIfRequested() {
-        guard TestSupport.isActive, TestSupport.env["FYRLYS_TEST_SNAPSHOT"] != nil,
+        // også uten den falske leverandøren i et Debug-bygg (eieren logget inn selv, bildene blir på Mac-en)
+        #if DEBUG
+        let allowed = true
+        #else
+        let allowed = TestSupport.isActive
+        #endif
+        guard allowed, TestSupport.env["FYRLYS_TEST_SNAPSHOT"] != nil,
               let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
         let url = folder.appendingPathComponent("vindu.png")
         NSLog("FYRLYS_SNAPSHOT %@", url.path)
@@ -229,6 +235,53 @@ enum WindowSnapshot {
         } catch {
             NSLog("FYRLYS_SNAPSHOT %@", "\(error)")
         }
+    }
+}
+#endif
+
+#if os(macOS)
+/// Fullskjerm for hovedvinduet (spilleren er et ark like stort som vinduet, så det følger med). Går ut av fullskjerm
+/// igjen når spilleren lukkes, hvis det var spilleren som gikk inn.
+@MainActor
+enum MacFullScreen {
+    private static var enteredForPlayer = false
+
+    static var window: NSWindow? {
+        NSApp.windows.first { $0.isVisible && $0.sheetParent == nil && $0.contentView != nil && !($0 is NSPanel) }
+    }
+
+    static var isOn: Bool { window?.styleMask.contains(.fullScreen) == true }
+
+    static func toggle() {
+        enteredForPlayer = !isOn
+        window?.toggleFullScreen(nil)
+    }
+
+    static func leaveIfEntered() {
+        if enteredForPlayer, isOn { window?.toggleFullScreen(nil) }
+        enteredForPlayer = false
+    }
+}
+
+/// Knappen i VLC-kontrollene (Apples avspiller har sin egen).
+struct MacFullScreenButton: View {
+    @State private var on = MacFullScreen.isOn
+
+    var body: some View {
+        Button {
+            MacFullScreen.toggle()
+        } label: {
+            Image(systemName: on ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(on ? L("Avslutt fullskjerm") : L("Fullskjerm"))
+        .accessibilityLabel(on ? L("Avslutt fullskjerm") : L("Fullskjerm"))
+        .accessibilityIdentifier("fullskjerm")
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { _ in on = true }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { _ in on = false }
     }
 }
 #endif

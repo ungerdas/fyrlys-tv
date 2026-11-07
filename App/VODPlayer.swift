@@ -527,6 +527,9 @@ struct VODPlayerView: View {
             // ikke når AVKit sin egen fullskjerm legger seg over (da forsvinner siden under, men det spilles videre)
             guard model?.inFullScreen != true else { return }
             model?.stop()
+            #if os(macOS)
+            MacFullScreen.leaveIfEntered()
+            #endif
             #if !os(tvOS)
             turn?.cancel()
             if !wasLandscape {
