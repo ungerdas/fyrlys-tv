@@ -1,5 +1,6 @@
 #if os(macOS)
 import AppKit
+import FyrlysCore
 import SwiftUI
 
 // Mac (fra 0.2.2): navnene fra UIKit som resten av appen bruker, med AppKit under.
@@ -213,17 +214,72 @@ enum WindowSnapshot {
 
     @MainActor
     private static func save(to url: URL) {
-        guard let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }),
-              let view = window.contentView?.superview ?? window.contentView,
-              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+        // et ark (spilleren, multiview) er et eget vindu over hovedvinduet: da arket
+        guard var window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil && $0.sheetParent == nil })
+        else {
             NSLog("FYRLYS_SNAPSHOT ingen vindu (%d)", NSApp.windows.count)
             return
         }
+        if let sheet = window.attachedSheet { window = sheet }
+        guard let view = window.contentView?.superview ?? window.contentView,
+              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
         view.cacheDisplay(in: view.bounds, to: rep)
         do {
             try rep.representation(using: .png, properties: [:])?.write(to: url, options: .atomic)
         } catch {
             NSLog("FYRLYS_SNAPSHOT %@", "\(error)")
+        }
+    }
+}
+#endif
+
+#if os(macOS)
+extension Notification.Name {
+    /// ⌘, (menyen Fyrlys → Innstillinger)
+    static let fyrlysOpenSettings = Notification.Name("no.fyrlys.innstillinger")
+}
+
+/// Merket øverst til venstre, som i Fyrlys for Windows.
+struct MacBrand: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            FyrlysMark()
+                .frame(width: 24, height: 24)
+            Text(verbatim: "Fyrlys")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Theme.ink)
+        }
+        .padding(.horizontal, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("fyrlys-merke")
+    }
+}
+
+/// Sol eller måne: lys eller mørk (lagret som valget i innstillingene).
+struct MacThemeButton: View {
+    @AppStorage(Appearance.key, store: TestSupport.defaults) private var stored = ""
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Button {
+            stored = scheme == .dark ? "light" : "dark"
+        } label: {
+            Image(systemName: scheme == .dark ? "sun.max" : "moon")
+        }
+        .help(scheme == .dark ? L("Lys") : L("Mørk"))
+        .accessibilityIdentifier("tema")
+    }
+}
+#endif
+
+#if os(macOS)
+/// Ingen tittel i verktøylinja (merket står der i stedet).
+struct NoWindowTitle: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.toolbar(removing: .title)
+        } else {
+            content.navigationTitle("")
         }
     }
 }

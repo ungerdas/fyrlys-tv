@@ -27,6 +27,10 @@ struct HomeView: View {
     /// det som er valgt i sidemenyen, og søket
     @State private var shelf: Shelf?
     @State private var query = ""
+    #if os(macOS)
+    /// fanen før søket begynte (Mac: tilbake dit når søkefeltet tømmes)
+    @State private var beforeSearch: Tab = .tv
+    #endif
 
     init() {
         switch TestSupport.screen {
@@ -108,7 +112,9 @@ struct HomeView: View {
 
     @ViewBuilder
     private var content: some View {
-        #if os(iOS)
+        #if os(macOS)
+        macHome
+        #elseif os(iOS)
         if usesPhoneLayout(sizeClass) {
             PhoneHome(tab: $tab, path: $path, query: $query, play: play)
         } else {
@@ -167,6 +173,94 @@ struct HomeView: View {
     private var multiview: Binding<MultiviewRequest?> {
         Binding(get: { model.multiview }, set: { model.multiview = $0 })
     }
+
+    #if os(macOS)
+    /// Mac: som toppen i Fyrlys for Windows, i verktøylinja til vinduet: merket, seksjonene, søket, lys/mørk og
+    /// innstillingene. Siden under byttes (ingen TabView).
+    private var macHome: some View {
+        macPage
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.bg)
+            .modifier(NoWindowTitle())
+            .toolbarBackground(Theme.bg, for: .windowToolbar)
+            .toolbar {
+                ToolbarItem(placement: .navigation) {
+                    MacBrand()
+                }
+                ToolbarItem(placement: .principal) {
+                    Picker(selection: macSection) {
+                        Text(L("TV")).tag(Tab.tv)
+                        Text(L("TV-guide")).tag(Tab.guide)
+                        if model.hasVOD {
+                            Text(L("Filmer")).tag(Tab.movies)
+                            Text(L("Serier")).tag(Tab.series)
+                        }
+                        if model.hasPlex {
+                            Text(verbatim: "Plex").tag(Tab.plex)
+                        }
+                    } label: {
+                        EmptyView()
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .accessibilityIdentifier("seksjoner")
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    SearchField(text: $query)
+                        .frame(width: 260)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    MacThemeButton()
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        tab = tab == .settings ? beforeSearch : .settings
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .help(L("Innstillinger"))
+                    .accessibilityIdentifier("innstillinger-knapp")
+                }
+            }
+            // søket i verktøylinja: treffene mens det står noe der, så tilbake dit du var
+            .onChange(of: query) { _, text in
+                if !text.isEmpty, tab != .search {
+                    beforeSearch = tab
+                    tab = .search
+                } else if text.isEmpty, tab == .search {
+                    tab = beforeSearch
+                }
+            }
+            .onChange(of: tab) { old, new in
+                if new == .settings, old != .search { beforeSearch = old }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .fyrlysOpenSettings)) { _ in
+                tab = .settings
+            }
+    }
+
+    /// Seksjonen som er valgt øverst (søket og innstillingene er ikke seksjoner: da står den forrige valgt).
+    private var macSection: Binding<Tab> {
+        Binding(get: { tab == .search || tab == .settings ? beforeSearch : tab },
+                set: { new in
+                    query = ""
+                    tab = new
+                })
+    }
+
+    @ViewBuilder
+    private var macPage: some View {
+        switch tab {
+        case .tv: tvTab
+        case .guide: GuideView(play: play)
+        case .movies: VODTab(kind: .movies)
+        case .series: VODTab(kind: .series)
+        case .plex: VODTab(kind: nil)
+        case .search: SearchView(play: play, query: $query)
+        case .settings: SettingsView()
+        }
+    }
+    #endif
 
     /// TV-arkivet for kanalen som er valgt i hurtigmenyen på et kort.
     private var archive: Binding<Channel?> {

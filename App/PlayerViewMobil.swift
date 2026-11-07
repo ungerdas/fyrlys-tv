@@ -15,6 +15,12 @@ struct PlayerView: View {
     @State private var drag: CGFloat = 0
     let request: PlayRequest
 
+    #if os(macOS)
+    static let panelWidth: CGFloat = 420
+    #else
+    static let panelWidth: CGFloat = 380
+    #endif
+
     var body: some View {
         GeometryReader { geo in
             let full = geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
@@ -30,7 +36,7 @@ struct PlayerView: View {
                             screen(model, full)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                             PlayerPanel(model: model) { dismiss() }
-                                .frame(width: 380)
+                                .frame(width: Self.panelWidth)
                         }
                     } else {
                         VStack(spacing: 0) {
@@ -345,6 +351,12 @@ private struct PlayerPanel: View {
                 .padding(.vertical, 10)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.surface2))
         }
+        #if os(macOS)
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        #endif
         .accessibilityIdentifier("spiller-mer")
         .accessibilityLabel(L("Mer"))
     }
@@ -352,12 +364,29 @@ private struct PlayerPanel: View {
     private func panelButton(_ title: String, _ icon: String, id: String, highlighted: Bool = false,
                              action: @escaping () -> Void) -> some View {
         Button(action: action) {
+            #if os(macOS)
+            // Mac: ikonet over teksten (side om side ble teksten delt: «Forri-ge»)
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(highlighted ? Theme.signal : Theme.ink)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.surface2))
+            .contentShape(Rectangle())
+            #else
             Label(title, systemImage: icon)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(highlighted ? Theme.signal : Theme.ink)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.surface2))
+            #endif
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(id)

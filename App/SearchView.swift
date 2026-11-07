@@ -42,9 +42,11 @@ struct SearchView: View {
             .background(Theme.bg.ignoresSafeArea())
             .navigationTitle(L("Søk"))
             #endif
-            #if !os(tvOS)
+            #if os(iOS)
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
                         prompt: L("Søk etter kanal"))
+            #elseif os(macOS)
+            // Mac: søkefeltet står i verktøylinja (HomeView)
             #else
             .searchable(text: $query, prompt: L("Søk etter kanal"))
             #endif
@@ -65,6 +67,7 @@ struct SearchField: View {
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(Theme.muted)
             TextField("", text: $text, prompt: Text(prompt).foregroundStyle(Theme.muted))
+                .textFieldStyle(.plain)
                 .font(.system(size: 16))
                 .foregroundStyle(Theme.ink)
                 .textInputAutocapitalization(.never)
@@ -83,7 +86,12 @@ struct SearchField: View {
             }
         }
         .padding(.horizontal, 14)
+        #if os(macOS)
+        // i verktøylinja til vinduet
+        .frame(height: 30)
+        #else
         .frame(height: 44)
+        #endif
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.surface))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.line, lineWidth: 1))
     }

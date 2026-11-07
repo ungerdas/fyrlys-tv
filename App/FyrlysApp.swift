@@ -20,6 +20,8 @@ struct FyrlysApp: App {
             RootView()
                 .environment(model)
                 .modifier(ChosenAppearance())
+                // skjemaene (Innstillinger, Plex, egne strømmer) gruppert som i Systeminnstillinger
+                .formStyle(.grouped)
                 .frame(minWidth: 900, minHeight: 560)
             #elseif os(iOS)
             RootView()
@@ -33,6 +35,15 @@ struct FyrlysApp: App {
         }
         #if os(macOS)
         .defaultSize(width: 1400, height: 880)
+        .commands {
+            // ⌘, som i andre Mac-apper: innstillingene i vinduet
+            CommandGroup(replacing: .appSettings) {
+                Button(L("Innstillinger")) {
+                    NotificationCenter.default.post(name: .fyrlysOpenSettings, object: nil)
+                }
+                .keyboardShortcut(",")
+            }
+        }
         #endif
     }
 }
