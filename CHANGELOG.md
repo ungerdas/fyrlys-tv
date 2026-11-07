@@ -1,5 +1,13 @@
 # Endringer
 
+## v0.2.1
+
+- Apple TV: sidemenyen i Filmer, Serier og Plex er smalere (220 i stedet for 340 punkter), så plakatene får mer
+  plass. TV-siden er som før.
+- «Fortsett å se» i Serier: når en episode er sett ferdig, står den neste episoden på kortet og spilles med en gang
+  (før åpnet kortet seriesiden). Etter den siste episoden åpnes seriesiden som før.
+- Episodelista på seriesiden viser bildet fra hver episode (uten bilde nummeret), med nummeret foran tittelen.
+
 ## v0.1.37
 
 - Plakatene, bakgrunnsbildene og logoene var uskarpe: appen krympet alle bilder til 360 piksler (ment for
