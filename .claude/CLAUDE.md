@@ -36,7 +36,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   virker appen, men ikke iCloud-delingen og Top Shelf.
   **Satt opp 7.11.2026**: Xcode ligger i `~/Downloads/Xcode.app` og er ikke valgt med xcode-select (det krever sudo),
   så alle kommandoene trenger `export DEVELOPER_DIR=~/Downloads/Xcode.app/Contents/Developer`. Homebrew finnes ikke
-  (støtter ikke Intel lenger); XcodeGen 2.44.1 ligger i `~/.local/xcodegen/bin/xcodegen` (fra GitHub-utgivelsen).
+  (støtter ikke Intel lenger); XcodeGen 2.44.1 ligger i `~/.local/xcodegen/bin/xcodegen` (fra GitHub-utgivelsen),
+  og `gh` 2.103.3 i `~/.local/gh/bin/gh` (logget inn, også for `git push`).
   VLCKit ligger i `Vendor/`. Simulatorer: iOS 26.3 og tvOS 26.2 («Apple TV 4K (3rd generation)», «iPhone 17 Pro
   Max», iPadene). Bruk `-derivedDataPath build/DerivedData`. Første bygg + én UI-test tok rundt 5 min for tvOS og
   10 min for iPhone; første iPhone-test kan feile med «Timed out waiting for AX loaded notification» mens
