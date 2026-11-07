@@ -18,6 +18,23 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   workflowen feilene og slutten av loggen som merknad: `gh api repos/ungerdas/fyrlys-tv/check-runs/<jobb-id>/annotations`
   (jobb-id fra `gh run view <id> --json jobs`). Hele loggen for en jobb kan hentes med `gh api
   repos/ungerdas/fyrlys-tv/actions/jobs/<jobb-id>/logs` (virket 3.11.2026; artefaktene ikke prøvd).
+- **På eierens Mac (fra 7.11.2026)**: eieren har nå en Mac med Xcode 26.3 (Intel, macOS Sequoia; 26.3 er den siste
+  Xcode for Sequoia) og vil kjøre Claude Code der. Finnes `xcodebuild` i økta, bygg og test lokalt i stedet for å vente
+  på GitHub Actions (en runde der tar 45–60 min, og noen ganger får bygget ingen Mac). Byggene til TestFlight går
+  fortsatt via GitHub: sertifikatet og hemmelighetene ligger der, og når Apple krever en nyere SDK, kan ikke Mac-en lage
+  dem. Oppsettet som i `.github/workflows/build.yml`: `brew install xcodegen`, `tools/vlckit.sh tvOS iOS` (VLCKit til
+  `Vendor/`), `xcodegen generate` (→ `Fyrlys.xcodeproj`, skjemaene `Fyrlys` for tvOS og `FyrlysMobil` for iPhone/iPad);
+  de falske serverne `python3 tools/fake_xtream.py --port 8899` og `python3 tools/fake_plex.py --port 8897` (fartstesten
+  også `--port 8898 --kanaler 25000 --kategorier 450`); én test: `TEST_RUNNER_FYRLYS_TEST_SERVER=http://127.0.0.1:8899
+  TEST_RUNNER_FYRLYS_TEST_PLEX=http://127.0.0.1:8897 xcodebuild test -project Fyrlys.xcodeproj -scheme Fyrlys
+  -destination 'platform=tvOS Simulator,name=<fra xcrun simctl list devices>'
+  -only-testing:FyrlysUITests/FyrlysUITests/test17Plex` (iOS: `-scheme FyrlysMobil`,
+  `FyrlysMobilUITests/FyrlysMobilUITests/…`); skjermbilde av simulatoren: `xcrun simctl io booted screenshot <fil>.png`
+  (se på det med Read). Ikke gjort ennå: kjøre fra Xcode på hans Apple TV og iPhone. Det krever teamet
+  (`DEVELOPMENT_TEAM` er tom i `project.yml`; legg det i en lokal fil som ikke committes) og rettighetene som
+  `tools/adhoc_sign.sh` gir TestFlight-byggene (iCloud-nøkkelverdiene, nøkkelring-gruppene for Top Shelf); uten dem
+  virker appen, men ikke iCloud-delingen og Top Shelf. Hans ekte innlogginger, Plex og adresser brukes bare på
+  enhetene, aldri i repoet, testene, loggene som pushes eller commit-meldingene.
 - **Skjermbilder**: UI-testene (`UITests/FyrlysUITests.swift`) tar bilder i simulatoren, og workflowen legger dem i
   grenen `skjermbilder` (overskrives hver gang); iPhone og iPad (`UITestsMobil/FyrlysMobilUITests.swift`, «NN-iphone-…»
   og «NN-ipad-…») i grenen `skjermbilder-mobil`. Den grunne klonen trenger en refspec:
