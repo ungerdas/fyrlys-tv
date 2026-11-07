@@ -224,7 +224,7 @@ struct VODTab: View {
                 .hidesScrollIndex()
             }
             .scrollIndicators(.never)
-            .frame(width: Metrics.sidebarWidth)
+            .frame(width: Metrics.vodSidebarWidth)
             .clipped()
             .tvFocusSection()
             Rectangle()

@@ -76,6 +76,8 @@ extension UIColor {
 enum Metrics {
     #if os(tvOS)
     static let sidebarWidth: CGFloat = 340
+    /// sidemenyen i Filmer, Serier og Plex (få og korte linjer; smalere enn på TV-siden)
+    static let vodSidebarWidth: CGFloat = 220
     static let sidebarFont: CGFloat = 23
     static let sidebarRow: CGFloat = 54
     static let sidebarIcon: CGFloat = 21
@@ -145,6 +147,7 @@ enum Metrics {
     static let rowClock: CGFloat = 22
     #else
     static let sidebarWidth: CGFloat = 280
+    static let vodSidebarWidth: CGFloat = 280
     static let sidebarFont: CGFloat = 16
     static let sidebarRow: CGFloat = 42
     static let sidebarIcon: CGFloat = 17
