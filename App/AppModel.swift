@@ -48,6 +48,10 @@ final class AppModel {
     var pendingPlay: String?
     /// et program fra start (TV-arkivet), vist av HomeView over alt annet
     var replay: VODPlay?
+    #if os(macOS)
+    /// Mac: minispilleren skal tilbake i vinduet (HomeView viser spilleren med den samme sendingen)
+    var reopenPlayer: PlayRequest?
+    #endif
     /// venter på at et ark eller spilleren for direktesendingen er lukket (leverandøren gir ofte bare én
     /// tilkobling, så direktesendingen stoppes først)
     @ObservationIgnored var pendingReplay: VODPlay?

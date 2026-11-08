@@ -501,6 +501,23 @@ struct VODPlayerView: View {
         }
         #if os(macOS)
         .onExitCommand { dismiss() }
+        .playerKeys { command in
+            guard let model, model.error == nil else { return false }
+            switch command {
+            case .playPause:
+                if let vlc = model.vlc { vlc.togglePause() } else { model.player.togglePlayback() }
+            case .back, .forward:
+                let step: Double = command == .back ? -10 : 10
+                if let vlc = model.vlc { vlc.seek(to: vlc.time + step) } else { model.player.jump(step) }
+            case .mute:
+                if let vlc = model.vlc { vlc.toggleMute() } else { model.player.isMuted.toggle() }
+            case .fullScreen:
+                MacFullScreen.toggle()
+            case .next, .previous, .mini:
+                return false
+            }
+            return true
+        }
         #endif
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(model?.error == nil ? "vod-spiller" : "vod-feil")
@@ -508,6 +525,11 @@ struct VODPlayerView: View {
         .accessibilityValue(TestSupport.isActive ? (model?.play.progressKey ?? "") : "")
         .onAppear {
             guard model == nil else { return }
+            #if os(macOS)
+            // én sending om gangen: minispilleren stoppes
+            MacMiniPlayer.close()
+            MacPlayerState.shared.vod = true
+            #endif
             #if !os(tvOS)
             // iPhone: liggende, som i Apple TV-appen (også når skjermretningen er låst); når arket har kommet fram
             // (mens det kommer inn, avvises det)
@@ -528,6 +550,7 @@ struct VODPlayerView: View {
             guard model?.inFullScreen != true else { return }
             model?.stop()
             #if os(macOS)
+            MacPlayerState.shared.vod = false
             MacFullScreen.leaveIfEntered()
             #endif
             #if !os(tvOS)

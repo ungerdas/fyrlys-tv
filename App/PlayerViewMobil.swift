@@ -35,14 +35,14 @@ struct PlayerView: View {
                         HStack(spacing: 0) {
                             screen(model, full)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            PlayerPanel(model: model) { dismiss() }
+                            panel(model)
                                 .frame(width: Self.panelWidth)
                         }
                     } else {
                         VStack(spacing: 0) {
                             screen(model, full)
                                 .aspectRatio(16 / 9, contentMode: .fit)
-                            PlayerPanel(model: model) { dismiss() }
+                            panel(model)
                         }
                     }
                 }
@@ -53,21 +53,57 @@ struct PlayerView: View {
         .statusBarHidden(vertical == .compact)
         #if os(macOS)
         .onExitCommand { dismiss() }
+        .playerKeys { command in
+            guard let model else { return false }
+            switch command {
+            case .playPause: model.player.togglePlayback()
+            case .back: model.player.jump(-10)
+            case .forward: model.player.jump(10)
+            case .next: model.step(1)
+            case .previous: model.step(-1)
+            case .mute: model.player.isMuted.toggle()
+            case .fullScreen: MacFullScreen.toggle()
+            case .mini: toMini(model)
+            }
+            return true
+        }
         #endif
         .onAppear {
             guard model == nil else { return }
+            #if os(macOS)
+            MacPlayerState.shared.live = true
+            if let existing = request.existing {
+                // fra minispilleren: den samme sendingen fortsetter
+                existing.detached = false
+                model = existing
+                return
+            }
+            #endif
             let player = PlayerModel(app: app, channel: request.channel, list: request.list)
             model = player
             player.open(request.channel)
         }
-        // ikke når AVKit sin egen fullskjerm legger seg over (da forsvinner siden under, men det spilles videre der)
+        // ikke når AVKit sin egen fullskjerm legger seg over (da forsvinner siden under, men det spilles videre der),
+        // og ikke når sendingen er flyttet til minispilleren (Mac)
         .onDisappear {
-            if model?.inFullScreen != true { model?.stop() }
+            #if os(macOS)
+            MacPlayerState.shared.live = false
+            MacFullScreen.leaveIfEntered()
+            #endif
+            if model?.inFullScreen != true && model?.detached != true { model?.stop() }
         }
         .onChange(of: programs) { model?.refreshMetadata() }
         .onChange(of: model?.closeRequested ?? false) { _, close in
             if close { dismiss() }
         }
+    }
+
+    private func panel(_ model: PlayerModel) -> PlayerPanel {
+        #if os(macOS)
+        PlayerPanel(model: model, close: { dismiss() }, mini: { toMini(model) })
+        #else
+        PlayerPanel(model: model) { dismiss() }
+        #endif
     }
 
     private var programs: [Program] {
@@ -91,6 +127,15 @@ struct PlayerView: View {
             }
         }
     }
+
+    #if os(macOS)
+    /// Mac: sendingen over i minispilleren, og vinduet tilbake til der du var.
+    private func toMini(_ model: PlayerModel) {
+        model.detached = true
+        MacMiniPlayer.show(model, app: app)
+        dismiss()
+    }
+    #endif
 
     /// Dratt langt nok eller fort nok ned: spilleren glir ut og lukkes. Ellers tilbake på plass.
     private func finishDrag(_ distance: CGFloat, velocity: CGFloat, full: CGFloat) {
@@ -229,6 +274,10 @@ private struct PlayerPanel: View {
     @Environment(AppModel.self) private var app
     let model: PlayerModel
     let close: () -> Void
+    #if os(macOS)
+    /// til minispilleren
+    var mini: () -> Void = {}
+    #endif
     /// strøminfoen under knappene
     @State private var showInfo = false
 
@@ -299,6 +348,9 @@ private struct PlayerPanel: View {
                 if model.canMultiview {
                     panelButton(L("Multiview"), "rectangle.split.2x2", id: "multiview-knapp") { model.openMultiview() }
                 }
+                #if os(macOS)
+                panelButton(L("Minispiller"), "pip.exit", id: "minispiller-knapp") { mini() }
+                #endif
                 more
             }
             .padding(.horizontal, 16)
@@ -439,7 +491,7 @@ private struct ChannelRow: View {
                     Text(verbatim: parts.main)
                         .fontWeight(.semibold)
                         .foregroundStyle(current ? Theme.signal : Theme.ink)
-                        .lineLimit(1)
+                        .lineLimit(parts.sub.isEmpty && !channel.wantsEpg ? 2 : 1)
                 }
                 .font(.system(size: 15))
                 if !parts.sub.isEmpty {
@@ -464,6 +516,9 @@ private struct ChannelRow: View {
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
             .strokeBorder(current ? Theme.signal.opacity(0.7) : Theme.line, lineWidth: 1))
         .contentShape(Rectangle())
+        #if os(macOS)
+        .help(channel.name)
+        #endif
         .onAppear { app.programs.want(channel) }
         .onDisappear { app.programs.forget(channel) }
     }

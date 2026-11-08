@@ -17,6 +17,8 @@ final class PlayerModel {
     private(set) var error: String?
     /// iPhone/iPad: AVKit sin egen fullskjerm er framme (siden under forsvinner da, men spilleren skal ikke stoppes)
     @ObservationIgnored var inFullScreen = false
+    /// Mac: sendingen er flyttet til minispilleren (stoppes ikke når spilleren lukkes)
+    @ObservationIgnored var detached = false
     /// spilleren skal lukkes (når programmet skal ses fra start)
     private(set) var closeRequested = false
     /// UI-testene: adressene som er prøvd (stien), så testen ser at en egen strøm som ikke virker, byttes med

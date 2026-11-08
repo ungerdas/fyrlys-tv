@@ -60,6 +60,11 @@ struct SearchField: View {
     @Binding var text: String
     var prompt = L("Søk etter kanal")
     var id = "sok"
+    #if os(macOS)
+    /// ⌘F går hit (søket i verktøylinja)
+    var findTarget = false
+    @FocusState private var focused: Bool
+    #endif
 
     var body: some View {
         HStack(spacing: 8) {
@@ -74,6 +79,16 @@ struct SearchField: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .accessibilityIdentifier(id)
+                #if os(macOS)
+                .focused($focused)
+                .onReceive(NotificationCenter.default.publisher(for: .fyrlysFind)) { _ in
+                    if findTarget { focused = true }
+                }
+                .onExitCommand {
+                    text = ""
+                    focused = false
+                }
+                #endif
             if !text.isEmpty {
                 Button {
                     text = ""

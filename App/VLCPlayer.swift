@@ -131,6 +131,10 @@ final class VLCEngine {
         }
     }
 
+    func toggleMute() {
+        player.audio?.isMuted.toggle()
+    }
+
     /// Til [seconds] sekunder inn (innenfor filmen).
     func seek(to seconds: Double) {
         guard started, player.isSeekable else { return }

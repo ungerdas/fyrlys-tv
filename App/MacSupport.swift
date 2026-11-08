@@ -244,7 +244,8 @@ enum WindowSnapshot {
 /// igjen når spilleren lukkes, hvis det var spilleren som gikk inn.
 @MainActor
 enum MacFullScreen {
-    private static var enteredForPlayer = false
+    /// spilleren gikk i fullskjerm (huskes ikke til neste gang appen åpnes)
+    private(set) static var enteredForPlayer = false
 
     static var window: NSWindow? {
         NSApp.windows.first { $0.isVisible && $0.sheetParent == nil && $0.contentView != nil && !($0 is NSPanel) }
@@ -260,6 +261,78 @@ enum MacFullScreen {
     static func leaveIfEntered() {
         if enteredForPlayer, isOn { window?.toggleFullScreen(nil) }
         enteredForPlayer = false
+    }
+}
+
+/// Mac: vinduet åpner der det var, like stort, og i fullskjerm hvis det var det da appen ble avsluttet (som Fyrlys
+/// for Windows 2.1.38). Ikke i testene.
+struct WindowMemory: NSViewRepresentable {
+    static let frameKey = "vindu-ramme"
+    static let fullScreenKey = "vindu-fullskjerm"
+
+    func makeNSView(context: Context) -> NSView { Probe() }
+    func updateNSView(_ view: NSView, context: Context) {}
+
+    /// SwiftUI lagrer rammen under et navn med adresser som endres for hver start, så den ble aldri funnet igjen (og
+    /// en ny linje ble lagt i innstillingene hver gang). Her lagres den under ett navn, og de gamle ryddes bort.
+    final class Probe: NSView {
+        private var done = false
+        private var observers: [NSObjectProtocol] = []
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard !done, let window,
+                  !TestSupport.isActive || ProcessInfo.processInfo.environment["FYRLYS_TEST_WINDOW"] != nil
+            else { return }
+            done = true
+            let defaults = UserDefaults.standard
+            for key in defaults.dictionaryRepresentation().keys
+            where key.hasPrefix("NSWindow Frame SwiftUI.") && key.contains("unknown context") {
+                defaults.removeObject(forKey: key)
+            }
+            // etter at SwiftUI har satt sin størrelse
+            DispatchQueue.main.async { [weak window] in
+                guard let window else { return }
+                if let saved = defaults.string(forKey: WindowMemory.frameKey) {
+                    window.setFrame(from: saved)
+                }
+                if defaults.bool(forKey: WindowMemory.fullScreenKey), !window.styleMask.contains(.fullScreen) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { window.toggleFullScreen(nil) }
+                }
+                self.watch(window)
+            }
+        }
+
+        private func watch(_ window: NSWindow) {
+            let center = NotificationCenter.default
+            let save: (Notification) -> Void = { [weak window] _ in
+                MainActor.assumeIsolated {
+                    guard let window, !window.styleMask.contains(.fullScreen) else { return }
+                    UserDefaults.standard.set(window.frameDescriptor, forKey: WindowMemory.frameKey)
+                }
+            }
+            for name in [NSWindow.didMoveNotification, NSWindow.didEndLiveResizeNotification,
+                         NSWindow.didResizeNotification] {
+                observers.append(center.addObserver(forName: name, object: window, queue: .main, using: save))
+            }
+            observers.append(center.addObserver(forName: NSWindow.didEnterFullScreenNotification, object: window,
+                                                queue: .main) { _ in
+                MainActor.assumeIsolated {
+                    // fullskjerm fra spilleren huskes ikke (den går ut igjen når spilleren lukkes)
+                    if !MacFullScreen.enteredForPlayer {
+                        UserDefaults.standard.set(true, forKey: WindowMemory.fullScreenKey)
+                    }
+                }
+            })
+            observers.append(center.addObserver(forName: NSWindow.didExitFullScreenNotification, object: window,
+                                                queue: .main) { _ in
+                UserDefaults.standard.set(false, forKey: WindowMemory.fullScreenKey)
+            })
+        }
+
+        deinit {
+            for observer in observers { NotificationCenter.default.removeObserver(observer) }
+        }
     }
 }
 

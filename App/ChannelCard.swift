@@ -13,6 +13,10 @@ struct ChannelCard: View {
     var body: some View {
         let favorite = model.isFavorite(channel)
         card(favorite)
+            #if os(macOS)
+            // hele navnet når musa står over kortet (som Fyrlys for Windows 2.1.40)
+            .help(channel.name)
+            #endif
             .contextMenu {
                 Button {
                     model.toggleFavorite(channel)
@@ -69,9 +73,19 @@ struct ChannelCard: View {
             Button {
                 model.toggleFavorite(channel)
             } label: {
-                Star(favorite: favorite, channelId: channel.id)
-                    .frame(width: 40, height: 44)
-                    .contentShape(Rectangle())
+                // nummeret over stjerna, så navnet får mer plass
+                VStack(spacing: 2) {
+                    if let number = channel.number {
+                        Text(verbatim: "\(number)")
+                            .font(.system(size: Metrics.cardSub - 1))
+                            .foregroundStyle(Theme.muted)
+                            .lineLimit(1)
+                            .fixedSize()
+                    }
+                    Star(favorite: favorite, channelId: channel.id)
+                }
+                .frame(width: 40, height: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("stjerne-kanal-\(channel.id)")
@@ -91,6 +105,8 @@ struct ChannelCard: View {
     /// Logoen, navnet, kampen eller det som går nå, og nummeret.
     private var details: some View {
         let parts = nameParts(channel.name)
+        // ingen linje under (eventkanalene med kampen i navnet): navnet på to linjer
+        let twoLines = parts.sub.isEmpty && !channel.wantsEpg
         return HStack(spacing: 12) {
             ChannelLogo(channel: channel)
                 .frame(width: Metrics.logo.width, height: Metrics.logo.height)
@@ -105,7 +121,7 @@ struct ChannelCard: View {
                     Text(verbatim: parts.main)
                         .font(.system(size: Metrics.cardTitle, weight: .semibold))
                         .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
+                        .lineLimit(twoLines ? 2 : 1)
                 }
                 if !parts.sub.isEmpty {
                     Text(verbatim: parts.sub)
@@ -117,12 +133,14 @@ struct ChannelCard: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            #if os(tvOS)
             if let number = channel.number {
                 Text(verbatim: "\(number)")
                     .font(.system(size: Metrics.cardSub))
                     .foregroundStyle(Theme.muted)
                     .fixedSize()
             }
+            #endif
         }
     }
 }

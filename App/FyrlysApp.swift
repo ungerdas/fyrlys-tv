@@ -8,6 +8,10 @@ struct FyrlysApp: App {
 
     init() {
         appLanguage = TestSupport.language ?? language(ofPreferred: Locale.preferredLanguages)
+        #if os(macOS)
+        // ett vindu: ingen «Vis fanelinje» og «Vis alle faner» i Vis-menyen
+        NSWindow.allowsAutomaticWindowTabbing = false
+        #endif
         #if os(iOS)
         // lyd når telefonen står på lydløs, og bilde-i-bilde og lyd når appen ligger i bakgrunnen
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
@@ -23,6 +27,8 @@ struct FyrlysApp: App {
                 // skjemaene (Innstillinger, Plex, egne strømmer) gruppert som i Systeminnstillinger
                 .formStyle(.grouped)
                 .frame(minWidth: 900, minHeight: 560)
+                // størrelsen, plassen og fullskjerm fra sist
+                .background(WindowMemory())
             #elseif os(iOS)
             RootView()
                 .environment(model)
@@ -43,6 +49,9 @@ struct FyrlysApp: App {
                 }
                 .keyboardShortcut(",")
             }
+            // ⌘F og ⌘1–5 (seksjonene) i Vis-menyen
+            SectionCommands()
+            PlaybackCommands()
         }
         #endif
     }

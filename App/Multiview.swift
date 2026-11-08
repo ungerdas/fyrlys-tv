@@ -353,6 +353,9 @@ struct MultiviewView: View {
         .accessibilityIdentifier("multiview")
         .onAppear {
             guard model == nil else { return }
+            #if os(macOS)
+            MacMiniPlayer.close()
+            #endif
             let made = MultiviewModel(app: app)
             model = made
             Task { await made.start(first: request.channel) }

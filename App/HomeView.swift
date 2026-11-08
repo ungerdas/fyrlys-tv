@@ -6,6 +6,8 @@ struct PlayRequest: Identifiable {
     let id = UUID()
     let channel: Channel
     let list: [Channel]
+    /// Mac: sendingen fra minispilleren, som fortsetter i det store vinduet
+    var existing: PlayerModel? = nil
 }
 
 /// Fanene øverst (fanelinja til Apple TV): TV, TV-guide, Filmer og Serier (fra IPTV-leverandøren), Plex (når en
@@ -100,6 +102,14 @@ struct HomeView: View {
             .onAppear(perform: playForTest)
             .onChange(of: model.channels.count) { playForTest() }
             .onChange(of: model.pendingPlay) { playForTest() }
+            #if os(macOS)
+            // minispilleren tilbake i vinduet
+            .onChange(of: model.reopenPlayer?.id) {
+                guard let request = model.reopenPlayer else { return }
+                model.reopenPlayer = nil
+                playing = request
+            }
+            #endif
             // Filmer og Serier ble borte (en annen innlogging med en M3U-liste): tilbake til TV
             .onChange(of: model.hasVOD) { _, has in
                 if !has, tab == .movies || tab == .series { tab = .tv }
@@ -207,7 +217,7 @@ struct HomeView: View {
                     .accessibilityIdentifier("seksjoner")
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    SearchField(text: $query)
+                    SearchField(text: $query, findTarget: true)
                         .frame(width: 260)
                 }
                 ToolbarItem(placement: .primaryAction) {
@@ -237,6 +247,16 @@ struct HomeView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .fyrlysOpenSettings)) { _ in
                 tab = .settings
+            }
+            // ⌘1–5: TV, TV-guide, Filmer, Serier, Plex (når de finnes)
+            .onReceive(NotificationCenter.default.publisher(for: .fyrlysSection)) { note in
+                guard let number = note.object as? Int else { return }
+                let all: [Tab] = [.tv, .guide, .movies, .series, .plex]
+                guard number >= 1, number <= all.count else { return }
+                let wanted = all[number - 1]
+                if wanted == .movies || wanted == .series, !model.hasVOD { return }
+                if wanted == .plex, !model.hasPlex { return }
+                macSection.wrappedValue = wanted
             }
     }
 
@@ -284,6 +304,10 @@ struct HomeView: View {
     }
 
     private func play(_ channel: Channel, _ list: [Channel]) {
+        #if os(macOS)
+        // én sending om gangen (leverandøren gir ofte bare én tilkobling)
+        MacMiniPlayer.close()
+        #endif
         playing = PlayRequest(channel: channel, list: list.isEmpty ? [channel] : list)
     }
 
