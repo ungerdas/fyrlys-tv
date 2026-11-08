@@ -95,6 +95,33 @@ targets:
         CODE_SIGN_STYLE: Automatic
         APPLICATION_EXTENSION_API_ONLY: YES
 
+  # widgeten på hjemskjermen til iPhone og iPad: favorittkanalene
+  FyrlysWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget
+      - path: TopShelf/SharedFavorites.swift
+    info:
+      path: build/FyrlysWidget-Info.plist
+      properties:
+        CFBundleDisplayName: Fyrlys
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: nb
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: no.fyrlys.tv.widget
+        PRODUCT_NAME: FyrlysWidget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SUPPORTS_MACCATALYST: NO
+
   FyrlysUITests:
     type: bundle.ui-testing
     platform: tvOS
@@ -117,8 +144,11 @@ targets:
         excludes:
           - "Assets.xcassets"
           - "Mac.xcassets"
+      # favorittene til widgeten (felles med den, og med Top Shelf)
+      - path: TopShelf/SharedFavorites.swift
     dependencies:
       - package: FyrlysCore
+      - target: FyrlysWidget
       - framework: Vendor/MobileVLCKit.xcframework
         embed: true
     info:
@@ -149,6 +179,10 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        # fyrlys://kanal/<id> fra widgeten
+        CFBundleURLTypes:
+          - CFBundleURLName: no.fyrlys.tv
+            CFBundleURLSchemes: [fyrlys]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: no.fyrlys.tv

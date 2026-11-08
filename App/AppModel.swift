@@ -1,5 +1,8 @@
 import FyrlysCore
 import Foundation
+#if os(iOS)
+import WidgetKit
+#endif
 import Observation
 #if os(tvOS)
 import TVServices
@@ -814,6 +817,11 @@ final class AppModel {
         TVTopShelfContentProvider.topShelfContentDidChange()
         #else
         ShortcutChannels.save(favorites + recent.prefix(20))
+        #endif
+        #if os(iOS)
+        // widgeten på hjemskjermen
+        SharedFavorites.save(favorites.map { SharedFavorite(id: $0.id, name: nameParts($0.name).main, logo: $0.logo) })
+        WidgetCenter.shared.reloadAllTimelines()
         #endif
     }
 

@@ -40,8 +40,9 @@ PLATFORMS = [("tvOS", "TVOS_APP_STORE", "TV_OS"), ("iOS", "IOS_APP_STORE", "IOS"
              ("macOS", "MAC_APP_STORE", "MAC_OS")]
 # Mac (fra 0.2.2) er valgfri: feiler noe for den, lastes Apple TV og iPhone/iPad opp likevel
 OPTIONAL = {"macOS"}
-# utvidelsene i appen per plattform (app-id og navn): Top Shelf på Apple TV
-EXTENSIONS = {"tvOS": [("no.fyrlys.tv.topshelf", "Fyrlys Top Shelf")]}
+# utvidelsene i appen per plattform (app-id og navn): Top Shelf på Apple TV, widgeten på iPhone og iPad
+EXTENSIONS = {"tvOS": [("no.fyrlys.tv.topshelf", "Fyrlys Top Shelf")],
+              "iOS": [("no.fyrlys.tv.widget", "Fyrlys Widget")]}
 
 
 def env(name):
