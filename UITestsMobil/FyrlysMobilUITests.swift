@@ -202,6 +202,13 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(find(app, "guide-velger").waitForExistence(timeout: 10), "valget i guiden mangler")
         wait(5)
         shot("07-guide")
+        // det neste programmet: infoen med «Minn meg på»
+        let next = find(app, "neste-program-3")
+        XCTAssertTrue(next.waitForExistence(timeout: 10), "fant ikke det neste programmet i guiden")
+        next.tap()
+        XCTAssertTrue(find(app, "paminnelse").waitForExistence(timeout: 10), "«Minn meg på» mangler")
+        wait(1)
+        shot("07-guide-paminnelse")
     }
 
     func test06Search() {

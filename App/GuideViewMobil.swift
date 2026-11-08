@@ -391,9 +391,12 @@ private struct GuideTrack: View {
             } else if programs.isEmpty {
                 if model.programs.isLoaded(channel) { empty(L("Ingen programinfo")) }
             } else {
+                let next = programs.first { $0.start > now }?.start
                 ForEach(programs, id: \.start) { program in
                     if let span = GuideTime.span(of: program, start: start) {
                         block(program, span: span)
+                            // testene: det neste programmet på kanalen
+                            .accessibilityIdentifier(program.start == next ? "neste-program-\(channel.id)" : "")
                     }
                 }
             }
@@ -454,6 +457,8 @@ private struct ProgramInfo: View {
     let pick: GuidePick
     let watch: () -> Void
     let fromStart: () -> Void
+    /// påminnelsen er satt
+    @State private var reminded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -492,6 +497,23 @@ private struct ProgramInfo: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("se-fra-start")
+            }
+            // ikke begynt ennå: et varsel før det begynner
+            if pick.program.start > Date().addingTimeInterval(30) {
+                Button {
+                    Task { reminded = await Reminders.toggle(pick.channel, pick.program) }
+                } label: {
+                    Label(reminded ? L("Påminnelse satt") : L("Minn meg på"),
+                          systemImage: reminded ? "bell.fill" : "bell")
+                        .font(.headline)
+                        .foregroundStyle(Theme.signal)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.signal))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("paminnelse")
+                .task { reminded = await Reminders.isSet(pick.channel, pick.program) }
             }
         }
         .padding(20)

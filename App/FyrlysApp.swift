@@ -1,6 +1,9 @@
 import AVFoundation
 import FyrlysCore
 import SwiftUI
+#if !os(tvOS)
+import UserNotifications
+#endif
 
 @main
 struct FyrlysApp: App {
@@ -8,6 +11,10 @@ struct FyrlysApp: App {
 
     init() {
         appLanguage = TestSupport.language ?? language(ofPreferred: Locale.preferredLanguages)
+        #if !os(tvOS)
+        // påminnelsene fra guiden
+        UNUserNotificationCenter.current().delegate = NotificationRouter.shared
+        #endif
         #if os(macOS)
         // ett vindu: ingen «Vis fanelinje» og «Vis alle faner» i Vis-menyen
         NSWindow.allowsAutomaticWindowTabbing = false
@@ -92,6 +99,10 @@ struct RootView: View {
         }
         .task {
             model.start()
+            #if !os(tvOS)
+            // Siri: «Spill … i Fyrlys» da appen ble startet
+            if let id = IntentInbox.take() { model.pendingPlay = id }
+            #endif
             #if os(macOS)
             WindowSnapshot.startIfRequested()
             #endif
@@ -100,6 +111,11 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { model.becameActive() }
         }
+        #if !os(tvOS)
+        .onReceive(NotificationCenter.default.publisher(for: .fyrlysIntentPlay)) { _ in
+            if let id = IntentInbox.take() { model.pendingPlay = id }
+        }
+        #endif
         // Top Shelf: fyrlys://kanal/<id>
         .onOpenURL { url in
             if url.scheme == "fyrlys", url.host == "kanal" {

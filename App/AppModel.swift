@@ -806,12 +806,14 @@ final class AppModel {
         shareFavorites()
     }
 
-    /// Favorittene til Top Shelf (hjemskjermen til Apple TV).
+    /// Favorittene til Top Shelf (hjemskjermen til Apple TV), og til Siri (favorittene og de sist sette).
     func shareFavorites() {
-        #if os(tvOS)
         guard !TestSupport.isActive, !index.channels.isEmpty else { return }
+        #if os(tvOS)
         SharedFavorites.save(favorites.map { SharedFavorite(id: $0.id, name: nameParts($0.name).main, logo: $0.logo) })
         TVTopShelfContentProvider.topShelfContentDidChange()
+        #else
+        ShortcutChannels.save(favorites + recent.prefix(20))
         #endif
     }
 
@@ -849,6 +851,9 @@ final class AppModel {
         guard library?.recent.first != channel.id else { return }
         library?.addRecent(channel.id)
         recentVersion += 1
+        #if !os(tvOS)
+        shareFavorites()
+        #endif
     }
 
     // ── bildeformatet per kanal (på enheten, som i Fyrlys for Windows) ──
