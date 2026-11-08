@@ -263,6 +263,43 @@ enum MacFullScreen {
     }
 }
 
+extension View {
+    /// Mac: «…» til høyre på en linje når musa står over den, med de samme valgene som hurtigmenyen (høyreklikk), som
+    /// ellers er vanskelig å finne (på Apple TV, iPhone og iPad holder man inne).
+    func macRowMenu<Menu: View>(@ViewBuilder _ menu: @escaping () -> Menu) -> some View {
+        modifier(MacRowMenu(menu: menu))
+    }
+}
+
+private struct MacRowMenu<Items: View>: ViewModifier {
+    let menu: () -> Items
+    @State private var hover = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .trailing) {
+                Menu {
+                    menu()
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Theme.muted)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .padding(.trailing, 8)
+                .opacity(hover ? 1 : 0)
+                .help(L("Flere valg"))
+                .accessibilityLabel(L("Flere valg"))
+            }
+            .onHover { hover = $0 }
+    }
+}
+
 /// Knappen i VLC-kontrollene (Apples avspiller har sin egen).
 struct MacFullScreenButton: View {
     @State private var on = MacFullScreen.isOn

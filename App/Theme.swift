@@ -232,6 +232,17 @@ enum CountText {
 }
 
 extension View {
+    /// Mac: et ark er bare så stort som innholdet ber om, og en List ber om nesten ingenting (brukervalget i Plex
+    /// ble en tom stripe med «Avbryt»). Andre steder: som før.
+    @ViewBuilder
+    func macSheetSize(width: CGFloat = 520, height: CGFloat = 560) -> some View {
+        #if os(macOS)
+        frame(minWidth: width, idealWidth: width, minHeight: height, idealHeight: height)
+        #else
+        self
+        #endif
+    }
+
     /// Fokusseksjon på Apple TV (finnes ikke på iOS).
     @ViewBuilder
     func tvFocusSection() -> some View {

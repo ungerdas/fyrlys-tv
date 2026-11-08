@@ -364,6 +364,7 @@ struct MultiviewView: View {
                 if let channel { tile.open(channel) }
             }
             .environment(app)
+            .macSheetSize(width: 560, height: 680)
         }
         #if os(tvOS)
         .onExitCommand {

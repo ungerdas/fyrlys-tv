@@ -67,6 +67,7 @@ struct GuideView: View {
                 CategoryPicker(chosen: Binding(get: { selection }, set: { if let new = $0 { stored = Self.encode(new) } }),
                                current: selection)
                     .environment(model)
+                    .macSheetSize()
             }
             .sheet(item: $picked, onDismiss: {
                 model.showPendingReplay()
@@ -88,6 +89,7 @@ struct GuideView: View {
                     }
                 }
                 .presentationDetents([.medium, .large])
+                .macSheetSize(width: 520, height: 460)
             }
             // til nå når guiden vises (startverdien i scrollPosition ble ikke brukt, så guiden sto en halvtime eller
             // mer bakover)

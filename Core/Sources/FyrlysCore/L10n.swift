@@ -264,6 +264,7 @@ public let english: [String: String] = [
     "Snu skjermen": "Rotate the screen",
     "Fullskjerm": "Full screen",
     "Avslutt fullskjerm": "Exit full screen",
+    "Flere valg": "More options",
     // egne strømmer
     "Egne strømmer": "Own streams",
     "Egne strømmer …": "Own streams …",

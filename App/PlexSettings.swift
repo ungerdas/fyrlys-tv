@@ -25,6 +25,7 @@ struct PlexSettings: View {
         .sheet(isPresented: $libraries) {
             PlexLibrariesSheet()
                 .environment(model)
+                .macSheetSize()
         }
         #else
         Section {
@@ -40,6 +41,7 @@ struct PlexSettings: View {
         .sheet(isPresented: $libraries) {
             PlexLibrariesSheet()
                 .environment(model)
+                .macSheetSize()
         }
         #endif
     }

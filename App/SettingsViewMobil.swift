@@ -137,6 +137,7 @@ struct SettingsView: View {
         .sheet(isPresented: $report) {
             ErrorReportView()
                 .environment(model)
+                .macSheetSize(width: 640, height: 680)
         }
         .alert(L("Logg ut av {name}?", ["name": model.login?.label ?? ""]), isPresented: $confirmSignOut) {
             Button(L("Logg ut"), role: .destructive) { model.signOut() }

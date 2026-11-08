@@ -21,7 +21,7 @@ struct VODTab: View {
     /// Plex: valget av bibliotekene som vises
     @State private var libraries = false
     /// Plex Home: «Hvem ser på?»
-    @State private var chooseUser = false
+    @State private var chooseUser = TestSupport.screen == "plex-users"
 
     private var model: VODModel {
         switch kind {
@@ -60,10 +60,12 @@ struct VODTab: View {
         .sheet(isPresented: $libraries) {
             PlexLibrariesSheet()
                 .environment(app)
+                .macSheetSize()
         }
         .sheet(isPresented: $chooseUser) {
             PlexUserSheet()
                 .environment(app)
+                .macSheetSize(width: 460, height: 420)
         }
     }
 
@@ -217,6 +219,9 @@ struct VODTab: View {
                         if isLibrary(category) {
                             sidebarRow(category)
                                 .contextMenu { libraryActions(category.id, across: false) }
+                                #if os(macOS)
+                                .macRowMenu { libraryActions(category.id, across: false) }
+                                #endif
                         } else {
                             sidebarRow(category)
                         }
