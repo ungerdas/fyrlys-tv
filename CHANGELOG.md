@@ -1,5 +1,19 @@
 # Endringer
 
+## v0.2.3
+
+- Mac: film- og seriesiden ser ut som i Fyrlys for Windows: stort bakgrunnsbilde, plakaten, logoen, merkene,
+  knappene («Spill av», «Fra start», «Merk som sett», favoritt), handlingen med «Skuespillere» og «Regi», sesongene
+  som valg (med hake når alt er sett) og episodene i et rutenett med bilde, nummer og ⋮-meny.
+- Mac: filmer og episoder spilles over hele vinduet (før i et lite ark), med lukkeknapp og Esc. VLC-spilleren har en
+  fullskjermknapp, og lyd og undertekster er valg nede til høyre som viser sporet som er valgt.
+- Mac: «Hvem ser på?» i Plex og de andre arkene (bibliotekene, TV-arkivet, feilrapporten, kanalvalget i multiview)
+  var nesten tomme; nå får de plass. Bibliotekene i Plex har «…» (og høyreklikk) for å flytte og skjule dem.
+- Kortere navn på lydspor og undertekster: «Norsk», «Engelsk (SDH)» i stedet for «Norsk - [Norwegian]» og
+  «Track 1 - [English]».
+- Plex: en episode i radene på Hjem («Nylig utgitte episoder» o.l.) og i «Fortsett å se» åpner serien, der knappen
+  fortsetter der du slapp. Hold inne (Mac: høyreklikk) og velg «Spill av episoden» for å spille den direkte.
+
 ## v0.2.2
 
 - **Fyrlys for Mac** (macOS 14 Sonoma eller nyere, Intel og Apple Silicon), som en del av den samme appen i

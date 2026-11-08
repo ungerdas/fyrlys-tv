@@ -493,9 +493,14 @@ final class FyrlysMobilUITests: XCTestCase {
             dumpScreen(app, "«Fortsett å se» fra Plex kom ikke", shotName: "35-plex-fortsett-mangler")
         }
         XCTAssertTrue(resume.exists, "«Fortsett å se» fra Plex kom ikke")
+        // «Fortsett å se» åpner serien, og knappen der spiller episoden du er midt i
         resume.tap()
+        let next = find(app, "fortsett-serie")
+        if !next.waitForExistence(timeout: 10), resume.exists { resume.tap() }
+        XCTAssertTrue(next.waitForExistence(timeout: 15), "«Fortsett å se» åpnet ikke serien")
+        next.tap()
         let player = find(app, "vod-spiller")
-        if !player.waitForExistence(timeout: 10), resume.exists { resume.tap() }
+        if !player.waitForExistence(timeout: 10), next.exists { next.tap() }
         XCTAssertTrue(player.waitForExistence(timeout: 20), "spilleren kom ikke")
         XCTAssertTrue(playing(player, "plex:2102", timeout: 20), "episoden kom ikke: \(player.value ?? "")")
         let skip = find(app, "hopp-over")

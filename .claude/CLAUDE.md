@@ -517,6 +517,16 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (`.provisionprofile`), sertifikatet `MAC_INSTALLER_DISTRIBUTION` (`installer.cer`, samme nøkkel), `ExportOptions-
   macOS.plist` med `installerSigningCertificate`; alt for Mac er valgfritt (`OPTIONAL`): feiler det, en advarsel, og
   `ASC_PLATFORMS` (som `wait` bruker) er uten `MAC_OS`.
+  Fra 0.2.3 (eieren prøvde Mac-appen 8.11): filmer og episoder over hele vinduet (`#if !os(iOS)` →
+  `fullScreenCover` = `WindowCover`), × og Esc lukker; `MacFullScreen`/`MacFullScreenButton` (`fullskjerm`, går ut
+  igjen når spilleren lukkes); VLC-kontrollene på Mac: tiden, lyd og undertekster som piller (`VLCMenuLabel` med
+  sporet) og fullskjerm nederst; `macSheetSize` (Theme.swift) på arkene (en List i et ark på Mac ber om nesten ingen
+  plass: «Hvem ser på?» ble en tom stripe); `macRowMenu` («…» ved musa) på bibliotekene i Plex; film- og seriesiden
+  som Windows-appen (`VODDetailView.macPage`, `macHero`, `MacChip`, `MacButtonStyle`, `MacEpisodeCell` i rutenett
+  høyst 760 bredt, «S03E01», `macFraction`; Windows: `lib/ui/vod_detail_page.dart` `DetailHero`,
+  `lib/ui/plex/plex_detail_page.dart`). `WindowSnapshot` virker også uten testmodus i et Debug-bygg, så Claude kan se
+  appen med eierens ekte innlogging (`open -n --env FYRLYS_TEST_SNAPSHOT=1 …/Debug/Fyrlys.app`; han logger inn selv,
+  bildene blir på Mac-en). Testskjermene `plex-users` (arket åpent), `plex-film` (1001) og `plex-serie` (2001).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -825,4 +835,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   fordi steget har `umask 077` for nøklene; nå `umask 022` før eksporten) og **71: 0.2.2 VALID for TV_OS, IOS og
   MAC_OS**. Skjermbildene fra Mac ligger i `skjermbilder-mac` (første gang i bygg 69; i bygg 68 stoppet steget på en
   `pkill` uten treff, nå `|| true`). 8.11.2026: installert fra TestFlight på Mac-en hans (Intel, macOS 15.8; TestFlight-appen fantes
-  fra før). Ikke meldt tilbake ennå: avspilling, VLC, iCloud og nøkkelringen i det signerte bygget.
+  fra før). Innloggingen og TV-kanalene virket; Plex spilte, men i et lite ark → 0.2.3 (se Arkitektur, Mac), sammen
+  med: korte navn på sporene (`shortTrackName` i Core, `Tracks.swift`: «Norsk - [Norwegian]» → «Norsk»), og en
+  episode i radene på Hjem og i «Fortsett å se» åpner serien på alle enhetene (eieren 8.11; i 0.2.1–0.2.2 ble
+  episoden i «Fortsett å se» spilt med en gang), «Spill av episoden» i hurtigmenyen.

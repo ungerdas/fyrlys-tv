@@ -147,13 +147,13 @@ struct VODHomeView: View {
         #endif
     }
 
-    /// Et kort i «Fortsett å se»: en episode spilles med en gang (hold inne for serien), en film åpnes som egen side.
+    /// Et kort i «Fortsett å se»: filmen eller serien åpnes som egen side (eieren 8.11: «trykker man på en episode
+    /// der, så kommer man til seriesiden», der knappen fortsetter episoden; i 0.2.1–0.2.2 ble den spilt med en gang);
+    /// hold inne (Mac: høyreklikk) for å spille episoden direkte.
     @ViewBuilder
     private func resumeCard(_ entry: VODResume, top: (() -> Void)?) -> some View {
         if let episode = entry.episode {
-            Button {
-                Task { await play(episode, show: entry.item, image: entry.image) }
-            } label: {
+            NavigationLink(value: entry.item) {
                 ResumeCard(entry: entry)
             }
             .posterButtonStyle()
@@ -162,9 +162,9 @@ struct VODHomeView: View {
             .accessibilityIdentifier("fortsett-\(entry.id)")
             .contextMenu {
                 Button {
-                    open(entry.item)
+                    Task { await play(episode, show: entry.item, image: entry.image) }
                 } label: {
-                    Label(L("Gå til serien"), systemImage: "rectangle.stack")
+                    Label(L("Spill av episoden"), systemImage: "play.fill")
                 }
                 FavoriteToggle(item: entry.item)
                 forgetButton(entry.item)

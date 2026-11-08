@@ -453,10 +453,14 @@ final class FyrlysUITests: XCTestCase {
     /// den neste («Neste: …»), også i neste sesong.
     func test22PlexEpisoder() {
         let app = launch("plex-series")
-        // «Fortsett å se» spiller episoden du er midt i (knappen på seriesiden prøves i test19)
+        // «Fortsett å se» åpner serien, og knappen der spiller episoden du er midt i
         let resume = find(app, "fortsett-2001")
         XCTAssertTrue(resume.waitForExistence(timeout: 40), "«Fortsett å se» fra Plex kom ikke")
         XCTAssertTrue(focus(app, resume), "fikk ikke fokus på «Fortsett å se»")
+        remote.press(.select)
+        let next = find(app, "fortsett-serie")
+        XCTAssertTrue(next.waitForExistence(timeout: 15), "«Fortsett å se» åpnet ikke serien")
+        XCTAssertTrue(focus(app, next), "fikk ikke fokus på knappen til episoden")
         remote.press(.select)
         let player = find(app, "vod-spiller")
         XCTAssertTrue(player.waitForExistence(timeout: 20), "spilleren kom ikke")
