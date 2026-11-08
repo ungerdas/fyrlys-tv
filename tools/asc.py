@@ -16,7 +16,11 @@ per kjøring, og det trekkes tilbake etterpå (Apple sender en e-post om det hve
                                                 bare for denne kjøringen (uten DIST_KEY_PATH)
     python3 tools/asc.py builds                 de siste byggene i App Store Connect og om de er klare for TestFlight
     python3 tools/asc.py wait <byggnummer>      venter (høyst 25 min) til bygget for plattformene dukker opp i App
-                                                Store Connect (ASC_PLATFORMS, f.eks. «TV_OS IOS», ellers alle)
+                                                Store Connect (ASC_PLATFORMS, f.eks. «TV_OS IOS», ellers alle);
+                                                når det er ferdig behandlet, legges det til de eksterne
+                                                testgruppene og sendes til Apples beta-gjennomgang, med avsnittet
+                                                fra CHANGELOG.md som «Hva skal testes» (ikke med
+                                                EKSTERN_TESTFLIGHT=0; feiler det, bare en advarsel)
 
 Skriver aldri ut nøkler eller tokens. Bare standardbiblioteket og openssl.
 """
@@ -473,15 +477,18 @@ def wait(number, minutes=25):
     wanted = os.environ.get("ASC_PLATFORMS", "").split() or [store for _, _, store in PLATFORMS]
     deadline = time.time() + minutes * 60
     states = {}
+    ids = {}
     while time.time() < deadline:
         res = asc.call("GET", f"/v1/builds?filter[app]={app}&filter[version]={number}&include=preReleaseVersion"
                               "&limit=10")
         versions = {i["id"]: i for i in res.get("included", []) if i["type"] == "preReleaseVersions"}
         states = {}
+        ids = {}
         for build in res.get("data", []):
             pre = (build.get("relationships", {}).get("preReleaseVersion", {}).get("data") or {}).get("id")
             platform = versions.get(pre, {}).get("attributes", {}).get("platform", "?")
             states[platform] = build["attributes"].get("processingState")
+            ids[platform] = build["id"]
         if all(p in states and states[p] != "PROCESSING" for p in wanted):
             break
         time.sleep(30)
@@ -495,6 +502,82 @@ def wait(number, minutes=25):
     if bad:
         sys.exit(f"App Store Connect avviste bygg {number} for {', '.join(bad)}; grunnen står i e-posten fra App Store "
                  "Connect")
+    if os.environ.get("EKSTERN_TESTFLIGHT", "1") != "0":
+        ready = {p: ids[p] for p in wanted if states.get(p) == "VALID"}
+        try:
+            share_external(asc, app, ready)
+        except SystemExit as stop:
+            print(f"::warning title=ekstern TestFlight::{stop}")
+
+
+def whats_new(path=Path(__file__).resolve().parent.parent / "CHANGELOG.md"):
+    """Det første avsnittet i CHANGELOG.md (den nye versjonen) som ren tekst, høyst 4000 tegn."""
+    try:
+        text = path.read_text()
+    except OSError:
+        return ""
+    sections = text.split("\n## ")
+    if len(sections) < 2:
+        return ""
+    body = sections[1].split("\n", 1)[1] if "\n" in sections[1] else ""
+    body = body.replace("**", "").replace("*", "").replace("`", "")
+    lines = [line.strip() for line in body.strip().splitlines()]
+    # punktene på én linje hver (i fila er de brutt over flere)
+    out = []
+    for line in lines:
+        if line.startswith("- ") or not out:
+            out.append(line)
+        elif line:
+            out[-1] += " " + line
+    return "\n".join(out)[:4000]
+
+
+def share_external(asc, app, builds):
+    """Byggene (plattform → id) til de eksterne testgruppene, med «Hva skal testes», og til beta-gjennomgangen."""
+    if not builds:
+        return
+    code, res = asc.request("GET", f"/v1/betaGroups?filter[app]={app}&filter[isInternalGroup]=false&limit=50")
+    if code != 200:
+        sys.exit(f"fant ikke testgruppene: HTTP {code} {errors(res)}")
+    groups = [(g["id"], None) for g in res.get("data", [])]
+    if not groups:
+        print("::notice title=ekstern TestFlight::Ingen eksterne testgrupper; bygget er bare for de interne")
+        return
+    note = whats_new()
+    done = []
+    for platform, build in builds.items():
+        if note:
+            code, res = asc.request("GET", f"/v1/builds/{build}/betaBuildLocalizations")
+            found = res.get("data", []) if code == 200 else []
+            if found:
+                for loc in found:
+                    asc.request("PATCH", f"/v1/betaBuildLocalizations/{loc['id']}",
+                                {"data": {"type": "betaBuildLocalizations", "id": loc["id"],
+                                          "attributes": {"whatsNew": note}}})
+            else:
+                for locale in ("no", "nb", "en-US"):
+                    code, res = asc.request("POST", "/v1/betaBuildLocalizations", data(
+                        "betaBuildLocalizations", {"locale": locale, "whatsNew": note},
+                        {"build": {"data": {"type": "builds", "id": build}}}))
+                    if code in (200, 201):
+                        break
+        for group, _ in groups:
+            code, res = asc.request("POST", f"/v1/betaGroups/{group}/relationships/builds",
+                                    {"data": [{"type": "builds", "id": build}]})
+            if code not in (200, 201, 204):
+                print(f"::warning title=ekstern TestFlight::{platform}: kunne ikke legge bygget til en ekstern "
+                      f"gruppe: HTTP {code} {errors(res)}")
+        code, res = asc.request("POST", "/v1/betaAppReviewSubmissions", data(
+            "betaAppReviewSubmissions", {}, {"build": {"data": {"type": "builds", "id": build}}}))
+        # 409: sendt fra før (eller en gjennomgang pågår)
+        if code in (200, 201):
+            done.append(f"{platform}: sendt til gjennomgang")
+        elif code == 409:
+            done.append(f"{platform}: {errors(res)}")
+        else:
+            done.append(f"{platform}: gjennomgangen feilet (HTTP {code} {errors(res)})")
+    # bare antallet: navnene på gruppene skal ikke i de offentlige loggene
+    print(f"::notice title=ekstern TestFlight::Lagt til {len(groups)} ekstern(e) testgruppe(r)%0A" + "%0A".join(done))
 
 
 def main():
