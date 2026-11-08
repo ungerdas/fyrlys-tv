@@ -7,6 +7,8 @@ struct PlexSettings: View {
     @Environment(AppModel.self) private var model
     /// valget av bibliotekene som vises
     @State private var libraries = false
+    /// Plex Home: «Hvem ser på?»
+    @State private var chooseUser = false
 
     private var plex: PlexModel { model.plex }
 
@@ -27,6 +29,10 @@ struct PlexSettings: View {
                 .environment(model)
                 .macSheetSize()
         }
+        .sheet(isPresented: $chooseUser) {
+            PlexUserSheet()
+                .environment(model)
+        }
         #else
         Section {
             content
@@ -42,6 +48,11 @@ struct PlexSettings: View {
             PlexLibrariesSheet()
                 .environment(model)
                 .macSheetSize()
+        }
+        .sheet(isPresented: $chooseUser) {
+            PlexUserSheet()
+                .environment(model)
+                .macSheetSize(width: 460, height: 420)
         }
         #endif
     }
@@ -81,6 +92,17 @@ struct PlexSettings: View {
                 .accessibilityIdentifier("plex-tilkoblet")
             // bibliotekene som vises i Plex-fanen (for eksempel uten «Andre videoer»)
             button(L("Biblioteker"), icon: "books.vertical", id: "plex-biblioteker") { libraries = true }
+            if !plex.users.isEmpty {
+                button(L("Bytt bruker"), icon: "person.2", id: "plex-bytt-bruker") { chooseUser = true }
+                @Bindable var plex = plex
+                Toggle(isOn: $plex.askWhoIsWatching) {
+                    Label(L("Spør hvem som ser på"), systemImage: "person.crop.circle.badge.questionmark")
+                }
+                #if os(tvOS)
+                .frame(maxWidth: 760)
+                #endif
+                .accessibilityIdentifier("spor-hvem")
+            }
             if plex.servers.count > 1 {
                 button(L("Bytt server"), icon: "server.rack", id: "bytt-plex-server") { plex.chooseServer() }
             }

@@ -165,6 +165,8 @@ public let english: [String: String] = [
     "Lukk minispilleren": "Close the mini player",
     "Spill av / pause": "Play / pause",
     "Lyd av / på": "Mute / unmute",
+    "Bytt bruker": "Switch user",
+    "Spør hvem som ser på": "Ask who is watching",
     "Søk": "Search",
     "Søk etter kanal": "Search for a channel",
     "Ingen treff.": "No results.",

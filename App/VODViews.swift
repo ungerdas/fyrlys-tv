@@ -75,6 +75,16 @@ struct VODTab: View {
                 .environment(app)
                 .macSheetSize(width: 460, height: 420)
         }
+        // Plex Home: «Hvem ser på?» første gang fanen åpnes (når det er slått på i innstillingene)
+        .onAppear(perform: askWhoIsWatching)
+        .onChange(of: app.plex.users.count) { askWhoIsWatching() }
+    }
+
+    private func askWhoIsWatching() {
+        let plex = app.plex
+        guard kind == nil, plex.askWhoIsWatching, !plex.askedThisLaunch, !plex.users.isEmpty else { return }
+        plex.askedThisLaunch = true
+        chooseUser = true
     }
 
     /// Plex Home: knappen «Hvem ser på?» med navnet på den som ser på (bare når kontoen har flere brukere).

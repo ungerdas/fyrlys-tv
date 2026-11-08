@@ -32,6 +32,12 @@ final class PlexModel {
     private(set) var user: PlexHomeUser?
     /// bytter bruker (venter på plex.tv)
     private(set) var switching = false
+    /// Plex Home: «Hvem ser på?» første gang Plex-fanen åpnes etter at appen har startet (som Fyrlys for Windows)
+    var askWhoIsWatching = TestSupport.defaults.bool(forKey: "plex-spor-hvem") || TestSupport.screen == "plex-ask" {
+        didSet { TestSupport.defaults.set(askWhoIsWatching, forKey: "plex-spor-hvem") }
+    }
+    /// spurt alt etter at appen startet
+    @ObservationIgnored var askedThisLaunch = false
     /// Plex-fanen må hentes på nytt (tilkoblingen er endret)
     @ObservationIgnored var onChange: (() -> Void)?
 
