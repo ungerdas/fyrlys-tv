@@ -266,6 +266,8 @@ public let english: [String: String] = [
     "Fullskjerm": "Full screen",
     "Avslutt fullskjerm": "Exit full screen",
     "Flere valg": "More options",
+    "Skuespillere: {cast}": "Cast: {cast}",
+    "Stoppet ved {time}": "Stopped at {time}",
     // egne strømmer
     "Egne strømmer": "Own streams",
     "Egne strømmer …": "Own streams …",

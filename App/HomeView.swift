@@ -37,7 +37,7 @@ struct HomeView: View {
         case "guide": _tab = State(initialValue: .guide)
         case "movies": _tab = State(initialValue: .movies)
         case "series": _tab = State(initialValue: .series)
-        case "plex", "plex-series", "plex-users": _tab = State(initialValue: .plex)
+        case "plex", "plex-series", "plex-users", "plex-film", "plex-serie": _tab = State(initialValue: .plex)
         case "search": _tab = State(initialValue: .search)
         case "settings", "plex-link", "strommer": _tab = State(initialValue: .settings)
         default: _tab = State(initialValue: .tv)
@@ -107,7 +107,7 @@ struct HomeView: View {
             // Plex koblet fra: tilbake til TV; testene (plex, plex-series): til Plex-fanen når den kommer
             .onChange(of: model.hasPlex) { _, has in
                 if !has, tab == .plex { tab = .tv }
-                if has, ["plex", "plex-series", "plex-users"].contains(TestSupport.screen ?? "") { tab = .plex }
+                if has, ["plex", "plex-series", "plex-users", "plex-film", "plex-serie"].contains(TestSupport.screen ?? "") { tab = .plex }
             }
     }
 

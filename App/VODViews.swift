@@ -57,6 +57,14 @@ struct VODTab: View {
         }
         // på nytt når kilden byttes (en annen innlogging, eller Plex)
         .task(id: model.version) { await model.loadCategories() }
+        // testene og Claude-økta: filmen eller serien fra den falske Plex åpnet
+        .task {
+            guard kind == nil, let screen = TestSupport.screen, ["plex-film", "plex-serie"].contains(screen) else { return }
+            for _ in 0..<40 where app.plex.client == nil { try? await Task.sleep(for: .milliseconds(250)) }
+            let film = screen == "plex-film"
+            path.append(VODItem(id: film ? "1001" : "2001", kind: film ? .movies : .series,
+                                name: film ? "Nordlys over fjorden" : "Fyrvokterne", source: "plex"))
+        }
         .sheet(isPresented: $libraries) {
             PlexLibrariesSheet()
                 .environment(app)
@@ -885,26 +893,8 @@ struct VODDetailView: View {
     private var model: VODModel { app.vod(for: item) }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 34) {
-                header
-                peopleRow
-                if item.kind == .series {
-                    episodes
-                }
-                relatedRow
-            }
-            .padding(.horizontal, Metrics.detailPadding)
-            .padding(.vertical, Metrics.detailPadding * 0.6)
-            // til venstre (en smal side ble ellers lagt midt i rullelista)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            #if os(tvOS)
-            .hidesScrollIndex()
-            #endif
-        }
-        .scrollIndicators(.never)
-        .background(backdropLayer)
-        .task { await load() }
+        page
+            .task { await load() }
         #if !os(iOS)
         .fullScreenCover(item: $playing, onDismiss: closed) { play in
             VODPlayerView(play: play)
@@ -939,6 +929,33 @@ struct VODDetailView: View {
         #endif
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("vod-side")
+    }
+
+    @ViewBuilder
+    private var page: some View {
+        #if os(macOS)
+        macPage
+        #else
+        ScrollView {
+            VStack(alignment: .leading, spacing: 34) {
+                header
+                peopleRow
+                if item.kind == .series {
+                    episodes
+                }
+                relatedRow
+            }
+            .padding(.horizontal, Metrics.detailPadding)
+            .padding(.vertical, Metrics.detailPadding * 0.6)
+            // til venstre (en smal side ble ellers lagt midt i rullelista)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            #if os(tvOS)
+            .hidesScrollIndex()
+            #endif
+        }
+        .scrollIndicators(.never)
+        .background(backdropLayer)
+        #endif
     }
 
     /// Favoritt eller ikke (filmen eller serien står da under «Favoritter» på Hjem).
@@ -1350,29 +1367,33 @@ struct VODDetailView: View {
                             .posterButtonStyle()
                             // id-en før hurtigmenyen (etter den ble id-en borte av og til på iPhone og iPad)
                             .accessibilityIdentifier("episode-\(episode.id)")
-                            .contextMenu {
-                                let done = finished(episode)
-                                if !done {
-                                    Button {
-                                        markEpisode(episode, true)
-                                    } label: {
-                                        Label(L("Merk som sett"), systemImage: "checkmark.circle")
-                                    }
-                                }
-                                if done || app.progress(episode.progressKey) > 0 {
-                                    Button {
-                                        markEpisode(episode, false)
-                                    } label: {
-                                        Label(L("Merk som ikke sett"), systemImage: "eye.slash")
-                                    }
-                                }
-                            }
+                            .contextMenu { episodeActions(episode) }
                         }
                     }
                     #if os(tvOS)
                     .focusSection()
                     #endif
                 }
+            }
+        }
+    }
+
+    /// Hold inne på en episode (Mac: høyreklikk eller ⋮): sett eller ikke sett.
+    @ViewBuilder
+    private func episodeActions(_ episode: Episode) -> some View {
+        let done = finished(episode)
+        if !done {
+            Button {
+                markEpisode(episode, true)
+            } label: {
+                Label(L("Merk som sett"), systemImage: "checkmark.circle")
+            }
+        }
+        if done || app.progress(episode.progressKey) > 0 {
+            Button {
+                markEpisode(episode, false)
+            } label: {
+                Label(L("Merk som ikke sett"), systemImage: "eye.slash")
             }
         }
     }
@@ -1450,6 +1471,490 @@ struct VODDetailView: View {
         }
     }
 }
+
+#if os(macOS)
+/// Mac: siden som i Fyrlys for Windows (eieren 8.11 med bilder derfra: «syntes slik den er nå er alt for rotete»):
+/// stort bakgrunnsbilde øverst som tones ut, plakaten til venstre, logoen (eller navnet), merkene, knappene, handlingen
+/// og «Skuespillere»/«Regi» som tekst; under det sesongene som valg og episodene i et rutenett med bilde, nummer og ⋮.
+extension VODDetailView {
+    static let macPad: CGFloat = 40
+
+    var macPage: some View {
+        GeometryReader { geo in
+            let hero = min(640, max(380, geo.size.height * 0.62))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    macHero(height: hero)
+                    if item.kind == .series {
+                        macSeasons(width: geo.size.width)
+                    }
+                    if !related.isEmpty {
+                        relatedRow
+                            .padding(.horizontal, Self.macPad)
+                            .padding(.top, 28)
+                    }
+                }
+                .padding(.bottom, 32)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .background(Theme.bg)
+    }
+
+    /// Toppen: bakgrunnsbildet (som rulles med siden) og plakaten med teksten og knappene over.
+    private func macHero(height: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            macBackdrop
+                .frame(height: height)
+                .frame(maxWidth: .infinity)
+                .clipped()
+            HStack(alignment: .top, spacing: 32) {
+                macPoster
+                VStack(alignment: .leading, spacing: 0) {
+                    macTitle
+                    let badges = badgeList
+                    if !badges.isEmpty {
+                        FlowLayout(spacing: 8) {
+                            ForEach(Array(badges.enumerated()), id: \.offset) { _, badge in
+                                MacChip(text: badge.text, accent: badge.accent)
+                            }
+                        }
+                        .padding(.top, 14)
+                    }
+                    macActions
+                        .padding(.top, 20)
+                    noticeText
+                        .padding(.top, 8)
+                    if let details {
+                        macText(details)
+                    } else if let error {
+                        Text(error)
+                            .font(.system(size: 15))
+                            .foregroundStyle(Theme.muted)
+                            .padding(.top, 16)
+                    } else {
+                        ProgressView()
+                            .padding(.top, 16)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, Self.macPad)
+            .padding(.top, max(28, height * 0.30))
+        }
+        .frame(minHeight: height, alignment: .top)
+    }
+
+    /// Bakgrunnsbildet, tonet mot bakgrunnen nedover og mot venstre (uten bilde: plakaten, uskarp).
+    private var macBackdrop: some View {
+        ZStack {
+            Theme.bg
+            if let url = details?.backdrop.flatMap({ URL(string: $0) }) {
+                RemoteImage(url: url, fill: true, maxPoints: Metrics.backdropPoints) { Color.clear }
+            } else if let url = (details?.poster ?? item.poster).flatMap({ URL(string: $0) }) {
+                RemoteImage(url: url, fill: true, maxPoints: 240) { Color.clear }
+                    .blur(radius: 40)
+            }
+            LinearGradient(stops: [.init(color: Theme.bg.opacity(0.30), location: 0),
+                                   .init(color: Theme.bg.opacity(0.55), location: 0.55),
+                                   .init(color: Theme.bg, location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+            LinearGradient(stops: [.init(color: Theme.bg.opacity(0.90), location: 0.2),
+                                   .init(color: Theme.bg.opacity(0), location: 0.8)],
+                           startPoint: .leading, endPoint: .trailing)
+        }
+        .accessibilityHidden(true)
+    }
+
+    /// Plakaten med skygge, og under den hvor langt du har sett filmen.
+    private var macPoster: some View {
+        let _ = watched
+        let fraction = item.kind == .movies ? macFraction(app.progress(item.progressKey), details?.duration) : nil
+        return VStack(spacing: 6) {
+            RemoteImage(url: (details?.poster ?? item.poster).flatMap { URL(string: $0) }, fill: true,
+                        maxPoints: 345) {
+                LinearGradient(colors: [Theme.surface2, Theme.logoBg], startPoint: .top, endPoint: .bottom)
+            }
+            .frame(width: 230, height: 345)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .shadow(color: .black.opacity(0.5), radius: 24, y: 8)
+            if let fraction {
+                MacProgressBar(fraction: fraction)
+            }
+        }
+        .frame(width: 230)
+    }
+
+    /// Logoen fra Plex (høyst 460 × 130, nede til venstre), ellers navnet.
+    @ViewBuilder
+    private var macTitle: some View {
+        let name = Text(item.name)
+            .font(.system(size: 36, weight: .heavy))
+            .foregroundStyle(Theme.ink)
+            .lineLimit(3)
+        if let logo = details?.logo.flatMap({ URL(string: $0) }) {
+            RemoteImage(url: logo, maxPoints: 460) { name }
+                .frame(maxWidth: 460, maxHeight: 130, alignment: .bottomLeading)
+                .help(item.name)
+                .accessibilityLabel(item.name)
+                .accessibilityIdentifier("vod-logo")
+        } else {
+            name
+        }
+    }
+
+    /// «Spill av» (gul), «Fra start», «Merk som sett» og stjernen.
+    private var macActions: some View {
+        let _ = watched
+        return HStack(spacing: 10) {
+            if item.kind == .movies {
+                let saved = app.progress(item.progressKey)
+                Button {
+                    startMovie(at: saved)
+                } label: {
+                    Label(saved > 0 ? L("Fortsett ({time})", ["time": playTime(saved)]) : L("Spill av"),
+                          systemImage: "play.fill")
+                }
+                .buttonStyle(MacButtonStyle(primary: true))
+                .disabled(item.isPlex && details == nil)
+                .accessibilityIdentifier("spill-av")
+                if saved > 0 {
+                    Button {
+                        startMovie(at: 0)
+                    } label: {
+                        Label(L("Fra start"), systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(MacButtonStyle())
+                    .accessibilityIdentifier("fra-start")
+                }
+            } else if let details, let next = nextEpisode(details) {
+                let code = macCode(next.episode)
+                let title = next.seen > 0 ? L("Fortsett {episode} ({time})", ["episode": code, "time": playTime(next.seen)])
+                    : next.after ? L("Neste: {episode}", ["episode": code]) : L("Spill av {episode}", ["episode": code])
+                Button {
+                    play(next.episode)
+                } label: {
+                    Label(title, systemImage: "play.fill")
+                }
+                .buttonStyle(MacButtonStyle(primary: true))
+                .accessibilityIdentifier("fortsett-serie")
+            }
+            watchedButton
+                .buttonStyle(MacButtonStyle())
+            favoriteButton
+                .buttonStyle(MacButtonStyle(round: true))
+                .help(app.isVODFavorite(item) ? L("Fjern fra favoritter") : L("Legg til i favoritter"))
+        }
+    }
+
+    /// Slagordet, handlingen og «Skuespillere: …», «Regi: …» (høyst 820 bredt).
+    @ViewBuilder
+    private func macText(_ details: VODDetails) -> some View {
+        let cast = details.people.isEmpty ? details.cast : details.people.prefix(8).map(\.name).joined(separator: ", ")
+        VStack(alignment: .leading, spacing: 0) {
+            if let tagline = details.tagline {
+                Text(tagline)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Theme.ink)
+                    .padding(.top, 16)
+            }
+            if !details.plot.isEmpty {
+                Text(details.plot)
+                    .font(.system(size: 15))
+                    .lineSpacing(5)
+                    .foregroundStyle(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, details.tagline == nil ? 16 : 8)
+            }
+            if !cast.isEmpty {
+                Text(L("Skuespillere: {cast}", ["cast": cast]))
+                    .padding(.top, 12)
+            }
+            if !details.director.isEmpty {
+                Text(L("Regi: {name}", ["name": details.director]))
+                    .padding(.top, 4)
+            }
+        }
+        .font(.system(size: 14))
+        .lineSpacing(3)
+        .foregroundStyle(Theme.muted)
+        .frame(maxWidth: 820, alignment: .leading)
+        .textSelection(.enabled)
+    }
+
+    /// Sesongene som valg (hake når alt er sett) og episodene i et rutenett, høyst 760 punkter brede.
+    @ViewBuilder
+    private func macSeasons(width: CGFloat) -> some View {
+        if let details {
+            if details.seasons.isEmpty {
+                Text(L("Ingen episoder."))
+                    .font(.system(size: 15))
+                    .foregroundStyle(Theme.muted)
+                    .padding(.horizontal, Self.macPad)
+                    .padding(.top, 24)
+            } else {
+                let current = season ?? details.seasons[0].number
+                let _ = watched
+                FlowLayout(spacing: 8) {
+                    ForEach(details.seasons) { s in
+                        let done = !s.episodes.isEmpty && s.episodes.allSatisfy(finished)
+                        Button {
+                            season = s.number
+                        } label: {
+                            HStack(spacing: 6) {
+                                if done { Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)) }
+                                Text(L("Sesong {n}", ["n": s.number]))
+                            }
+                        }
+                        .buttonStyle(MacChoiceStyle(selected: s.number == current))
+                        .accessibilityIdentifier("sesong-\(s.number)")
+                    }
+                }
+                .padding(.horizontal, Self.macPad)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
+                let columns = max(1, Int(((width - 2 * (Self.macPad - 8)) / 760).rounded(.up)))
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .top), count: columns),
+                          alignment: .leading, spacing: 4) {
+                    ForEach(details.seasons.first { $0.number == current }?.episodes ?? []) { episode in
+                        MacEpisodeCell(episode: episode, code: macCode(episode),
+                                       seen: app.progress(episode.progressKey), finished: finished(episode),
+                                       fallback: details.backdrop) {
+                            play(episode)
+                        } menu: {
+                            episodeActions(episode)
+                        }
+                        .accessibilityIdentifier("episode-\(episode.id)")
+                        .contextMenu { episodeActions(episode) }
+                    }
+                }
+                .padding(.horizontal, Self.macPad - 8)
+                .padding(.top, 8)
+            }
+        }
+    }
+
+    /// «S03E01» (som i Windows-appen).
+    private func macCode(_ episode: Episode) -> String {
+        String(format: "S%02dE%02d", episode.season, episode.number)
+    }
+}
+
+/// Hvor langt [seen] sekunder er av lengden («34 min», «1 t 45 min», på engelsk «1 h 45 min»), 0–1.
+func macFraction(_ seen: Double, _ length: String?) -> Double? {
+    guard seen > 0, let length else { return nil }
+    var minutes = 0.0
+    var number: Double?
+    for token in length.lowercased().split(whereSeparator: { $0 == " " }) {
+        if let n = Double(token) {
+            number = n
+        } else if let n = number {
+            if token.hasPrefix("t") || token.hasPrefix("h") { minutes += n * 60 } else if token.hasPrefix("m") { minutes += n }
+            number = nil
+        }
+    }
+    guard minutes > 0 else { return nil }
+    return min(1, seen / (minutes * 60))
+}
+
+/// Et merke under tittelen (år, sjanger, «4K» …), som i Windows-appen; merkene fra navnet («PRE») i gult.
+private struct MacChip: View {
+    let text: String
+    var accent = false
+
+    var body: some View {
+        Text(verbatim: text)
+            .font(.system(size: 13, weight: accent ? .bold : .medium))
+            .foregroundStyle(accent ? Theme.signal : Theme.ink)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(accent ? Theme.signal.opacity(0.18) : Theme.surface.opacity(0.72),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(accent ? Theme.signal.opacity(0.7) : Theme.line))
+            .accessibilityIdentifier("merke-\(text)")
+    }
+}
+
+/// Knappene på siden: gul (spill av), ellers med kant; [round]: bare et ikon i en sirkel.
+struct MacButtonStyle: ButtonStyle {
+    var primary = false
+    var round = false
+    @Environment(\.isEnabled) private var enabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .labelStyle(MacButtonLabelStyle())
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(primary ? Theme.signalInk : Theme.signal)
+            .padding(.horizontal, round ? 0 : (primary ? 22 : 18))
+            .frame(width: round ? 44 : nil, height: 44)
+            .background {
+                if primary {
+                    Capsule().fill(Theme.signal.opacity(configuration.isPressed ? 0.8 : 1))
+                } else {
+                    Capsule().fill(Theme.surface.opacity(configuration.isPressed ? 0.9 : 0.55))
+                    Capsule().strokeBorder(Theme.line)
+                }
+            }
+            .contentShape(Capsule())
+            .opacity(enabled ? 1 : 0.5)
+    }
+}
+
+private struct MacButtonLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 8) {
+            configuration.icon
+            configuration.title
+        }
+    }
+}
+
+/// Sesongvalget: den valgte gul, de andre med kant.
+private struct MacChoiceStyle: ButtonStyle {
+    let selected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13.5, weight: selected ? .semibold : .medium))
+            .foregroundStyle(selected ? Theme.signalInk : Theme.ink)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(selected ? Theme.signal : Theme.surface.opacity(configuration.isPressed ? 0.9 : 0.5))
+                if !selected {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.line)
+                }
+            }
+            .contentShape(Rectangle())
+    }
+}
+
+/// Hvor langt du har sett, som en tynn strek.
+private struct MacProgressBar: View {
+    let fraction: Double
+    var track = Theme.line
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(track)
+                Capsule().fill(Theme.signal).frame(width: geo.size.width * fraction)
+            }
+        }
+        .frame(height: 4)
+    }
+}
+
+/// En episode i rutenettet: bildet med nummeret og ▶ (hake når den er sett, streken når du er midt i), koden og
+/// tittelen, lengden, handlingen og ⋮. Hele ruta spiller episoden.
+private struct MacEpisodeCell<Menu: View>: View {
+    let episode: Episode
+    let code: String
+    let seen: Double
+    let finished: Bool
+    let fallback: String?
+    let play: () -> Void
+    @ViewBuilder let menu: () -> Menu
+    @State private var hover = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            thumb
+            VStack(alignment: .leading, spacing: 0) {
+                (Text(verbatim: code + "  ").foregroundStyle(Theme.signal).fontWeight(.bold)
+                    + Text(episode.title.isEmpty ? L("Episode {n}", ["n": episode.number]) : episode.title)
+                        .foregroundStyle(Theme.ink))
+                    .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                let info = [episode.duration.isEmpty ? nil : episode.duration,
+                            seen > 0 ? L("Stoppet ved {time}", ["time": playTime(seen)]) : nil].compactMap { $0 }
+                if !info.isEmpty {
+                    Text(info.joined(separator: " · "))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Theme.muted)
+                        .padding(.top, 3)
+                }
+                if !episode.plot.isEmpty {
+                    Text(episode.plot)
+                        .font(.system(size: 13.5))
+                        .lineSpacing(2)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(3)
+                        .padding(.top, 4)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            SwiftUI.Menu {
+                menu()
+            } label: {
+                Image(systemName: "ellipsis")
+                    .rotationEffect(.degrees(90))
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Theme.muted)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(L("Mer"))
+        }
+        .padding(8)
+        .frame(height: 132, alignment: .top)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(hover ? Theme.surface.opacity(0.8) : .clear))
+        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .onHover { hover = $0 }
+        .onTapGesture(perform: play)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction(.default, play)
+    }
+
+    private var thumb: some View {
+        let image = (episode.image ?? fallback).flatMap { URL(string: $0) }
+        return ZStack {
+            // bildet i en fast ramme (fyller det, ble ZStack-en større enn ruta, og nummeret havnet utenfor)
+            Color.clear
+                .overlay { RemoteImage(url: image, fill: true, maxPoints: 192) { Theme.surface2 } }
+                .clipped()
+            if episode.image == nil { Color.black.opacity(0.4) }
+            LinearGradient(colors: [.black.opacity(0.65), .clear], startPoint: .bottom, endPoint: .center)
+            Text(verbatim: "\(episode.number)")
+                .font(.system(size: 30, weight: .heavy))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                .padding(.leading, 10)
+                .padding(.bottom, 4)
+            Image(systemName: "play.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(.white)
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(Color.black.opacity(0.4)))
+            if finished {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Theme.signalInk)
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill(Theme.signal))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(6)
+            }
+            if let fraction = macFraction(seen, episode.duration) {
+                MacProgressBar(fraction: fraction, track: Color.black.opacity(0.4))
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+        }
+        .frame(width: 192, height: 108)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+#endif
 
 /// En episode: bildet (ellers nummeret), nummeret og tittelen, handlingen og lengden, og hvor langt du har sett.
 private struct EpisodeRow: View {
