@@ -10,6 +10,20 @@ struct SharedFavorite: Codable, Hashable {
     let logo: String?
 }
 
+/// «Fortsett å se» til Top Shelf (fra 0.2.4): filmen eller serien, bredbildet og hvor langt du har kommet.
+struct SharedResume: Codable, Hashable {
+    let id: String
+    /// "movies" eller "series"
+    let kind: String
+    /// nil = IPTV-leverandøren, "plex" = Plex
+    let source: String?
+    let name: String
+    /// «S1 E3» for en episode
+    let episode: String?
+    let image: String?
+    let progress: Double
+}
+
 enum SharedFavorites {
     static let service = "no.fyrlys.tv.topshelf"
     static let account = "favoritter"
@@ -46,24 +60,59 @@ enum SharedFavorites {
     }
 
     static func save(_ favorites: [SharedFavorite]) {
-        guard let group, let data = try? JSONEncoder().encode(favorites) else { return }
-        SecItemDelete(query(group) as CFDictionary)
-        var add = query(group)
-        add[kSecValueData as String] = data
-        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        SecItemAdd(add as CFDictionary, nil)
+        write(favorites, account: account)
     }
 
     static func load() -> [SharedFavorite] {
-        guard let group else { return [] }
+        read(account: account) ?? []
+    }
+
+    static let resumeAccount = "fortsett"
+
+    static func saveResume(_ entries: [SharedResume]) {
+        write(entries, account: resumeAccount)
+    }
+
+    static func loadResume() -> [SharedResume] {
+        read(account: resumeAccount) ?? []
+    }
+
+    private static func write<T: Encodable>(_ value: T, account: String) {
+        guard let group, let data = try? JSONEncoder().encode(value) else { return }
+        // det samme som før: ikke skriv (Top Shelf lastes på nytt for hver endring)
+        if read(account: account, as: Data.self) == data { return }
         var q = query(group)
+        q[kSecAttrAccount as String] = account
+        SecItemDelete(q as CFDictionary)
+        q[kSecValueData as String] = data
+        q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        SecItemAdd(q as CFDictionary, nil)
+    }
+
+    private static func read(account: String, as: Data.Type) -> Data? {
+        guard let group else { return nil }
+        var q = query(group)
+        q[kSecAttrAccount as String] = account
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: AnyObject?
-        guard SecItemCopyMatching(q as CFDictionary, &result) == errSecSuccess, let data = result as? Data else {
-            return []
-        }
-        return (try? JSONDecoder().decode([SharedFavorite].self, from: data)) ?? []
+        guard SecItemCopyMatching(q as CFDictionary, &result) == errSecSuccess else { return nil }
+        return result as? Data
+    }
+
+    private static func read<T: Decodable>(account: String) -> T? {
+        guard let data = read(account: account, as: Data.self) else { return nil }
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    /// fyrlys://vod/<plex|iptv>/<movies|series>/<id>?navn=…: siden for filmen eller serien
+    static func url(_ resume: SharedResume) -> URL? {
+        var parts = URLComponents()
+        parts.scheme = "fyrlys"
+        parts.host = "vod"
+        parts.path = "/\(resume.source ?? "iptv")/\(resume.kind)/\(resume.id)"
+        parts.queryItems = [URLQueryItem(name: "navn", value: resume.name)]
+        return parts.url
     }
 
     /// fyrlys://kanal/<id>: Top Shelf åpner appen og spiller kanalen

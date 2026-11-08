@@ -110,6 +110,25 @@ struct HomeView: View {
                 playing = request
             }
             #endif
+            // Top Shelf: siden for en film eller serie, i fanen den hører til
+            .onChange(of: model.pendingVOD?.id, initial: true) {
+                guard let item = model.pendingVOD else { return }
+                if item.source == "plex" {
+                    if model.hasPlex { tab = .plex } else { model.pendingVOD = nil }
+                } else if model.hasVOD {
+                    tab = item.kind == .movies ? .movies : .series
+                } else {
+                    model.pendingVOD = nil
+                }
+            }
+            #if os(tvOS)
+            // «Fortsett å se» til Top Shelf: også fra Plex, som hentes når Plex er koblet til
+            .onChange(of: model.plexVOD.continueRow) { model.shareContinue() }
+            .task(id: model.hasPlex) {
+                model.shareContinue()
+                if model.hasPlex, !TestSupport.isActive { await model.plexVOD.loadCategories() }
+            }
+            #endif
             // Filmer og Serier ble borte (en annen innlogging med en M3U-liste): tilbake til TV
             .onChange(of: model.hasVOD) { _, has in
                 if !has, tab == .movies || tab == .series { tab = .tv }

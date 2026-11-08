@@ -75,6 +75,15 @@ struct VODTab: View {
                 .environment(app)
                 .macSheetSize(width: 460, height: 420)
         }
+        // Top Shelf: siden for filmen eller serien
+        .onChange(of: app.pendingVOD?.id, initial: true) {
+            guard let item = app.pendingVOD else { return }
+            let mine = kind == nil ? item.source == "plex" : (item.source != "plex" && item.kind == kind)
+            guard mine else { return }
+            app.pendingVOD = nil
+            path = NavigationPath()
+            path.append(item)
+        }
         // Plex Home: «Hvem ser på?» første gang fanen åpnes (når det er slått på i innstillingene)
         .onAppear(perform: askWhoIsWatching)
         .onChange(of: app.plex.users.count) { askWhoIsWatching() }

@@ -51,6 +51,8 @@ final class AppModel {
     var pendingPlay: String?
     /// et program fra start (TV-arkivet), vist av HomeView over alt annet
     var replay: VODPlay?
+    /// en film eller serie som skal åpnes (fra Top Shelf: fyrlys://vod/…), vist av fanen den hører til
+    var pendingVOD: VODItem?
     #if os(macOS)
     /// Mac: minispilleren skal tilbake i vinduet (HomeView viser spilleren med den samme sendingen)
     var reopenPlayer: PlayRequest?
@@ -704,6 +706,30 @@ final class AppModel {
     private func saveContinue(_ entries: [VODResume], _ key: String) {
         if let data = try? JSONEncoder().encode(entries) { defaults.set(data, forKey: key) }
         continueVersion += 1
+        shareContinue()
+    }
+
+    /// «Fortsett å se» til Top Shelf (Plex først, så leverandøren).
+    func shareContinue() {
+        #if os(tvOS)
+        guard !TestSupport.isActive, login != nil else { return }
+        let entries = (plexVOD.continueRow + storedContinue()).prefix(20).map { entry in
+            SharedResume(id: entry.item.id, kind: entry.item.kind.rawValue, source: entry.item.source,
+                         name: entry.item.name, episode: entry.episode.map { "S\($0.season) E\($0.number)" },
+                         image: entry.image ?? entry.item.poster, progress: entry.progress)
+        }
+        SharedFavorites.saveResume(Array(entries))
+        TVTopShelfContentProvider.topShelfContentDidChange()
+        #endif
+    }
+
+    /// fyrlys://vod/<plex|iptv>/<movies|series>/<id>?navn=… (Top Shelf): siden for filmen eller serien.
+    func openVOD(_ url: URL) {
+        let parts = url.pathComponents.filter { $0 != "/" }
+        guard parts.count == 3, let kind = VODKind(rawValue: parts[1]) else { return }
+        let name = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
+            .first { $0.name == "navn" }?.value ?? ""
+        pendingVOD = VODItem(id: parts[2], kind: kind, name: name, source: parts[0] == "plex" ? "plex" : nil)
     }
 
     // ── favorittene i Filmer og Serier (delt med iCloud) ──

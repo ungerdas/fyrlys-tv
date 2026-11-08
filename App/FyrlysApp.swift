@@ -120,6 +120,8 @@ struct RootView: View {
         .onOpenURL { url in
             if url.scheme == "fyrlys", url.host == "kanal" {
                 model.pendingPlay = url.lastPathComponent
+            } else if url.scheme == "fyrlys", url.host == "vod" {
+                model.openVOD(url)
             }
         }
     }
