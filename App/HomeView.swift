@@ -147,6 +147,8 @@ struct HomeView: View {
         #elseif os(iOS)
         if usesPhoneLayout(sizeClass) {
             PhoneHome(tab: $tab, path: $path, query: $query, play: play)
+        } else if #available(iOS 18.0, *) {
+            iPadTabs
         } else {
             tabs
         }
@@ -311,6 +313,39 @@ struct HomeView: View {
     private var tvTab: some View {
         ChannelsView(play: play, chosen: $shelf)
     }
+
+    #if os(iOS)
+    /// iPad (iPadOS 18): Søk og Innstillinger som ikoner til høyre, så alle fanene får plass på høykant (med sju
+    /// faner sto Innstillinger bak en pil).
+    @available(iOS 18.0, *)
+    private var iPadTabs: some View {
+        TabView(selection: $tab) {
+            SwiftUI.Tab(L("TV"), systemImage: "tv", value: Tab.tv) { tvTab }
+            SwiftUI.Tab(L("TV-guide"), systemImage: "calendar.day.timeline.left", value: Tab.guide) {
+                GuideView(play: play)
+            }
+            if model.hasVOD {
+                SwiftUI.Tab(L("Filmer"), systemImage: "film", value: Tab.movies) { VODTab(kind: .movies) }
+                SwiftUI.Tab(L("Serier"), systemImage: "play.rectangle.on.rectangle", value: Tab.series) {
+                    VODTab(kind: .series)
+                }
+            }
+            if model.hasPlex {
+                SwiftUI.Tab("Plex", systemImage: "film.stack", value: Tab.plex) { VODTab(kind: nil) }
+            }
+            SwiftUI.Tab(value: Tab.settings) {
+                SettingsView()
+            } label: {
+                Label(L("Innstillinger"), systemImage: "gearshape")
+                    .labelStyle(.iconOnly)
+            }
+            SwiftUI.Tab(value: Tab.search, role: .search) {
+                SearchView(play: play, query: $query)
+            }
+        }
+        .tint(Theme.signal)
+    }
+    #endif
 
     /// Fanene: bare tekst på Apple TV (som fanelinja der), ikon og tekst nederst på iPhone og iPad.
     @ViewBuilder
