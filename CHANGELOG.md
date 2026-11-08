@@ -1,5 +1,30 @@
 # Endringer
 
+## v0.2.4
+
+- Mac: tastene i spilleren: mellomrom (pause), ← og → (10 sekunder), ↑ og ↓ (forrige og neste kanal), F
+  (fullskjerm), M (lyd av) og I (minispiller). ⌘F går til søket, ⌘1–5 til TV, TV-guide, Filmer, Serier og Plex. Den
+  nye menyen «Avspilling» har det samme.
+- Mac: minispiller. Direktesendingen i et lite vindu som ligger over alt, også andre apper, mens du blar i Fyrlys
+  eller gjør noe annet. Knappen «Minispiller» i spilleren (eller I); dobbeltklikk eller «Tilbake i vinduet» tar den
+  tilbake uten at sendingen starter på nytt.
+- Mac: vinduet åpner der det var, like stort, og i fullskjerm hvis det var det sist.
+- Kanalkortene på Mac og iPad: nummeret står over stjerna, så navnet får mer plass, og kanaler uten program under
+  (som eventkanalene med kampen i navnet) får navnet på to linjer. På Mac viser musa over kortet hele navnet.
+- Plex Home: slå på «Spør hvem som ser på» (Innstillinger → Plex), så kommer «Hvem ser på?» første gang Plex-fanen
+  åpnes etter at appen har startet. «Bytt bruker» står der også.
+- iPhone, iPad og Mac: Siri og Snarveier. Si «Spill NRK1 i Fyrlys» (eller «Se …»); Siri kjenner favorittene og
+  kanalene du har sett sist.
+- iPhone, iPad og Mac: «Minn meg på» på programmer som ikke har begynt i TV-guiden. Varselet kommer to minutter før,
+  og et trykk på det spiller kanalen.
+- iPhone og iPad: widget med favorittkanalene på hjemskjermen (liten, middels og stor). Trykk på en kanal for å se
+  den.
+- Apple TV: Top Shelf viser «Fortsett å se» (fra Plex og leverandøren) med hvor langt du har kommet, over
+  favorittene. Et trykk åpner siden for filmen eller serien.
+- iPad på høykant: Innstillinger og Søk er ikoner i fanelinja, så alle fanene får plass (før sto Innstillinger bak
+  en pil).
+- Nye versjoner sendes til de eksterne testerne i TestFlight av seg selv (etter Apples gjennomgang).
+
 ## v0.2.3
 
 - Mac: film- og seriesiden ser ut som i Fyrlys for Windows: stort bakgrunnsbilde, plakaten, logoen, merkene,

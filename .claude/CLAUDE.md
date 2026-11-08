@@ -527,6 +527,33 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `lib/ui/plex/plex_detail_page.dart`). `WindowSnapshot` virker også uten testmodus i et Debug-bygg, så Claude kan se
   appen med eierens ekte innlogging (`open -n --env FYRLYS_TEST_SNAPSHOT=1 …/Debug/Fyrlys.app`; han logger inn selv,
   bildene blir på Mac-en). Testskjermene `plex-users` (arket åpent), `plex-film` (1001) og `plex-serie` (2001).
+- **0.2.4** (eieren 8.11: «Hva mer kan vi forbedre?» → «kjør alt»): Mac: `App/MacKeys.swift`: `playerKeys`
+  (lokal `NSEvent`-monitor, bare for vinduet spilleren står i: på Mac er `fullScreenCover` et eget arkvindu, så
+  `event.window` er arket; ikke mens et `NSText` har fokus), `PlayerCommand`, menyen «Avspilling»
+  (`PlaybackCommands`, uten snarveier i menyen: mellomrom og piler ville tatt tegnene fra søkefeltet) og
+  `SectionCommands` (⌘F = `.fyrlysFind` til `SearchField(findTarget:)`, ⌘1–5), `MacPlayerState` (live/vod/mini),
+  `MacMiniPlayer` (NSPanel `.floating` med `PlayerLayerView`; `PlayerModel.detached` så spilleren ikke stopper når
+  den lukkes; «Tilbake i vinduet» = `AppModel.reopenPlayer` med `PlayRequest.existing`; en ny kanal, film eller
+  multiview lukker den). `WindowMemory` (MacSupport.swift): rammen i `vindu-ramme` og fullskjerm i
+  `vindu-fullskjerm` (SwiftUI lagret rammen under et navn med adresser som endres for hver start, så den ble aldri
+  funnet; de gamle nøklene slettes), ikke i testene uten `FYRLYS_TEST_WINDOW`. `NSWindow.allowsAutomaticWindowTabbing
+  = false`. Kanalkortene (iPad og Mac): nummeret over stjerna, navnet på to linjer uten linje under, `.help` med hele
+  navnet. Plex: `PlexModel.askWhoIsWatching` (`plex-spor-hvem`, bryteren `spor-hvem` og `plex-bytt-bruker` i
+  `PlexSettings`; testskjermen `plex-ask`). `App/Shortcuts.swift` (iPhone, iPad, Mac): App Intents
+  (`PlayChannelIntent`, `ChannelEntity` fra `ShortcutChannels` = favorittene og de sist sette i UserDefaults
+  `snarvei-kanaler`, `FyrlysShortcuts` med norske og engelske fraser), `IntentInbox` → `pendingPlay`; `Reminders`
+  («Minn meg på» `paminnelse` i infoarket i guiden, varsel 2 min før, `NotificationRouter` spiller kanalen).
+  Widget: målet `FyrlysWidget` (iOS, `Widget/FyrlysWidget.swift`, app-id `no.fyrlys.tv.widget` i
+  `asc.py` `EXTENSIONS["iOS"]`), favorittene fra `SharedFavorites` (den felles nøkkelring-gruppen, også i
+  `FyrlysMobil` nå), `fyrlys://` registrert på iOS. Top Shelf: «Fortsett å se» (`SharedResume`,
+  `SharedFavorites.saveResume`, `AppModel.shareContinue`; Plex-fanen hentes i bakgrunnen på Apple TV når Plex er
+  koblet til), `fyrlys://vod/<plex|iptv>/<movies|series>/<id>?navn=` → `AppModel.pendingVOD` → fanen og
+  `VODTab` legger siden på stien. iPad (iPadOS 18): `iPadTabs` med `SwiftUI.Tab`, Innstillinger som ikon og Søk med
+  `role: .search`. Guiden på iPhone: `neste-program-<kanal>` på det neste programmet (testene). `asc.py wait`:
+  `share_external` (eksterne grupper, `betaBuildLocalizations` fra CHANGELOG, `betaAppReviewSubmissions`; navnene på
+  gruppene skrives ikke ut). Bygget: simulatoren varmes opp før iOS-testene, `-test-iterations 3`, introen på 2103 i
+  den falske Plex 2–14 s. Simulatorverktøyet (MCP) krever `sudo xcode-select -s ~/Downloads/Xcode.app/...`
+  (eieren kjører det selv).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -839,3 +866,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   med: korte navn på sporene (`shortTrackName` i Core, `Tracks.swift`: «Norsk - [Norwegian]» → «Norsk»), og en
   episode i radene på Hjem og i «Fortsett å se» åpner serien på alle enhetene (eieren 8.11; i 0.2.1–0.2.2 ble
   episoden i «Fortsett å se» spilt med en gang), «Spill av episoden» i hurtigmenyen.
+- 8.11.2026: 0.2.3 (bygg 72) i TestFlight, VALID for TV_OS, IOS og MAC_OS (iPad-testene feilet bare på
+  oppstarten av simulatoren). Så 0.2.4 (se Arkitektur): lokalt bygget og testet (Mac med tastene, minispilleren og
+  vinduet via System Events; påminnelsen og iPad-fanene i simulatoren); ikke prøvd: Siri på en ekte enhet, widgeten
+  og Top Shelf-raden (krever signeringen med nøkkelring-gruppen), opplastingen med widgeten og den eksterne
+  gruppen (hemmelighetene finnes bare i GitHub). Oppstarten med 25 000 kanaler målt: kjernen bruker ~0,6 s på
+  Mac (tolke 0,25, indeks 0,04, lese lista fra sist 0,16); resten av tallet i fartstesten er at XCTest starter appen.
