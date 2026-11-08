@@ -431,7 +431,7 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("34-plex-se-alle")
     }
 
-    /// Serier med Plex: radene med nye episoder, og en episode spilles med en gang.
+    /// Serier med Plex: radene med nye episoder; en episode åpner serien (eieren 8.11), og knappen der spiller den.
     func test20PlexSerier() {
         let app = launch("plex-series")
         if !find(app, "fortsett-2001").waitForExistence(timeout: 40) {
@@ -444,6 +444,10 @@ final class FyrlysMobilUITests: XCTestCase {
         wait(2)
         shot("29-plex-serier")
         episode.tap()
+        let next = find(app, "fortsett-serie")
+        if !next.waitForExistence(timeout: 15), episode.exists { episode.tap() }
+        XCTAssertTrue(next.waitForExistence(timeout: 15), "episoden i raden åpnet ikke serien")
+        next.tap()
         let time = find(app, "vod-tid")
         XCTAssertTrue(time.waitForExistence(timeout: 20), "episoden startet ikke")
         let first = time.label

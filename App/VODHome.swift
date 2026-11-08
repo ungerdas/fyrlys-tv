@@ -196,14 +196,14 @@ struct VODHomeView: View {
         }
     }
 
-    /// En film eller serie i en rad fra Plex; en episode spilles med en gang (hold inne for serien).
+    /// En film eller serie i en rad fra Plex; en episode («Nylig utgitte episoder») åpner serien (eieren 8.11: «vil
+    /// jeg komme til den serien, ikke spille av episoden»), hold inne / høyreklikk for å spille episoden.
+    /// (I «Fortsett å se» spilles episoden med en gang.)
     @ViewBuilder
     private func rowCard(_ entry: VODRowItem, top: (() -> Void)?) -> some View {
         if let episode = entry.episode {
             // id-en på knappen før hurtigmenyen (etter den ble id-en borte av og til på iPhone og iPad)
-            Button {
-                Task { await play(episode, show: entry.item, image: nil) }
-            } label: {
+            NavigationLink(value: entry.item) {
                 PosterCard(item: entry.item, episode: episode)
             }
             .posterButtonStyle()
@@ -211,9 +211,9 @@ struct VODHomeView: View {
             .accessibilityIdentifier("rad-\(entry.id)")
             .contextMenu {
                 Button {
-                    open(entry.item)
+                    Task { await play(episode, show: entry.item, image: nil) }
                 } label: {
-                    Label(L("Gå til serien"), systemImage: "rectangle.stack")
+                    Label(L("Spill av episoden"), systemImage: "play.fill")
                 }
                 FavoriteToggle(item: entry.item)
             }

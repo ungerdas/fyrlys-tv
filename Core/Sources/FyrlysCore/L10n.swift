@@ -258,6 +258,7 @@ public let english: [String: String] = [
     "Plex …": "Plex …",
     "Hjem": "Home",
     "Gå til serien": "Go to the series",
+    "Spill av episoden": "Play the episode",
     "Fortsett {episode} ({time})": "Continue {episode} ({time})",
     "Neste: {episode}": "Next: {episode}",
     "Spill av {episode}": "Play {episode}",

@@ -928,7 +928,8 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
     }
 
-    /// Serier med Plex: radene med nye episoder, og en episode spilles med en gang der Plex sier du slapp.
+    /// Serier med Plex: radene med nye episoder; en episode åpner serien (eieren 8.11), og knappen der går rett til
+    /// episoden Plex sier du er midt i, som spilles der du slapp.
     func test19PlexSerier() {
         let app = launch("plex-series")
         let episode = find(app, "rad-e2102")
@@ -936,6 +937,14 @@ final class FyrlysUITests: XCTestCase {
         wait(2)
         shot("33-plex-serier")
         XCTAssertTrue(focus(app, episode), "fikk ikke fokus på episoden")
+        remote.press(.select)
+        // seriesiden: knappen går rett til episoden Plex sier du er midt i
+        let next = find(app, "fortsett-serie")
+        XCTAssertTrue(next.waitForExistence(timeout: 15), "episoden i raden åpnet ikke serien")
+        XCTAssertTrue(next.label.contains("S1 E2"), "episoden du er midt i, skulle stå på knappen: \(next.label)")
+        wait(2)
+        shot("35-plex-serie")
+        XCTAssertTrue(focus(app, next), "fikk ikke fokus på knappen til episoden")
         remote.press(.select)
         let time = find(app, "vod-tid")
         XCTAssertTrue(time.waitForExistence(timeout: 20), "episoden startet ikke")
@@ -948,16 +957,6 @@ final class FyrlysUITests: XCTestCase {
             wait(2)
         }
         XCTAssertFalse(player.exists, "Menu lukket ikke spilleren")
-        // seriesiden: knappen går rett til episoden Plex sier du er midt i
-        let series = find(app, "rad-2001")
-        XCTAssertTrue(series.waitForExistence(timeout: 10), "serien mangler i radene")
-        XCTAssertTrue(focus(app, series), "fikk ikke fokus på serien")
-        remote.press(.select)
-        let next = find(app, "fortsett-serie")
-        XCTAssertTrue(next.waitForExistence(timeout: 15), "knappen til episoden du skal se, mangler")
-        XCTAssertTrue(next.label.contains("S1 E2"), "episoden du er midt i, skulle stå på knappen: \(next.label)")
-        wait(2)
-        shot("35-plex-serie")
     }
 
     /// Koble til Plex under Innstillinger: koden vises, og når den er «skrevet inn» (den falske plex.tv gir nøkkelen
