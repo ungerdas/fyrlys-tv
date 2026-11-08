@@ -520,7 +520,7 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("36-plex-intro")
         skip.tap()
         let time = find(app, "vod-tid")
-        XCTAssertTrue(until(10) { time.exists && seconds(time.label) >= 9 }, "hoppet ikke over introen: \(time.label)")
+        XCTAssertTrue(until(10) { time.exists && seconds(time.label) >= 13 }, "hoppet ikke over introen: \(time.label)")
         XCTAssertTrue(find(app, "forrige-episode").exists, "«Forrige episode» mangler")
         XCTAssertTrue(find(app, "neste-episode").exists, "«Neste episode» mangler")
         XCTAssertTrue(find(app, "neste-om").waitForExistence(timeout: 40), "«Neste: …» kom ikke")

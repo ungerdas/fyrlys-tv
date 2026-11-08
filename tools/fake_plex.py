@@ -123,7 +123,7 @@ for e in EPISODES:
 # markørene (millisekunder) og undertekstene: de norske inni fila, og en engelsk fil ved siden av
 MARKERS = {
     "2102": [{"type": "credits", "startTimeOffset": 20000, "endTimeOffset": 30000, "final": True}],
-    "2103": [{"type": "intro", "startTimeOffset": 2000, "endTimeOffset": 9000},
+    "2103": [{"type": "intro", "startTimeOffset": 2000, "endTimeOffset": 14000},
              {"type": "credits", "startTimeOffset": 22000, "endTimeOffset": 30000, "final": True}],
 }
 SUBTITLE = b"1\n00:00:01,000 --> 00:00:29,000\nOppdiktet engelsk undertekst\n"

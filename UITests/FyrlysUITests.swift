@@ -473,13 +473,13 @@ final class FyrlysUITests: XCTestCase {
         shot("41-plex-rulletekst")
         remote.press(.select)
         XCTAssertTrue(playing(player, "plex:2103", timeout: 20), "den neste episoden kom ikke: \(player.value ?? "")")
-        // introen (2–9 s): hopp over den
+        // introen (2–14 s): hopp over den
         XCTAssertTrue(until(25) { skip.exists && skip.label == "Hopp over introen" }, "«Hopp over introen» kom ikke")
         wait(0.5)
         shot("42-plex-intro")
         remote.press(.select)
         let time = find(app, "vod-tid")
-        XCTAssertTrue(until(10) { time.exists && seconds(time.label) >= 9 }, "hoppet ikke over introen: \(time.label)")
+        XCTAssertTrue(until(10) { time.exists && seconds(time.label) >= 13 }, "hoppet ikke over introen: \(time.label)")
         XCTAssertTrue(find(app, "forrige-episode").exists, "«Forrige episode» mangler")
         XCTAssertTrue(find(app, "neste-episode").exists, "«Neste episode» mangler")
         // ferdig (30 s): «Neste: …», og så første episode i sesong 2
@@ -714,10 +714,16 @@ final class FyrlysUITests: XCTestCase {
         for _ in 0..<4 { app.typeText(XCUIKeyboardKey.delete.rawValue) }
         wait(1)
         app.typeText("1234")
+        // tastaturet på Apple TV tar av og til ikke imot alle sifrene: én gang til
+        if !until(20, { who.exists && who.label.contains("Barna") }), pin.exists {
+            for _ in 0..<4 { app.typeText(XCUIKeyboardKey.delete.rawValue) }
+            wait(1)
+            app.typeText("1234")
+        }
         if !until(20, { who.exists && who.label.contains("Barna") }) {
             dumpScreen(app, "byttet ikke til Barna (\(focusText(app)))", shotName: "62-plex-pin-mangler")
         }
-        XCTAssertTrue(who.exists && who.label.contains("Barna"), "byttet ikke til Barna: \(who.label)")
+        XCTAssertTrue(who.exists && who.label.contains("Barna"), "byttet ikke til Barna")
         wait(1)
         shot("61-plex-barna")
     }

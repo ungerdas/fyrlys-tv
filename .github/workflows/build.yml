@@ -238,13 +238,21 @@ jobs:
           export TEST_RUNNER_FYRLYS_TEST_PLEX=http://127.0.0.1:8897
           common="-project Fyrlys.xcodeproj -scheme FyrlysMobil -derivedDataPath build/dd"
           # en test som feiler, kjøres én gang til: simulatoren rekker av og til ikke å starte appen, eller et trykk tas ikke
-          timeouts="-test-timeouts-enabled YES -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 360 -retry-tests-on-failure -test-iterations 2"
+          timeouts="-test-timeouts-enabled YES -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 360 -retry-tests-on-failure -test-iterations 3"
           set +e
           limited 25 build/bygg-$E.log xcodebuild build-for-testing $common \
             -destination "platform=iOS Simulator,id=$SIM_ID" CURRENT_PROJECT_VERSION=${{ github.run_number }}
           code=$?
           grep -E "error:|\*\* .* \*\*" build/bygg-$E.log | tail -n 40
           [ $code -eq 0 ] || exit $code
+          # simulatoren ferdig startet, og appen åpnet én gang før testene: de første testene på iPad fikk ellers
+          # «Timed out while launching application» mens simulatoren fortsatt startet opp (bygg 72)
+          xcrun simctl boot "$SIM_ID" 2>/dev/null
+          xcrun simctl bootstatus "$SIM_ID" -b > /dev/null 2>&1
+          xcrun simctl install "$SIM_ID" build/dd/Build/Products/Debug-iphonesimulator/Fyrlys.app \
+            && xcrun simctl launch "$SIM_ID" no.fyrlys.tv > /dev/null 2>&1 \
+            && sleep 15 && xcrun simctl terminate "$SIM_ID" no.fyrlys.tv 2>/dev/null
+          echo "$(date -u +%H:%M:%S) simulatoren varmet opp" >> build/tider.txt
           # alle testene på iPhone, et utvalg på iPad
           only=""
           [ "$E" = ipad ] && for t in test01Login test02TV test04DineKategorier test05Guide test07Player test09Settings test11Rulling test12Lys test13Filmer test17Mkv test18Plex test19PlexKobling test20PlexSerier test21EgneStrommer test23PlexSett test24Sortering test26PlexBiblioteker test27NavnOgFeilrapport test28M3U test29Multiview test32PlexHome; do
