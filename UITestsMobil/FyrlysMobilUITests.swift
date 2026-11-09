@@ -111,6 +111,32 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("01-innlogging")
     }
 
+    /// Innloggingen: feil passord sies med en gang, og en leverandør som stenger ute VLC («blokkert» hos den falske)
+    /// godtar appen som en annen klient (Fyrlys for Windows 2.1.46).
+    func test33Innlogging() {
+        let app = launch("login")
+        let server = find(app, "server")
+        XCTAssertTrue(server.waitForExistence(timeout: 30), "feltet for serveren mangler")
+        server.tap()
+        server.typeText(self.server)
+        find(app, "brukernavn").tap()
+        find(app, "brukernavn").typeText("blokkert")
+        let password = find(app, "passord")
+        password.tap()
+        password.typeText("feil")
+        find(app, "logg-inn").tap()
+        let error = find(app, "innlogging-feil")
+        XCTAssertTrue(error.waitForExistence(timeout: 30), "feilen kom ikke")
+        XCTAssertTrue(error.label.contains("Feil brukernavn eller passord"), "feil melding: \(error.label)")
+        wait(1)
+        shot("62-innlogging-feil")
+        password.tap()
+        password.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 6) + "test")
+        find(app, "logg-inn").tap()
+        XCTAssertTrue(find(app, isPad ? "kanal-1" : "hylle-alle").waitForExistence(timeout: 40),
+                      "innloggingen som en annen klient virket ikke")
+    }
+
     /// iPhone: søket og kategoriflisene, så «Alle kanaler». iPad: sidemenyen og kortene.
     func test02TV() {
         let app = launch("tv")

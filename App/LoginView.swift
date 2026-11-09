@@ -82,10 +82,13 @@ struct LoginView: View {
                 TextField(L("Server"), text: $server, prompt: Text(verbatim: "http://iptv.example.com:8080"))
                     .keyboardType(.URL)
                     .textContentType(.URL)
+                    .accessibilityIdentifier("server")
                 TextField(L("Brukernavn"), text: $username)
                     .textContentType(.username)
+                    .accessibilityIdentifier("brukernavn")
                 SecureField(L("Passord"), text: $password)
                     .textContentType(.password)
+                    .accessibilityIdentifier("passord")
             } else {
                 hint(L("Lenken til kanallista fra leverandøren. Er det en Xtream-lenke (get.php med brukernavn og passord), får du også filmer og serier."),
                      size: text)

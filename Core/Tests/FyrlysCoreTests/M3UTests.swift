@@ -350,7 +350,8 @@ final class M3UTests: XCTestCase {
             (source(listBody: "#EXTINF:-1,Film\nhttp://iptv.example.com/movie/1.mkv\n", clock: { at }),
              "Lista har bare filmer og serier, ingen TV-kanaler"),
             (M3USource(login: Login(m3u: "http://iptv.example.com/liste.m3u"),
-                       fetch: { _ in throw URLError(.notConnectedToInternet) }), "Får ikke hentet M3U-lista"),
+                       fetch: { _ in throw URLError(.notConnectedToInternet) }),
+             "Får ikke hentet M3U-lista: Får ikke kontakt med serveren. Sjekk nettforbindelsen."),
         ]
         for (source, expected) in cases {
             let found = await message(source)

@@ -104,7 +104,7 @@ final class PlayerModel {
 
     /// Avspilleren med [url] (fra leverandøren, en egen strøm, eller bufferet på enheten).
     private func play(_ url: URL, _ gen: Int) {
-        let asset = AVURLAsset(url: url, options: [AVURLAssetHTTPUserAgentKey: xtreamUserAgent])
+        let asset = AVURLAsset(url: url, options: [AVURLAssetHTTPUserAgentKey: ProviderAgent.current])
         let item = AVPlayerItem(asset: asset)
         item.externalMetadata = metadata()
         stopObserving()
@@ -392,7 +392,7 @@ final class PlayerModel {
     /// Bare svaret (HTTP-koden), ikke selve strømmen.
     private nonisolated static func streamStatus(_ url: URL) async -> Int? {
         var request = URLRequest(url: url, timeoutInterval: 8)
-        request.setValue(xtreamUserAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(ProviderAgent.current, forHTTPHeaderField: "User-Agent")
         do {
             let (bytes, response) = try await URLSession.shared.bytes(for: request)
             bytes.task.cancel()

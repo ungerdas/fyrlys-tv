@@ -70,7 +70,7 @@ final class Images: @unchecked Sendable {
         let waiting = lock.withLock { failed[url].map { Date() < $0 } ?? false }
         if waiting { return nil }
         var request = URLRequest(url: url)
-        request.setValue(xtreamUserAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(ProviderAgent.current, forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await session.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 200

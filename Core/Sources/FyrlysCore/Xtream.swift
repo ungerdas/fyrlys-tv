@@ -6,32 +6,68 @@ import FoundationNetworking
 /// Leverandørene vil ofte bare snakke med kjente spillere.
 public let xtreamUserAgent = "VLC/3.0.21 LibVLC/3.0.21"
 
-/// En feil som kan vises for brukeren.
+/// En feil som kan vises for brukeren, og hva slags feil det var (se `SourceFailure`).
 public struct SourceError: Error, LocalizedError, Equatable {
     public let message: String
-    public init(_ message: String) { self.message = message }
+    public let failure: SourceFailure
+    public init(_ message: String, failure: SourceFailure = .other) {
+        self.message = message
+        self.failure = failure
+    }
     public var errorDescription: String? { message }
 }
 
 /// Henter en adresse: innholdet og HTTP-koden. Byttes ut i testene.
 public typealias Fetch = @Sendable (URL) async throws -> (Data, Int)
 
-/// Henter med URLSession og User-Agent som VLC.
-public let urlSessionFetch: Fetch = { url in
-    var request = URLRequest(url: url, timeoutInterval: 60)
-    request.setValue(xtreamUserAgent, forHTTPHeaderField: "User-Agent")
-    let (data, response) = try await URLSession.shared.data(for: request)
-    return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+/// Henter med URLSession og [userAgent] (VLC, med mindre innloggingen fant en annen klient serveren godtar).
+public func makeURLSessionFetch(userAgent: String) -> Fetch {
+    { url in
+        var request = URLRequest(url: url, timeoutInterval: 60)
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
 }
+
+/// Henter med URLSession og User-Agent som VLC.
+public let urlSessionFetch: Fetch = makeURLSessionFetch(userAgent: xtreamUserAgent)
 
 /// Xtream Codes: player_api.php for listene og programinfo, /live/<bruker>/<passord>/<id>.m3u8 for kanalene.
 public struct XtreamClient: Sendable {
     public let login: Login
     let fetch: Fetch
 
-    public init(login: Login, fetch: @escaping Fetch = urlSessionFetch) {
+    /// Uten [fetch]: URLSession med klienten innloggingen bruker (`Login.agent`).
+    public init(login: Login, fetch: Fetch? = nil) {
         self.login = login
-        self.fetch = fetch
+        self.fetch = fetch ?? makeURLSessionFetch(userAgent: login.agent)
+    }
+
+    /// Sjekker innloggingen hos leverandøren: som VLC først, og avviser serveren det (avvist, tomt, en nettside, en
+    /// forbindelse som lukkes), som de andre klientene i `loginUserAgents` etter tur. Gir innloggingen med klienten som
+    /// virket (`userAgent`, nil for VLC) og abonnementet. [fetchFor] lager hentingen for en klient (testene).
+    public static func signIn(_ login: Login,
+                              fetchFor: (String) -> Fetch = { makeURLSessionFetch(userAgent: $0) })
+        async throws -> (login: Login, account: Account) {
+        var first: SourceError?
+        for (index, agent) in loginUserAgents.enumerated() {
+            var attempt = login
+            attempt.userAgent = index == 0 ? nil : agent
+            let client = XtreamClient(login: attempt, fetch: fetchFor(agent))
+            do {
+                let account = try await client.account()
+                if index > 0 {
+                    AppLog.shared.add("Innloggingen virket som klient \(index + 1) av \(loginUserAgents.count)")
+                }
+                return (attempt, account)
+            } catch let error as SourceError {
+                guard error.failure == .rejected || error.failure == .notXtream else { throw error }
+                AppLog.shared.add("Innloggingen som klient \(index + 1) av \(loginUserAgents.count): \(error.failure.rawValue)")
+                first = first ?? error
+            }
+        }
+        throw first ?? SourceError(L("Får ikke kontakt med IPTV-serveren"), failure: .unreachable)
     }
 
     // ── adresser ──
@@ -87,28 +123,28 @@ public struct XtreamClient: Sendable {
         do {
             (data, status) = try await fetch(url)
         } catch {
-            throw SourceError(L("Får ikke kontakt med IPTV-serveren"))
+            throw connectionProblem(error)
         }
-        if status == 401 || status == 403 { throw SourceError(L("Serveren avviste innloggingen")) }
-        if status >= 400 { throw SourceError(L("IPTV-serveren svarte HTTP {code}", ["code": status])) }
-        guard let json = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) else {
-            throw SourceError(L("Serveren svarte ikke som en Xtream-server"))
-        }
+        if let problem = xtreamResponseProblem(status, data) { throw problem }
+        guard let json = decodeJSONLenient(data) else { throw xtreamNotJSON(data) }
         // avvist (feil passord, utløpt): noen svarer med kontoen og auth 0 i stedet for lista som ble spurt etter
-        if let info = (json as? [String: Any])?["user_info"] as? [String: Any], let auth = info["auth"],
-           int(auth) == 0 {
-            throw SourceError(L("Serveren avviste innloggingen"))
+        if let info = (json as? [String: Any])?["user_info"] as? [String: Any], !xtreamAuthorized(info) {
+            throw Self.wrongLogin
         }
         return json
     }
+
+    static let wrongLogin = SourceError(L("Feil brukernavn eller passord, eller abonnementet er ikke aktivert ennå. Sjekk store og små bokstaver."),
+                                        failure: .wrongLogin)
 
     /// Sjekker innloggingen og gir abonnementet.
     public func account() async throws -> Account {
         let json = try await api()
         guard let info = (json as? [String: Any])?["user_info"] as? [String: Any] else {
-            throw SourceError(L("Serveren svarte ikke som en Xtream-server"))
+            // et tomt objekt eller en liste: ikke svaret på en innlogging
+            throw SourceError(L("Serveren svarte ikke som en Xtream-server"), failure: .notXtream)
         }
-        if let auth = info["auth"], int(auth) == 0 { throw SourceError(L("Serveren avviste innloggingen")) }
+        guard xtreamAuthorized(info) else { throw Self.wrongLogin }
         return parseAccount(info)
     }
 

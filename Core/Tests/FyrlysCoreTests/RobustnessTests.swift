@@ -35,7 +35,7 @@ final class RobustnessTests: XCTestCase {
             _ = try await denied.channels()
             XCTFail("ingen feil")
         } catch {
-            XCTAssertEqual((error as? SourceError)?.message, L("Serveren avviste innloggingen"))
+            XCTAssertEqual((error as? SourceError)?.failure, .wrongLogin)
         }
     }
 

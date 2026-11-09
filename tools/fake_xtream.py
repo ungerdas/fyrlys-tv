@@ -31,6 +31,7 @@ from urllib.parse import parse_qs, urlparse
 
 SAMPLE = "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8"
 USER, PASSWORD = "test", "test"
+BLOCKED_USER = "blokkert"
 
 CATEGORIES = [
     ("1", "Nyheter"),
@@ -306,6 +307,11 @@ class Handler(BaseHTTPRequestHandler):
         host = self.headers.get("Host", "127.0.0.1")
 
         if url.path == "/player_api.php":
+            # «blokkert» (passord test): en leverandør som stenger ute VLC (403), så appen må prøve som en annen klient
+            if q.get("username") == BLOCKED_USER:
+                if self.headers.get("User-Agent", "").startswith("VLC"):
+                    return self.send(403, b"Forbidden", "text/plain")
+                q["username"] = USER
             if q.get("username") != USER or q.get("password") != PASSWORD:
                 return self.json({"user_info": {"auth": 0}})
             action = q.get("action")

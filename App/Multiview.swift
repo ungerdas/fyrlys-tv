@@ -101,7 +101,7 @@ final class MultiviewTile: Identifiable {
         generation += 1
         let gen = generation
         stopObserving()
-        let asset = AVURLAsset(url: urls[urlIndex], options: [AVURLAssetHTTPUserAgentKey: xtreamUserAgent])
+        let asset = AVURLAsset(url: urls[urlIndex], options: [AVURLAssetHTTPUserAgentKey: login.agent])
         let item = AVPlayerItem(asset: asset)
         observations = [
             item.observe(\.status, options: [.new]) { [weak self] item, _ in

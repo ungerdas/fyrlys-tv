@@ -131,6 +131,11 @@ public struct Login: Codable, Hashable, Sendable {
     public let m3u: String?
     /// lenken til TV-guiden (XMLTV) du har oppgitt for M3U-lista (nil: den som står i lista)
     public let epg: String?
+    /// klienten (User-Agent) serveren godtok da VLC ble avvist ved innloggingen; nil: VLC
+    public var userAgent: String?
+
+    /// Klienten for spørringene og strømmene hos leverandøren.
+    public var agent: String { userAgent ?? xtreamUserAgent }
 
     public init(server: String, username: String, password: String, name: String? = nil) {
         self.server = Login.normalize(server)

@@ -154,7 +154,7 @@ final class VODPlayerModel {
                           + "(\(attempt.url.pathExtension), fra \(Int(resumeAt)) s)")
         switch attempt.engine {
         case .native:
-            let asset = AVURLAsset(url: attempt.url, options: [AVURLAssetHTTPUserAgentKey: xtreamUserAgent])
+            let asset = AVURLAsset(url: attempt.url, options: [AVURLAssetHTTPUserAgentKey: ProviderAgent.current])
             let item = AVPlayerItem(asset: asset)
             item.externalMetadata = [Self.meta(.commonIdentifierTitle, play.title),
                                      Self.meta(.iTunesMetadataTrackSubTitle, play.subtitle)]

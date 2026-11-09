@@ -132,7 +132,7 @@ actor LiveShiftSession {
 
     private nonisolated func get(_ url: URL, timeout: TimeInterval) async throws -> (Data, URL) {
         var request = URLRequest(url: url, timeoutInterval: timeout)
-        request.setValue(xtreamUserAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(ProviderAgent.current, forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw URLError(.badServerResponse)

@@ -8,6 +8,12 @@ import Observation
 import TVServices
 #endif
 
+/// Klienten (User-Agent) for alt som hentes hos leverandøren i bruk: VLC, eller den innloggingen fant da serveren
+/// stengte ute VLC (`Login.userAgent`, som Fyrlys for Windows 2.1.46).
+enum ProviderAgent {
+    nonisolated(unsafe) static var current = xtreamUserAgent
+}
+
 /// Tilstanden i appen: innloggingen, kategoriene og kanalene, favoritter, favorittkategorier og «sist sett», og
 /// abonnementet.
 @MainActor
@@ -143,8 +149,11 @@ final class AppModel {
         var login = xtream
         // samme konto på nytt: navnet du ga den, står
         login.name = logins.first { $0.id == login.id }?.name
-        let client = XtreamClient(login: login)
-        let account = try await client.account()
+        // som VLC, og som andre klienter når serveren stenger ute VLC (den som virket, huskes i innloggingen)
+        let found = try await XtreamClient.signIn(login)
+        login = found.login
+        let account = found.account
+        if login.userAgent != nil { AppLog.shared.add("Innlogging: serveren godtok ikke VLC, bruker en annen klient") }
         if !account.status.isEmpty && account.status.lowercased() != "active" {
             throw SourceError(L("Abonnementet er ikke aktivt ({status})", ["status": account.status]))
         }
@@ -167,6 +176,9 @@ final class AppModel {
                 try await signIn(xtream)
                 AppLog.shared.add("Innlogging: M3U-lenken er en Xtream-lenke")
                 return
+            } catch let error as SourceError where error.failure == .unreachable || error.failure == .wrongLogin {
+                // serveren svarer ikke (da gjør ikke lista det heller), eller den sa at passordet er feil
+                throw error
             } catch {
                 // ikke en Xtream-server likevel: lista leses som den er
             }
@@ -266,6 +278,8 @@ final class AppModel {
         generation += 1
         let gen = generation
         self.login = login
+        // klienten leverandøren godtar (VLC, eller den innloggingen fant) for strømmene, logoene og bufferet
+        ProviderAgent.current = login.agent
         let source: any ProgramSource
         if login.isM3U {
             let m3u = M3USource(login: login)

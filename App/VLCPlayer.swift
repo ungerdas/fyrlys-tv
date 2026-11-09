@@ -85,7 +85,7 @@ final class VLCEngine {
         sidecars = subtitles
         sidecarChoice = choose
         let media = VLCMedia(url: url)
-        media.addOption(":http-user-agent=\(xtreamUserAgent)")
+        media.addOption(":http-user-agent=\(ProviderAgent.current)")
         // leverandørene er ofte trege: litt mer i bufferen enn VLC sitt sekund
         media.addOption(":network-caching=3000")
         if start > 5 {

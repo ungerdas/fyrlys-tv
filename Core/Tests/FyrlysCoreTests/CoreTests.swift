@@ -131,13 +131,14 @@ final class XtreamTests: XCTestCase {
         XCTAssertEqual(account.expires, Date(timeIntervalSince1970: 1_800_000_000))
 
         let denied = XtreamClient(login: login) { _ in (Data(#"{"user_info": {"auth": 0}}"#.utf8), 200) }
-        await assertThrows(L("Serveren avviste innloggingen")) { _ = try await denied.account() }
+        await assertThrows(XtreamClient.wrongLogin.message) { _ = try await denied.account() }
         let forbidden = XtreamClient(login: login) { _ in (Data(), 403) }
-        await assertThrows(L("Serveren avviste innloggingen")) { _ = try await forbidden.categories() }
+        await assertThrows(L("Serveren avviste innloggingen (HTTP {code}). Sjekk at abonnementet er aktivt.",
+                             ["code": 403])) { _ = try await forbidden.categories() }
         let html = XtreamClient(login: login) { _ in (Data("<html>".utf8), 200) }
-        await assertThrows(L("Serveren svarte ikke som en Xtream-server")) { _ = try await html.channels() }
+        await assertThrows(L("Adressen svarte med en nettside, ikke som en IPTV-server. Bruk serveradressen for Xtream Codes fra leverandøren, ikke adressen til nettsiden deres.")) { _ = try await html.channels() }
         let down = XtreamClient(login: login) { _ in throw URLError(.cannotConnectToHost) }
-        await assertThrows(L("Får ikke kontakt med IPTV-serveren")) { _ = try await down.channels() }
+        await assertThrows(L("Serveren tar ikke imot tilkoblinger på porten i adressen. Sjekk porten (tallet etter kolon).")) { _ = try await down.channels() }
     }
 
     func json(_ s: String) throws -> Any {

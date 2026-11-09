@@ -658,7 +658,10 @@ public actor M3USource {
         do {
             (data, status) = try await fetch(url)
         } catch {
-            throw SourceError(guide ? L("Får ikke hentet TV-guiden") : L("Får ikke hentet M3U-lista"))
+            // hvorfor (serveren finnes ikke, porten er stengt …)
+            let reason = connectionProblem(error).message
+            throw SourceError(guide ? L("Får ikke hentet TV-guiden: {reason}", ["reason": reason])
+                : L("Får ikke hentet M3U-lista: {reason}", ["reason": reason]), failure: .unreachable)
         }
         if status == 401 || status == 403 {
             throw SourceError(guide ? L("Serveren avviste TV-guiden (HTTP {code})", ["code": status])
