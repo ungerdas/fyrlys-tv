@@ -526,6 +526,8 @@ struct VLCPlayerScreen: View {
             }
             if let next = model.upNext {
                 UpNextCard(episode: next)
+            } else if let seconds = model.countdown, let next = model.around.next {
+                UpNextCard(episode: next, seconds: seconds)
             }
         }
         .background(Color.black.ignoresSafeArea())
@@ -765,9 +767,15 @@ struct VLCPlayerScreen: View {
                     .padding(.trailing, 16)
                     .padding(.bottom, controls || !engine.isPlaying ? 84 : 24)
             }
-            if let next = model.upNext {
-                UpNextCard(episode: next)
+            // over tidslinja og knappen for rulleteksten
+            Group {
+                if let next = model.upNext {
+                    UpNextCard(episode: next)
+                } else if let seconds = model.countdown, let next = model.around.next {
+                    UpNextCard(episode: next, seconds: seconds)
+                }
             }
+            .padding(.bottom, (controls || !engine.isPlaying ? 84 : 24) + (model.marker != nil ? 30 : 0))
         }
         .background(Color.black.ignoresSafeArea())
         .onAppear(perform: show)

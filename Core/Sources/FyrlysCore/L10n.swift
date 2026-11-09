@@ -197,6 +197,7 @@ public let english: [String: String] = [
     "Søk i hele abonnementet": "Search the whole subscription",
     "Viser de {n} første treffene. Skriv mer for å finne færre.": "Showing the first {n} matches. Type more to narrow it down.",
     "‹ Mapper": "‹ Folders",
+    "Neste episode om {seconds} s: {episode}": "Next episode in {seconds} s: {episode}",
     "Søk": "Search",
     "Søk etter kanal": "Search for a channel",
     "Ingen treff.": "No results.",

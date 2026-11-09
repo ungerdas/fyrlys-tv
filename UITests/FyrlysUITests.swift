@@ -483,6 +483,10 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(find(app, "forrige-episode").exists, "«Forrige episode» mangler")
         XCTAssertTrue(find(app, "neste-episode").exists, "«Neste episode» mangler")
         // ferdig (30 s): «Neste: …», og så første episode i sesong 2
+        // rulleteksten til slutt: nedtellingen til den neste episoden
+        let card = find(app, "neste-om")
+        XCTAssertTrue(until(40) { card.exists && card.label.contains(" om ") }, "nedtellingen i rulleteksten kom ikke")
+        shot("44-plex-nedtelling")
         XCTAssertTrue(find(app, "neste-om").waitForExistence(timeout: 40), "«Neste: …» kom ikke")
         shot("43-plex-neste")
         XCTAssertTrue(playing(player, "plex:2201", timeout: 20), "neste sesong kom ikke: \(player.value ?? "")")

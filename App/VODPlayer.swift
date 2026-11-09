@@ -57,6 +57,11 @@ final class VODPlayerModel {
     private(set) var seasons: [Season]?
     /// episoden er ferdig, og den neste begynner straks («Neste: …»)
     private(set) var upNext: Episode?
+    /// rulleteksten til slutt går, og den neste episoden begynner om så mange sekunder (nil: ingen nedtelling)
+    private(set) var countdown: Int?
+    @ObservationIgnored private var countdownTask: Task<Void, Never>?
+    /// så lenge rulleteksten til slutt går før den neste episoden begynner (som i Plex og Netflix)
+    static let creditsCountdown = 10
     /// Plex: markørene og undertekstfilene hentes før avspillingen begynner
     private(set) var preparing = false
     /// bytter til en annen episode (visningen lager en ny spiller for den)
@@ -236,6 +241,58 @@ final class VODPlayerModel {
         #endif
         let now = error == nil && upNext == nil && t.isFinite && t > 0 ? markers.first(where: { $0.covers(t) }) : nil
         if now != marker { marker = now }
+        // rulleteksten til slutt med en episode etter: nedtelling, så den neste; spoles det ut av rulleteksten
+        // (tilbake for å se den), stopper nedtellingen
+        if let now, now.kind == .credits, now.final, around.next != nil, upNext == nil {
+            if countdownTask == nil { startCountdown() }
+        } else if countdownTask != nil {
+            stopCountdown()
+        }
+        // slutten av fila, også når avspilleren ikke sier fra (før kunne den bli stående på det siste bildet)
+        if t.isFinite, t > 5, let length = duration, length > 30, t >= length - 0.75 { ended() }
+    }
+
+    /// Lengden på det som spilles (sekunder), når den er kjent.
+    private var duration: Double? {
+        if let vlc { return vlc.length > 0 ? vlc.length : nil }
+        let d = player.currentItem?.duration.seconds ?? .nan
+        return d.isFinite && d > 0 ? d : nil
+    }
+
+    private var isPlaying: Bool {
+        if let vlc { return vlc.isPlaying }
+        return player.timeControlStatus != .paused
+    }
+
+    private func startCountdown() {
+        countdown = Self.creditsCountdown
+        countdownTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self, !Task.isCancelled, !self.closed else { return }
+                // på pause: venter
+                guard self.isPlaying, let left = self.countdown else { continue }
+                if left > 1 {
+                    self.countdown = left - 1
+                    continue
+                }
+                self.countdownTask = nil
+                self.countdown = nil
+                guard let next = self.around.next else { return }
+                // sett ferdig (Plex også), og den neste
+                self.save(final: true, finished: true)
+                self.marker = nil
+                self.upNext = next
+                self.go(next)
+                return
+            }
+        }
+    }
+
+    private func stopCountdown() {
+        countdownTask?.cancel()
+        countdownTask = nil
+        countdown = nil
     }
 
     // ── episodene ──
@@ -255,6 +312,7 @@ final class VODPlayerModel {
     /// Knappen for introen eller rulleteksten: til slutten av den. Rulleteksten til slutt med en episode etter: denne er
     /// sett, og den neste spilles (som i Fyrlys for Windows).
     func skip(_ marker: PlexMarker) {
+        stopCountdown()
         if marker.kind == .credits, marker.final, let next = around.next {
             save(final: true, finished: true)
             go(next)
@@ -294,6 +352,7 @@ final class VODPlayerModel {
     /// Ferdig: den neste episoden etter et lite øyeblikk («Neste: …»), ellers lukkes spilleren.
     private func ended() {
         guard !closed, !finished, upNext == nil else { return }
+        stopCountdown()
         save(final: true)
         saver?.cancel()
         saver = nil
@@ -417,6 +476,7 @@ final class VODPlayerModel {
 
     func stop() {
         closed = true
+        countdownTask?.cancel()
         // visningen holdt på denne (og denne på visningen)
         switchTo = nil
         save(final: true)
@@ -609,6 +669,8 @@ private struct NativePlayer: View {
             #endif
             if let next = model.upNext {
                 UpNextCard(episode: next)
+            } else if let seconds = model.countdown, let next = model.around.next {
+                UpNextCard(episode: next, seconds: seconds)
             }
         }
     }
@@ -655,13 +717,25 @@ struct SkipButton: View {
 /// «Neste: S1 E3 · Tåkeluren» når en episode er ferdig og den neste begynner straks.
 struct UpNextCard: View {
     let episode: Episode
+    /// nedtellingen i rulleteksten til slutt (nil: begynner straks)
+    var seconds: Int?
 
     var body: some View {
         let code = "S\(episode.season) E\(episode.number)"
+        let name = episode.title.isEmpty ? code : "\(code) · \(episode.title)"
         HStack(spacing: Self.font * 0.7) {
-            ProgressView()
-                .tint(.white)
-            Text(L("Neste: {episode}", ["episode": episode.title.isEmpty ? code : "\(code) · \(episode.title)"]))
+            if let seconds {
+                Text(verbatim: "\(seconds)")
+                    .font(.system(size: Self.font, weight: .bold).monospacedDigit())
+                    .foregroundStyle(Color.black)
+                    .frame(width: Self.font * 1.8, height: Self.font * 1.8)
+                    .background(Circle().fill(Color.white))
+            } else {
+                ProgressView()
+                    .tint(.white)
+            }
+            Text(seconds == nil ? L("Neste: {episode}", ["episode": name])
+                 : L("Neste episode om {seconds} s: {episode}", ["seconds": seconds ?? 0, "episode": name]))
                 .font(.system(size: Self.font, weight: .semibold))
                 .foregroundStyle(Color.white)
                 .lineLimit(2)
