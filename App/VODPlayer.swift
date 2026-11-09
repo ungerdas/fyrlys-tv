@@ -190,8 +190,16 @@ final class VODPlayerModel {
             engine.onFail = { [weak self] in self?.failed(i) }
             engine.onEnd = { [weak self] in self?.ended() }
             engine.onTime = { [weak self] t in self?.tick(t) }
+            #if !os(tvOS)
+            engine.onPlayingChanged = { VLCNowPlaying.shared.update(force: true) }
+            #endif
             vlc = engine
             engine.open(attempt.url, start: resumeAt, subtitles: subtitles, choose: chosenSubtitle)
+            #if !os(tvOS)
+            // kontrollsenteret, låseskjermen og mediatastene (Apples avspiller gjør det selv)
+            VLCNowPlaying.shared.begin(engine, title: play.title, subtitle: play.subtitle,
+                                       image: play.image ?? play.item?.poster)
+            #endif
         }
     }
 
@@ -223,6 +231,9 @@ final class VODPlayerModel {
 
     /// Tiden har gått (Apples avspiller hvert halve sekund, VLC oftere): knappen for introen eller rulleteksten.
     private func tick(_ t: Double) {
+        #if !os(tvOS)
+        if vlc != nil { VLCNowPlaying.shared.update() }
+        #endif
         let now = error == nil && upNext == nil && t.isFinite && t > 0 ? markers.first(where: { $0.covers(t) }) : nil
         if now != marker { marker = now }
     }
@@ -418,6 +429,9 @@ final class VODPlayerModel {
         }
         player.pause()
         player.replaceCurrentItem(with: nil)
+        #if !os(tvOS)
+        VLCNowPlaying.shared.end(vlc)
+        #endif
         vlc?.stop()
     }
 

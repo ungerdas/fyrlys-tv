@@ -11,6 +11,8 @@ public final class AppLog: @unchecked Sendable {
     private let lock = NSLock()
     private var buffer: [String] = []
     private let clock: () -> Date
+    /// kalles etter hver ny linje (appen lagrer loggen på disken, så slutten finnes etter et krasj)
+    public var onChange: (@Sendable ([String]) -> Void)?
 
     public init(clock: @escaping () -> Date = Date.init) {
         self.clock = clock
@@ -27,7 +29,10 @@ public final class AppLog: @unchecked Sendable {
         lock.lock()
         buffer.append(contentsOf: lines)
         if buffer.count > Self.limit { buffer.removeFirst(buffer.count - Self.limit) }
+        let now = buffer
+        let notify = onChange
         lock.unlock()
+        notify?(now)
     }
 
     /// Linjene, de eldste først.

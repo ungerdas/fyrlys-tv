@@ -37,6 +37,7 @@ final class Images: @unchecked Sendable {
     }
 
     private let cache = NSCache<NSURL, Entry>()
+    private static let gate = DownloadGate(limit: 8)
     private let lock = NSLock()
     /// når en adresse som feilet, kan prøves igjen
     private var failed: [URL: Date] = [:]
@@ -71,6 +72,12 @@ final class Images: @unchecked Sendable {
         if waiting { return nil }
         var request = URLRequest(url: url)
         request.setValue(ProviderAgent.current, forHTTPHeaderField: "User-Agent")
+        // høyst åtte om gangen (fra alle vertene): ruller du fort gjennom tusenvis av kanaler, ble det ellers like
+        // mange forbindelser på en gang (som Fyrlys for Windows 2.1.45); de som er rullet forbi, slipper køen
+        guard await Self.gate.enter() else { return nil }
+        defer { Task { await Self.gate.leave() } }
+        if Task.isCancelled { return nil }
+        if let image = cached(url, maxPixels: maxPixels) { return image }
         do {
             let (data, response) = try await session.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 200
@@ -178,5 +185,44 @@ struct ChannelTile: View {
                     .accessibilityIdentifier("favoritt-\(channel.id)")
             }
         }
+    }
+}
+
+/// Høyst [limit] nedlastinger samtidig; de andre venter i kø. En som avbrytes mens den venter, går ut av køen.
+actor DownloadGate {
+    private let limit: Int
+    private var running = 0
+    private var waiting: [(id: UUID, resume: CheckedContinuation<Bool, Never>)] = []
+
+    init(limit: Int) { self.limit = limit }
+
+    /// Venter på plass; nei når oppgaven ble avbrutt i køen.
+    func enter() async -> Bool {
+        if running < limit {
+            running += 1
+            return true
+        }
+        let id = UUID()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                waiting.append((id, continuation))
+            }
+        } onCancel: {
+            Task { await self.cancel(id) }
+        }
+    }
+
+    func leave() {
+        if waiting.isEmpty {
+            running = max(0, running - 1)
+        } else {
+            // plassen går rett til den neste i køen
+            waiting.removeFirst().resume.resume(returning: true)
+        }
+    }
+
+    private func cancel(_ id: UUID) {
+        guard let index = waiting.firstIndex(where: { $0.id == id }) else { return }
+        waiting.remove(at: index).resume.resume(returning: false)
     }
 }

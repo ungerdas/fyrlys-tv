@@ -741,16 +741,35 @@ struct MultiviewPicker: View {
     let tile: MultiviewTile
     let severalLogins: Bool
     let done: (Channel?) -> Void
-    @State private var channels: [Channel]?
+    @State private var lists: PickerLists?
     @State private var failed = false
     @State private var query = ""
-    @State private var favoritesOnly = false
-    @State private var favorites = Set<String>()
+    /// mappen som er åpnet (nil: mappene)
+    @State private var folder: Folder?
+
+    /// Mappene, som kanallista ellers (Fyrlys for Windows 2.1.45): favorittene, sist sett, alle kanalene, kategoriene
+    /// du har lagt øverst og resten av kategoriene. Bare mappen du åpner, vises.
+    enum Folder: Hashable {
+        case favorites, recent, all
+        case category(String, String)
+
+        var id: String {
+            switch self {
+            case .favorites: return "favoritter"
+            case .recent: return "sist"
+            case .all: return "alle"
+            case .category(let id, _): return "kategori-\(id)"
+            }
+        }
+    }
+
+    /// så mange treff i søket (skriv mer for å finne færre)
+    static let searchLimit = 300
 
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle(severalLogins ? L("Velg kanal · {name}", ["name": tile.login.label]) : L("Velg kanal"))
+                .navigationTitle(title)
                 #if !os(tvOS)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -759,46 +778,39 @@ struct MultiviewPicker: View {
                     }
                 }
                 #endif
-                .searchable(text: $query, prompt: Text(L("Søk etter kanal")))
+                .searchable(text: $query, prompt: Text(L("Søk i hele abonnementet")))
         }
         .accessibilityIdentifier("multiview-velg")
         .task {
-            favorites = Set(app.favoriteIds(of: tile.login))
             do {
-                channels = try await app.channels(of: tile.login)
+                lists = try await app.pickerLists(of: tile.login)
             } catch {
                 failed = true
             }
         }
     }
 
+    private var title: String {
+        if let folder, query.isEmpty { return name(of: folder) }
+        return severalLogins ? L("Velg kanal · {name}", ["name": tile.login.label]) : L("Velg kanal")
+    }
+
     @ViewBuilder
     private var content: some View {
-        if let channels {
-            let shown = filtered(channels)
+        if let lists {
+            let searching = !query.trimmingCharacters(in: .whitespaces).isEmpty
             #if os(tvOS)
             // Apple TV: knapper i en rulleliste (fokus står da på knappen selv, ikke på en celle rundt den)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    filter
-                    if shown.isEmpty { nothing }
-                    ForEach(shown.prefix(500), id: \.id) { channel in
-                        Button { done(channel) } label: { row(channel) }
-                            .buttonStyle(PickerRowStyle())
-                            .accessibilityIdentifier("velg-\(channel.id)")
-                    }
+                    rows(lists, searching: searching)
                 }
                 .padding(.horizontal, 40)
                 .padding(.vertical, 20)
             }
             #else
             List {
-                filter
-                if shown.isEmpty { nothing }
-                ForEach(shown.prefix(500), id: \.id) { channel in
-                    Button { done(channel) } label: { row(channel) }
-                        .accessibilityIdentifier("velg-\(channel.id)")
-                }
+                rows(lists, searching: searching)
             }
             #endif
         } else if failed {
@@ -809,12 +821,125 @@ struct MultiviewPicker: View {
         }
     }
 
-    private var filter: some View {
-        Picker(L("Vis"), selection: $favoritesOnly) {
-            Text(L("★ Favoritter")).tag(true)
-            Text(L("Alle kanaler")).tag(false)
+    @ViewBuilder
+    private func rows(_ lists: PickerLists, searching: Bool) -> some View {
+        if searching {
+            let found = search(lists.channels)
+            if found.isEmpty { nothing }
+            channelRows(Array(found.prefix(Self.searchLimit)))
+            if found.count > Self.searchLimit {
+                Text(L("Viser de {n} første treffene. Skriv mer for å finne færre.", ["n": Self.searchLimit]))
+                    .font(.caption)
+                    .foregroundStyle(Theme.muted)
+            }
+        } else if let folder {
+            folderButton(L("‹ Mapper"), icon: "chevron.left", count: nil, id: "mapper") { self.folder = nil }
+            let shown = channels(in: folder, lists)
+            if shown.isEmpty { nothing }
+            channelRows(shown)
+        } else {
+            folders(lists)
         }
-        .pickerStyle(.segmented)
+    }
+
+    /// Mappene: favorittene, sist sett og alle, så «Dine kategorier» og resten av kategoriene (de med kanaler).
+    @ViewBuilder
+    private func folders(_ lists: PickerLists) -> some View {
+        let counts = Dictionary(grouping: lists.channels, by: \.categoryId).mapValues(\.count)
+        let favorites = Set(lists.favoriteCategories)
+        let mine = lists.favoriteCategories.compactMap { id in lists.categories.first { $0.id == id } }
+            .filter { (counts[$0.id] ?? 0) > 0 }
+        let rest = lists.categories.filter { !favorites.contains($0.id) && (counts[$0.id] ?? 0) > 0 }
+        ForEach([Folder.favorites, .recent, .all], id: \.self) { folder in
+            folderButton(name(of: folder), icon: icon(of: folder), count: channels(in: folder, lists).count,
+                         id: "mappe-\(folder.id)") { self.folder = folder }
+        }
+        if !mine.isEmpty {
+            heading(L("Dine kategorier"))
+            ForEach(mine, id: \.id) { category in
+                folderButton(category.name, icon: "star", count: counts[category.id],
+                             id: "mappe-kategori-\(category.id)") { folder = .category(category.id, category.name) }
+            }
+        }
+        if !rest.isEmpty {
+            heading(mine.isEmpty ? L("Kategorier") : L("Alle kategorier"))
+            ForEach(rest, id: \.id) { category in
+                folderButton(category.name, icon: "folder", count: counts[category.id],
+                             id: "mappe-kategori-\(category.id)") { folder = .category(category.id, category.name) }
+            }
+        }
+    }
+
+    private func channels(in folder: Folder, _ lists: PickerLists) -> [Channel] {
+        switch folder {
+        case .all: return lists.channels
+        case .favorites, .recent:
+            let ids = folder == .favorites ? lists.favorites : lists.recent
+            let byId = Dictionary(lists.channels.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            return ids.compactMap { byId[$0] }
+        case .category(let id, _): return lists.channels.filter { $0.categoryId == id }
+        }
+    }
+
+    private func name(of folder: Folder) -> String {
+        switch folder {
+        case .favorites: return L("Favoritter")
+        case .recent: return L("Sist sett")
+        case .all: return L("Alle kanaler")
+        case .category(_, let name): return name
+        }
+    }
+
+    private func icon(of folder: Folder) -> String {
+        switch folder {
+        case .favorites: return "star.fill"
+        case .recent: return "clock.arrow.circlepath"
+        case .all: return "square.grid.2x2"
+        case .category: return "folder"
+        }
+    }
+
+    @ViewBuilder
+    private func channelRows(_ channels: [Channel]) -> some View {
+        ForEach(channels, id: \.id) { channel in
+            Button { done(channel) } label: { row(channel) }
+                #if os(tvOS)
+                .buttonStyle(PickerRowStyle())
+                #endif
+                .accessibilityIdentifier("velg-\(channel.id)")
+        }
+    }
+
+    private func folderButton(_ title: String, icon: String, count: Int?, id: String,
+                              action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .foregroundStyle(icon == "star.fill" ? Theme.signal : Theme.muted)
+                    .frame(width: MultiviewView.text * 1.6)
+                Text(verbatim: title)
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if let count {
+                    Text(verbatim: "\(count)")
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        #if os(tvOS)
+        .buttonStyle(PickerRowStyle())
+        #endif
+        .accessibilityIdentifier(id)
+    }
+
+    private func heading(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .textCase(.uppercase)
+            .foregroundStyle(Theme.muted)
+            .padding(.top, 8)
     }
 
     private var nothing: some View {
@@ -829,6 +954,7 @@ struct MultiviewPicker: View {
                 .frame(width: MultiviewView.text * 3.4, height: MultiviewView.text * 2)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: nameParts(channel.name).main)
+                    .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                 if let number = channel.number {
                     Text(L("Kanal {n}", ["n": number]))
@@ -840,12 +966,11 @@ struct MultiviewPicker: View {
         }
     }
 
-    /// Søket (alle ordene i navnet) og favorittene; høyst 500 vises, så lista ikke blir tung.
-    private func filtered(_ channels: [Channel]) -> [Channel] {
+    /// Søket i hele abonnementet: alle ordene i navnet.
+    private func search(_ channels: [Channel]) -> [Channel] {
         let words = query.lowercased().split(separator: " ").map(String.init)
+        guard !words.isEmpty else { return channels }
         return channels.filter { channel in
-            if favoritesOnly && !favorites.contains(channel.id) { return false }
-            guard !words.isEmpty else { return true }
             let name = channel.name.lowercased()
             return words.allSatisfy { name.contains($0) }
         }

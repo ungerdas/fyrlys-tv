@@ -114,4 +114,13 @@ final class LoginProblemTests: XCTestCase {
         XCTAssertNil(decoded.userAgent)
         XCTAssertEqual(decoded.agent, xtreamUserAgent)
     }
+
+    func testChannelStatus() {
+        XCTAssertNil(channelStatusProblem(200, provider: true))
+        XCTAssertTrue(channelStatusProblem(403, provider: true)?.contains("avviste kanalen") == true)
+        XCTAssertTrue(channelStatusProblem(404, provider: true)?.contains("404") == true)
+        XCTAssertTrue(channelStatusProblem(458, provider: true)?.contains("tilkoblingene") == true)
+        XCTAssertTrue(channelStatusProblem(503, provider: true)?.contains("problemer") == true)
+        XCTAssertEqual(channelStatusProblem(404, provider: false), "Strømmen svarte HTTP 404.")
+    }
 }

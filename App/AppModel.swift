@@ -14,6 +14,15 @@ enum ProviderAgent {
     nonisolated(unsafe) static var current = xtreamUserAgent
 }
 
+/// Det kanalvalget i multiview trenger for en innlogging.
+struct PickerLists {
+    let channels: [Channel]
+    let categories: [ChannelCategory]
+    let favorites: [String]
+    let recent: [String]
+    let favoriteCategories: [String]
+}
+
 /// Tilstanden i appen: innloggingen, kategoriene og kanalene, favoritter, favorittkategorier og «sist sett», og
 /// abonnementet.
 @MainActor
@@ -57,6 +66,8 @@ final class AppModel {
     var pendingPlay: String?
     /// et program fra start (TV-arkivet), vist av HomeView over alt annet
     var replay: VODPlay?
+    /// listene til innlogginger som ikke er i bruk (kanalvalget i multiview), hentet én gang
+    @ObservationIgnored private var otherLists: [String: Lists] = [:]
     /// en film eller serie som skal åpnes (fra Top Shelf: fyrlys://vod/…), vist av fanen den hører til
     var pendingVOD: VODItem?
     #if os(macOS)
@@ -462,6 +473,38 @@ final class AppModel {
         if let saved, !saved.channels.isEmpty { return saved.channels }
         if other.isM3U { return try await M3USource(login: other).lists().channels }
         return try await XtreamClient(login: other).channels()
+    }
+
+    /// Kanalvalget i multiview for [other]: kanalene, kategoriene og mappene (favoritter, sist sett, «Dine
+    /// kategorier»). Lista til en innlogging som ikke er i bruk, hentes én gang (fra sist på disken når den finnes),
+    /// ikke hver gang en kanal velges (som Fyrlys for Windows 2.1.45).
+    func pickerLists(of other: Login) async throws -> PickerLists {
+        let lib = other.id == login?.id ? library : Library(store: store, loginId: other.id)
+        let lists: Lists
+        if other.id == login?.id, !index.channels.isEmpty {
+            lists = index.lists
+        } else if let kept = otherLists[other.id] {
+            lists = kept
+        } else {
+            let cache = cache
+            let id = other.id
+            if let saved = await Task.detached(priority: .userInitiated, operation: { cache.read(id) }).value,
+               !saved.channels.isEmpty {
+                lists = saved
+            } else if other.isM3U {
+                lists = try await M3USource(login: other).lists()
+            } else {
+                let client = XtreamClient(login: other)
+                async let cats = client.categories()
+                async let chans = client.channels()
+                lists = Lists(categories: try await cats, channels: try await chans)
+            }
+            otherLists[other.id] = lists
+        }
+        let channels = other.id == login?.id && !allChannels.isEmpty ? allChannels : lists.channels
+        return PickerLists(channels: channels, categories: lists.categories,
+                           favorites: lib?.favorites ?? [], recent: lib?.recent ?? [],
+                           favoriteCategories: lib?.favoriteCategories ?? [])
     }
 
     /// Favorittene til en innlogging (også en som ikke er i bruk).

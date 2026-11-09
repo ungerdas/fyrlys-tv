@@ -145,3 +145,26 @@ public func xtreamAuthorized(_ info: [String: Any]) -> Bool {
     if let number = int(auth) { return number == 1 }
     return text(auth).lowercased() == "true"
 }
+
+/// Hvorfor en kanal ikke gir bilde, fra HTTP-koden strømmen svarte med ([provider]: leverandørens strøm, ikke en egen).
+public func channelStatusProblem(_ status: Int, provider: Bool) -> String? {
+    guard status >= 400 else { return nil }
+    guard provider else { return L("Strømmen svarte HTTP {code}", ["code": status]) + "." }
+    switch status {
+    case 401, 403:
+        return L("Leverandøren avviste kanalen (HTTP {code}). Den er kanskje ikke med i abonnementet, eller den er stengt der du er.",
+                 ["code": status])
+    case 404, 410:
+        return L("Fant ikke kanalen hos leverandøren (HTTP {code}). Den kan være flyttet; hent kanallista på nytt.",
+                 ["code": status])
+    case 429, 458, 509:
+        // koder mange Xtream-servere bruker for «for mange tilkoblinger»
+        return L("Leverandøren sier at alle tilkoblingene er i bruk (HTTP {code}). Ser noen på en annen enhet?",
+                 ["code": status])
+    case 500...599:
+        return L("Leverandøren har problemer med kanalen akkurat nå (HTTP {code}). Prøv igjen om litt.",
+                 ["code": status])
+    default:
+        return L("IPTV-serveren svarte HTTP {code}", ["code": status]) + "."
+    }
+}

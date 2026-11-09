@@ -43,6 +43,13 @@ enum ErrorReport {
         if !model.hiddenSections.isEmpty {
             lines.append(L("Skjulte Plex-biblioteker: {n}", ["n": model.hiddenSections.count]))
         }
+        if let crash = CrashWatch.lastCrash {
+            lines.append("")
+            lines.append(L("## Krasj {time}", ["time": stamp(crash.date)]))
+            if let sig = crash.signal { lines.append(L("Signal: {name}", ["name": CrashWatch.signalName(sig)])) }
+            lines.append(L("Slutten av loggen fra den gangen:"))
+            lines += crash.lines.isEmpty ? ["–"] : crash.lines
+        }
         lines.append("")
         lines.append(L("## Logg"))
         let log = AppLog.shared.lines

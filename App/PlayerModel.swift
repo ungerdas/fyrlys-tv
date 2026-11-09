@@ -366,9 +366,8 @@ final class PlayerModel {
             if status == nil, let url = sourceURL ?? player.currentItem.flatMap({ ($0.asset as? AVURLAsset)?.url }) {
                 status = await withTimeout(8) { await PlayerModel.streamStatus(url) }
             }
-            if let status, status >= 400 {
-                text = (playingProvider ? L("IPTV-serveren svarte HTTP {code}", ["code": status])
-                    : L("Strømmen svarte HTTP {code}", ["code": status])) + "."
+            if let status {
+                text = channelStatusProblem(status, provider: playingProvider)
             }
         }
         guard gen == generation, error != nil, let text else { return }

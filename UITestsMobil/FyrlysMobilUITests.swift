@@ -668,11 +668,17 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(first.waitForExistence(timeout: 40), "multiview kom ikke")
         XCTAssertTrue(second.exists, "det andre bildet mangler")
         second.tap()
+        // mappene (favorittene, sist sett, alle kanalene og kategoriene), så «Alle kanaler»
+        let all = find(app, "mappe-alle")
+        if !all.waitForExistence(timeout: 10), second.exists { second.tap() }
+        XCTAssertTrue(all.waitForExistence(timeout: 20), "mappene i kanalvalget kom ikke")
+        XCTAssertTrue(find(app, "mappe-favoritter").exists, "mappen Favoritter mangler")
+        wait(1)
+        shot("48-multiview-mapper")
+        all.tap()
         let row = find(app, "velg-\(stableHash("id:villmark.no|Villmark"))")
-        if !row.waitForExistence(timeout: 10), second.exists { second.tap() }
         XCTAssertTrue(row.waitForExistence(timeout: 20), "kanalvalget med kanalene fra M3U-lista kom ikke")
         wait(1)
-        shot("48-multiview-velg")
         row.tap()
         let named = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "multiview-bilde-1", "Villmark"))

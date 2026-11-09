@@ -99,6 +99,7 @@ struct RootView: View {
         }
         .task {
             model.start()
+            CrashWatch.start()
             #if !os(tvOS)
             // Siri: «Spill … i Fyrlys» da appen ble startet
             if let id = IntentInbox.take() { model.pendingPlay = id }
@@ -110,6 +111,8 @@ struct RootView: View {
         // fram igjen fra bakgrunnen (eller Apple TV-en har sovet): programinfo, Plex, filmer og kanallista
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { model.becameActive() }
+            // krasj eller ikke: bare når appen var framme
+            CrashWatch.foreground(phase != .background)
         }
         #if !os(tvOS)
         .onReceive(NotificationCenter.default.publisher(for: .fyrlysIntentPlay)) { _ in

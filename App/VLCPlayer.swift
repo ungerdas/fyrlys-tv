@@ -40,6 +40,8 @@ final class VLCEngine {
     @ObservationIgnored var onEnd: (() -> Void)?
     /// tiden har gått (sekunder)
     @ObservationIgnored var onTime: ((Double) -> Void)?
+    /// pause eller spill av (kontrollsenteret og mediatastene oppdateres)
+    @ObservationIgnored var onPlayingChanged: (() -> Void)?
 
     private let player: VLCMediaPlayer
     private let events = VLCEvents()
@@ -129,6 +131,7 @@ final class VLCEngine {
             player.play()
             isPlaying = true
         }
+        onPlayingChanged?()
     }
 
     func toggleMute() {
@@ -162,7 +165,10 @@ final class VLCEngine {
 
     fileprivate func stateChanged() {
         guard !done else { return }
-        if player.isPlaying != isPlaying { isPlaying = player.isPlaying }
+        if player.isPlaying != isPlaying {
+            isPlaying = player.isPlaying
+            onPlayingChanged?()
+        }
         switch player.state {
         case .error:
             fail()
