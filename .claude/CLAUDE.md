@@ -894,3 +894,4 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   registrerte `no.fyrlys.tv.widget`, og byggene ble lagt til den eksterne gruppa og sendt til gjennomgang.
 - 9.11.2026: 0.2.5 (se Arkitektur): lokalt bygget og testet (test33Innlogging, test29/30Multiview, test17Mkv,
   test22PlexEpisoder, krasjet på Mac med `kill -SEGV`); kontrollsenteret for VLC er ikke sett på en ekte enhet.
+  0.2.5 (bygg 74) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, alle jobbene grønne, sendt til den eksterne gruppa.
