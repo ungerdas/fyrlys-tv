@@ -892,6 +892,5 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Mac (tolke 0,25, indeks 0,04, lese lista fra sist 0,16); resten av tallet i fartstesten er at XCTest starter appen.
   0.2.4 (bygg 73) er i TestFlight, VALID for TV_OS, IOS og MAC_OS; alle jobbene grønne (også iPad). `asc.py`
   registrerte `no.fyrlys.tv.widget`, og byggene ble lagt til den eksterne gruppa og sendt til gjennomgang.
-
 - 9.11.2026: 0.2.5 (se Arkitektur): lokalt bygget og testet (test33Innlogging, test29/30Multiview, test17Mkv,
   test22PlexEpisoder, krasjet på Mac med `kill -SEGV`); kontrollsenteret for VLC er ikke sett på en ekte enhet.
