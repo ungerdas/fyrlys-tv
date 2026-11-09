@@ -554,6 +554,24 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   gruppene skrives ikke ut). Bygget: simulatoren varmes opp før iOS-testene, `-test-iterations 3`, introen på 2103 i
   den falske Plex 2–14 s. Simulatorverktøyet (MCP) krever `sudo xcode-select -s ~/Downloads/Xcode.app/...`
   (eieren kjører det selv).
+- **0.2.5** (eieren 9.11: «kjør alt» på lista fra Windows 2.1.45/2.1.46 og mer): Core `NetProblem.swift`:
+  `SourceFailure` (unreachable/rejected/notXtream/wrongLogin/other) på `SourceError.failure`, `connectionProblem`
+  (URLError → setning), `xtreamResponseProblem`/`xtreamNotJSON` (https-port, Cloudflare, 401/403, 404, tomt,
+  nettside), `decodeJSONLenient` (BOM, PHP-advarsler foran), `xtreamAuthorized` (auth 1/true/«1», ellers status),
+  `loginUserAgents` (VLC, okhttp/4.12.0, Fyrlys), `channelStatusProblem` (HTTP-koden fra en kanal). `XtreamClient`:
+  `init(login:fetch:)` uten fetch bruker `login.agent`; `XtreamClient.signIn(_:fetchFor:)` prøver klientene når
+  feilen er rejected/notXtream og gir innloggingen med `Login.userAgent` (nil = VLC; `agent`). Appen:
+  `ProviderAgent.current` (settes i `AppModel.use`) for strømmene, VLC, logoene og bufferet; multiview bruker
+  `login.agent`; «Klient-ID» i feilrapporten; en Xtream-lenke i M3U-innloggingen som er unreachable/wrongLogin,
+  prøves ikke som M3U. Falsk leverandør: brukeren `blokkert` (passord test) får 403 med VLC. `LoginView`: id-ene
+  `server`, `brukernavn`, `passord`; testen `test33Innlogging` (iPhone og iPad). `App/NowPlaying.swift`
+  (`VLCNowPlaying`, !tvOS): MPNowPlayingInfoCenter og MPRemoteCommandCenter for VLC (`VLCEngine.onPlayingChanged`).
+  `MultiviewPicker` med mapper (`Folder`, `mappe-<favoritter|sist|alle|kategori-<id>>`, `mapper`) fra
+  `AppModel.pickerLists(of:)` (`PickerLists`, listene til andre innlogginger i `otherLists`), søket «Søk i hele
+  abonnementet» (300). `DownloadGate` (Images.swift, høyst 8). `App/CrashWatch.swift`: loggen i
+  Caches/Fyrlys/forrige-logg.txt (`AppLog.onChange`, hvert halve sekund), merket `kjorer-framme` (UserDefaults,
+  fjernes i bakgrunnen og ved ⌘Q på Mac), signalet som én byte i Caches/Fyrlys/signal; «## Krasj …» i feilrapporten.
+  Ikke i testmodus uten `FYRLYS_TEST_CRASH`.
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -874,3 +892,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Mac (tolke 0,25, indeks 0,04, lese lista fra sist 0,16); resten av tallet i fartstesten er at XCTest starter appen.
   0.2.4 (bygg 73) er i TestFlight, VALID for TV_OS, IOS og MAC_OS; alle jobbene grønne (også iPad). `asc.py`
   registrerte `no.fyrlys.tv.widget`, og byggene ble lagt til den eksterne gruppa og sendt til gjennomgang.
+
+- 9.11.2026: 0.2.5 (se Arkitektur): lokalt bygget og testet (test33Innlogging, test29/30Multiview, test17Mkv,
+  test22PlexEpisoder, krasjet på Mac med `kill -SEGV`); kontrollsenteret for VLC er ikke sett på en ekte enhet.

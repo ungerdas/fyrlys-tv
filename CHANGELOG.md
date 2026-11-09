@@ -1,5 +1,26 @@
 # Endringer
 
+## v0.2.5
+
+- **Innloggingen sier hva som er galt.** I stedet for «Får ikke kontakt med IPTV-serveren» står det om navnet på
+  serveren ikke finnes, om porten er stengt, om serveren ikke svarer, om adressen skal ha http:// eller https://
+  foran, om sertifikatet ikke godtas, om adressen er en nettside (eller bak Cloudflare) og ikke en IPTV-server, eller
+  om serveren svarte tomt. Feil brukernavn eller passord sies med en gang.
+- **Stenger serveren ute VLC, prøver Fyrlys som en annen klient.** Fyrlys presenterer seg som VLC overfor
+  leverandøren. Avviser serveren det, prøves to andre klient-ID-er, og den som virker, huskes for innloggingen og
+  brukes også for kanalene, logoene og tilbakespolingen. Klient-ID-en står i feilrapporten.
+- Innloggingen tåler flere slags servere: «auth» som true eller tekst, og svar med et BOM-tegn eller advarsler fra
+  PHP foran. En M3U-lenke til en server som ikke svarer, prøves bare én gang.
+- Gir en kanal ikke bilde, sier beskjeden hvorfor når leverandøren forteller det: kanalen avvises, finnes ikke, alle
+  tilkoblingene er i bruk, eller leverandøren har problemer.
+- iPhone, iPad og Mac: filmer og episoder som spilles med VLC, vises i kontrollsenteret og på låseskjermen, og kan
+  styres med mediatastene på Mac-en og med AirPods (pause, spoling, tittel og bilde).
+- Kanalvalget i multiview har mapper: favorittene, sist sett, alle kanalene, kategoriene du har lagt øverst og resten
+  av kategoriene. Søket finner kanalene i hele abonnementet (de 300 første treffene). Kanallista til et abonnement
+  som ikke er i bruk, hentes én gang.
+- Bildene hentes høyst åtte om gangen, så det ikke blir hundrevis av forbindelser når du ruller fort.
+- Krasjer Fyrlys, er slutten av loggen fra den gangen med i feilrapporten neste gang.
+
 ## v0.2.4
 
 - Mac: tastene i spilleren: mellomrom (pause), ← og → (10 sekunder), ↑ og ↓ (forrige og neste kanal), F

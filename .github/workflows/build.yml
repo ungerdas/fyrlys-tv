@@ -255,7 +255,7 @@ jobs:
           echo "$(date -u +%H:%M:%S) simulatoren varmet opp" >> build/tider.txt
           # alle testene på iPhone, et utvalg på iPad
           only=""
-          [ "$E" = ipad ] && for t in test01Login test02TV test04DineKategorier test05Guide test07Player test09Settings test11Rulling test12Lys test13Filmer test17Mkv test18Plex test19PlexKobling test20PlexSerier test21EgneStrommer test23PlexSett test24Sortering test26PlexBiblioteker test27NavnOgFeilrapport test28M3U test29Multiview test32PlexHome; do
+          [ "$E" = ipad ] && for t in test01Login test02TV test04DineKategorier test05Guide test07Player test09Settings test11Rulling test12Lys test13Filmer test17Mkv test18Plex test19PlexKobling test20PlexSerier test21EgneStrommer test23PlexSett test24Sortering test26PlexBiblioteker test27NavnOgFeilrapport test28M3U test29Multiview test32PlexHome test33Innlogging; do
             only="$only -only-testing:FyrlysMobilUITests/FyrlysMobilUITests/$t"
           done
           limited 40 build/test-$E.log \
