@@ -912,3 +912,4 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   ikke prøvd mot leverandøren til eieren ennå (årsaken der er ikke bekreftet: HLS stengt, eller et format Apples avspiller
   ikke kan).
   0.2.6 (bygg 75) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, alle jobbene grønne, sendt til den eksterne gruppa.
+  Eieren 12.11 etter 0.2.6 på Apple TV-en: «Fungerer fint her nå!» TS med VLC løste det med leverandøren hans.
