@@ -266,6 +266,19 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertEqual(app.state, .runningForeground)
     }
 
+    /// En leverandør uten HLS (bare MPEG-TS, som Fyrlys for Windows spiller): kanalen spilles med VLC.
+    func test34TSmedVLC() {
+        let app = launch("player-ts")
+        XCTAssertTrue(find(app, "live-vlc").waitForExistence(timeout: 60), "kanalen kom ikke i gang med VLC")
+        let player = find(app, "spiller")
+        XCTAssertTrue((player.value as? String ?? "").contains("1.ts"), "TS ble ikke prøvd: \(player.value ?? "")")
+        wait(3)
+        shot("64-ts-vlc")
+        find(app, "neste-kanal").tap()
+        XCTAssertTrue(until(30) { (player.value as? String ?? "").contains("2.ts") }, "neste kanal ble ikke åpnet som TS")
+        XCTAssertTrue(find(app, "live-vlc").waitForExistence(timeout: 60), "neste kanal kom ikke i gang med VLC")
+    }
+
     /// Kanalen som svarer 404: feilen med HTTP-koden, så lukk med knappen.
     func test08PlayerError() {
         let app = launch("player-error")

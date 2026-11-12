@@ -294,6 +294,21 @@ final class FyrlysUITests: XCTestCase {
                      + "%.1f s med; 24 steg i kortene %.1f s; 20 steg i sidemenyen %.1f s", cold, warm, grid, sidebar))
     }
 
+    /// En leverandør uten HLS (bare MPEG-TS, som Fyrlys for Windows spiller): kanalen spilles med VLC, og ned bytter kanal.
+    func test34TSmedVLC() {
+        let app = launch("player-ts")
+        let live = find(app, "live-vlc")
+        XCTAssertTrue(live.waitForExistence(timeout: 60), "kanalen kom ikke i gang med VLC")
+        let player = find(app, "spiller")
+        XCTAssertTrue((player.value as? String ?? "").contains("1.ts"), "TS ble ikke prøvd: \(player.value ?? "")")
+        wait(4)
+        shot("63-ts-vlc")
+        remote.press(.down)
+        XCTAssertTrue(until(30) { (player.value as? String ?? "").contains("2.ts") }, "neste kanal ble ikke åpnet som TS")
+        XCTAssertTrue(find(app, "live-vlc").waitForExistence(timeout: 60), "neste kanal kom ikke i gang med VLC")
+        XCTAssertFalse(find(app, "spiller-feil").exists, "feil i spilleren")
+    }
+
     /// Filmer: kategoriene og plakatene, siden for en film og spilleren (Menu lukker den).
     func test12Filmer() {
         let app = launch("movies")

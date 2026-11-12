@@ -1,5 +1,17 @@
 # Endringer
 
+## v0.2.6
+
+- **TV-kanaler som bare finnes som MPEG-TS spilles nå.** Apple-appen ba alltid om kanalene som HLS (.m3u8), mens
+  Fyrlys for Windows bruker MPEG-TS (.ts). Har leverandøren ikke HLS for abonnementet (eller sier abonnementet at det
+  bare får TS), eller kan ikke Apples avspiller spille kanalen, spilles den nå som TS med VLC, som filmene. Virker TS
+  der HLS ikke gjorde det, huskes det for innloggingen, så de neste kanalene går rett på TS. Apple TV: opp og ned
+  bytter kanal, spill/pause pauser, og kanalen og programmet står nederst en stund etter hvert bytte.
+- **Neste episode av seg selv.** Når rulleteksten til slutt begynner (Plex vet hvor den er), telles det ned fra 10
+  sekunder, og så spilles den neste episoden (som i Plex og Netflix). Pause venter, og spoler du tilbake ut av
+  rulleteksten, stopper nedtellingen. Uten rulletekst-markør går spilleren videre når episoden er slutt, også når
+  avspilleren ikke selv sier fra.
+
 ## v0.2.5
 
 - **Innloggingen sier hva som er galt.** I stedet for «Får ikke kontakt med IPTV-serveren» står det om navnet på

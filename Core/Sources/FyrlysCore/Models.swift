@@ -109,13 +109,20 @@ public struct Account: Hashable, Sendable {
     public let expires: Date?
     public let maxConnections: Int
     public let activeConnections: Int
+    /// formatene abonnementet får kanalene i («m3u8», «ts», «rtmp»); tom: ikke oppgitt
+    public let allowedFormats: [String]
 
-    public init(status: String = "", expires: Date? = nil, maxConnections: Int = 0, activeConnections: Int = 0) {
+    public init(status: String = "", expires: Date? = nil, maxConnections: Int = 0, activeConnections: Int = 0,
+                allowedFormats: [String] = []) {
         self.status = status
         self.expires = expires
         self.maxConnections = maxConnections
         self.activeConnections = activeConnections
+        self.allowedFormats = allowedFormats
     }
+
+    /// Abonnementet får ikke kanalene som HLS (bare MPEG-TS): da spilles de med VLC (Apples avspiller kan ikke TS).
+    public var hlsBlocked: Bool { !allowedFormats.isEmpty && !allowedFormats.contains("m3u8") }
 }
 
 /// Innloggingen hos leverandøren: Xtream Codes (server, brukernavn og passord), eller en M3U-liste (lenken til lista og

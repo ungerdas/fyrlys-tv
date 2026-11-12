@@ -168,3 +168,10 @@ public func channelStatusProblem(_ status: Int, provider: Bool) -> String? {
         return L("IPTV-serveren svarte HTTP {code}", ["code": status]) + "."
     }
 }
+
+/// Adressen er HLS (Apples avspiller); ellers spilles den med VLC (MPEG-TS og annet).
+public func isHLS(_ url: URL) -> Bool {
+    let ext = url.pathExtension.lowercased()
+    if ext == "m3u8" || ext == "m3u" { return true }
+    return url.query?.lowercased().contains("m3u8") == true
+}

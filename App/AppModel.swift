@@ -700,7 +700,22 @@ final class AppModel {
     /// først som HLS, se `m3uPlayURLs`).
     func providerURLs(_ channel: Channel) -> [URL] {
         if let m3u = channel.m3u { return m3uPlayURLs(m3u.url) }
-        return client.map { [$0.liveURL(channel)] } ?? []
+        return client.map { $0.liveURLs(channel, preferTS: preferTS) } ?? []
+    }
+
+    /// Kanalene hos leverandøren spilles som MPEG-TS med VLC først: abonnementet har ikke HLS, eller HLS har ikke
+    /// virket og TS har det (huskes per innlogging). Fyrlys for Windows spiller alltid TS.
+    var preferTS: Bool {
+        if account?.hlsBlocked == true { return true }
+        guard let login else { return false }
+        return defaults.bool(forKey: "ts-foran@\(login.id)")
+    }
+
+    /// Kanalen kom i gang fra [url]: virket TS (VLC) etter at HLS ikke gjorde det, spilles kanalene som TS først fra nå.
+    func liveWorked(_ channel: Channel, from url: URL, afterHLSFailed: Bool) {
+        guard let login, channel.m3u == nil, !isHLS(url), afterHLSFailed, !preferTS else { return }
+        defaults.set(true, forKey: "ts-foran@\(login.id)")
+        AppLog.shared.add("TV: HLS virket ikke, TS gjorde det: kanalene spilles som TS med VLC heretter")
     }
 
     /// «M3U-liste med TV-guide» (nil for Xtream Codes: der står abonnementet)

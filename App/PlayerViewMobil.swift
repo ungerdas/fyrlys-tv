@@ -56,12 +56,16 @@ struct PlayerView: View {
         .playerKeys { command in
             guard let model else { return false }
             switch command {
-            case .playPause: model.player.togglePlayback()
-            case .back: model.player.jump(-10)
-            case .forward: model.player.jump(10)
+            case .playPause:
+                if let vlc = model.vlc { vlc.togglePause() } else { model.player.togglePlayback() }
+            case .back, .forward:
+                // VLC: en direktesending i TS kan ikke spoles
+                guard model.vlc == nil else { return false }
+                model.player.jump(command == .back ? -10 : 10)
             case .next: model.step(1)
             case .previous: model.step(-1)
-            case .mute: model.player.isMuted.toggle()
+            case .mute:
+                if let vlc = model.vlc { vlc.toggleMute() } else { model.player.isMuted.toggle() }
             case .fullScreen: MacFullScreen.toggle()
             case .mini: toMini(model)
             }
@@ -116,12 +120,19 @@ struct PlayerView: View {
     private func screen(_ model: PlayerModel, _ full: CGFloat) -> some View {
         ZStack {
             Color.black
-            VideoSurface(player: model.player,
-                         gravity: model.pictureFormat.gravity,
-                         dragged: { drag = max(0, $0) },
-                         released: { finishDrag($0, velocity: $1, full: full) },
-                         fullScreen: { model.inFullScreen = $0 })
-                .modifier(ForcedAspect(ratio: model.pictureFormat.aspectRatio))
+            if let vlc = model.vlc {
+                // MPEG-TS med VLC (leverandøren har ikke HLS, eller Apples avspiller kunne ikke spille kanalen)
+                VLCSurface(engine: vlc)
+                    .id(ObjectIdentifier(vlc))
+                    .overlay(alignment: .bottomLeading) { LiveVLCBadge(vlc: vlc) }
+            } else {
+                VideoSurface(player: model.player,
+                             gravity: model.pictureFormat.gravity,
+                             dragged: { drag = max(0, $0) },
+                             released: { finishDrag($0, velocity: $1, full: full) },
+                             fullScreen: { model.inFullScreen = $0 })
+                    .modifier(ForcedAspect(ratio: model.pictureFormat.aspectRatio))
+            }
             if let error = model.error {
                 PlayerErrorMobil(model: model, message: error) { dismiss() }
             }
@@ -131,6 +142,8 @@ struct PlayerView: View {
     #if os(macOS)
     /// Mac: sendingen over i minispilleren, og vinduet tilbake til der du var.
     private func toMini(_ model: PlayerModel) {
+        // minispilleren viser Apples avspiller (ikke VLC)
+        guard model.vlc == nil else { return }
         model.detached = true
         MacMiniPlayer.show(model, app: app)
         dismiss()
@@ -442,6 +455,41 @@ private struct PlayerPanel: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(id)
+    }
+}
+
+/// VLC i spilleren for direktesendingen: pause og lyd (AVKit-kontrollene finnes ikke da), og hjulet til bildet kommer.
+private struct LiveVLCBadge: View {
+    let vlc: VLCEngine
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            if !vlc.started {
+                ProgressView()
+                    .tint(.white)
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            HStack(spacing: 10) {
+                Button { vlc.togglePause() } label: {
+                    Image(systemName: vlc.isPlaying ? "pause.fill" : "play.fill")
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color.black.opacity(0.55)))
+                }
+                .accessibilityIdentifier(vlc.started ? "live-vlc" : "live-vlc-venter")
+                .accessibilityLabel(L("Spill av / pause"))
+                Button { vlc.toggleMute() } label: {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color.black.opacity(0.55)))
+                }
+                .accessibilityLabel(L("Lyd av / på"))
+            }
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white)
+            .buttonStyle(.plain)
+            .padding(12)
+        }
     }
 }
 

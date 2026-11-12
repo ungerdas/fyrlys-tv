@@ -19,6 +19,8 @@ enum TestSupport {
     static var login: Login? {
         guard let server else { return nil }
         if screen == "m3u" { return Login(m3u: server + "/liste.m3u") }
+        // player-ts: en leverandør uten HLS (bare MPEG-TS), som spilles med VLC
+        if screen == "player-ts" { return Login(server: server, username: "tsbruker", password: "test") }
         return Login(server: server, username: "test", password: "test")
     }
 

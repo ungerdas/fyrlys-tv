@@ -198,6 +198,8 @@ public let english: [String: String] = [
     "Viser de {n} første treffene. Skriv mer for å finne færre.": "Showing the first {n} matches. Type more to narrow it down.",
     "‹ Mapper": "‹ Folders",
     "Neste episode om {seconds} s: {episode}": "Next episode in {seconds} s: {episode}",
+    "Opp og ned bytter kanal": "Up and down change channel",
+    "Strømmen kunne ikke spilles.": "The stream could not be played.",
     "Søk": "Search",
     "Søk etter kanal": "Search for a channel",
     "Ingen treff.": "No results.",

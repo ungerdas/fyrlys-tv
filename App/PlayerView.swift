@@ -17,6 +17,10 @@ struct PlayerView: View {
             if let model {
                 if let error = model.error {
                     PlayerError(model: model, message: error) { dismiss() }
+                } else if let vlc = model.vlc {
+                    // MPEG-TS med VLC: leverandøren har ikke HLS, eller Apples avspiller kunne ikke spille kanalen
+                    LiveVLCScreen(model: model, vlc: vlc) { dismiss() }
+                        .id(ObjectIdentifier(vlc))
                 } else {
                     let format = model.pictureFormat
                     PlayerController(model: model, channelId: model.channel.id, favorite: model.isFavorite,
@@ -48,6 +52,108 @@ struct PlayerView: View {
     private var programs: [Program] {
         guard let model else { return [] }
         return app.programs.programs(for: model.channel)
+    }
+}
+
+/// Direktesendingen med VLC (Apple TV): bildet over hele skjermen, kanalen og programmet nederst en stund etter hvert
+/// bytte (og ved trykk). Opp og ned bytter kanal, spill/pause og velg = pause, Menu lukker.
+private struct LiveVLCScreen: View {
+    @Environment(AppModel.self) private var app
+    let model: PlayerModel
+    let vlc: VLCEngine
+    let close: () -> Void
+    @State private var info = true
+    @State private var hideTask: Task<Void, Never>?
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            VLCSurface(engine: vlc)
+                .ignoresSafeArea()
+            Button {
+                vlc.togglePause()
+                show()
+            } label: {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .buttonStyle(BareButtonStyle())
+            .focused($focused)
+            .ignoresSafeArea()
+            .accessibilityIdentifier(vlc.started ? "live-vlc" : "live-vlc-venter")
+            if !vlc.started {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            if info || !vlc.isPlaying {
+                infoBar
+                    .transition(.opacity)
+            }
+        }
+        .defaultFocus($focused, true)
+        .onAppear {
+            focused = true
+            show()
+        }
+        .onChange(of: model.channel.id) { show() }
+        .onMoveCommand { direction in
+            switch direction {
+            case .up: model.step(-1)
+            case .down: model.step(1)
+            default: show()
+            }
+        }
+        .onPlayPauseCommand {
+            vlc.togglePause()
+            show()
+        }
+        .onExitCommand(perform: close)
+    }
+
+    private var infoBar: some View {
+        let channel = model.channel
+        return HStack(spacing: 24) {
+            ChannelLogo(channel: channel)
+                .frame(width: 150, height: 100)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(verbatim: nameParts(channel.name).main)
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundStyle(.white)
+                if let now = nowAndNext(app.programs.programs(for: channel), at: Date()).now {
+                    Text(verbatim: "\(hhmm(now.start))–\(hhmm(now.stop))  \(now.title)")
+                        .font(.system(size: 26))
+                        .foregroundStyle(Color.white.opacity(0.8))
+                        .lineLimit(1)
+                }
+                Text(L("Opp og ned bytter kanal"))
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.white.opacity(0.55))
+            }
+            Spacer(minLength: 0)
+            if !vlc.isPlaying && vlc.started {
+                Image(systemName: "pause.fill")
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+        .padding(.horizontal, 60)
+        .padding(.vertical, 36)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .top, endPoint: .bottom))
+        .allowsHitTesting(false)
+    }
+
+    private func show() {
+        withAnimation { info = true }
+        hideTask?.cancel()
+        guard !TestSupport.isActive else { return }
+        hideTask = Task {
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            withAnimation { info = false }
+        }
     }
 }
 

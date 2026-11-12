@@ -103,6 +103,17 @@ public struct XtreamClient: Sendable {
         URL(string: "\(login.server)/live/\(credsPath)/\(channel.streamId).m3u8")!
     }
 
+    /// Kanalen som MPEG-TS (som Fyrlys for Windows bruker; spilles med VLC her).
+    public func liveTSURL(_ channel: Channel) -> URL {
+        URL(string: "\(login.server)/live/\(credsPath)/\(channel.streamId).ts")!
+    }
+
+    /// Adressene for kanalen i den rekkefølgen de prøves: HLS (Apples avspiller), så MPEG-TS (VLC). [preferTS]: TS
+    /// først (abonnementet har ikke HLS, eller HLS har ikke virket).
+    public func liveURLs(_ channel: Channel, preferTS: Bool) -> [URL] {
+        preferTS ? [liveTSURL(channel), liveURL(channel)] : [liveURL(channel), liveTSURL(channel)]
+    }
+
     /// Tekst som kan vises eller logges: uten brukernavn og passord.
     public func redact(_ text: String) -> String {
         var out = text
@@ -210,9 +221,10 @@ func objectList(_ json: Any) -> [[String: Any]] {
 
 public func parseAccount(_ info: [String: Any]) -> Account {
     let expires = int(info["exp_date"]).flatMap { $0 > 0 ? Date(timeIntervalSince1970: TimeInterval($0)) : nil }
+    let formats = (info["allowed_output_formats"] as? [Any] ?? []).map { text($0).lowercased() }.filter { !$0.isEmpty }
     return Account(status: text(info["status"]), expires: expires,
                    maxConnections: int(info["max_connections"]) ?? 0,
-                   activeConnections: int(info["active_cons"]) ?? 0)
+                   activeConnections: int(info["active_cons"]) ?? 0, allowedFormats: formats)
 }
 
 public func parseCategories(_ json: Any) -> [ChannelCategory] {

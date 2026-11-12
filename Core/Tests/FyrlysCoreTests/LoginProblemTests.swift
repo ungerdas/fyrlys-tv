@@ -123,4 +123,17 @@ final class LoginProblemTests: XCTestCase {
         XCTAssertTrue(channelStatusProblem(503, provider: true)?.contains("problemer") == true)
         XCTAssertEqual(channelStatusProblem(404, provider: false), "Strømmen svarte HTTP 404.")
     }
+
+    func testHLSAndTS() {
+        let info: [String: Any] = ["auth": 1, "status": "Active", "allowed_output_formats": ["ts", "rtmp"]]
+        XCTAssertTrue(parseAccount(info).hlsBlocked)
+        XCTAssertFalse(parseAccount(["auth": 1, "allowed_output_formats": ["m3u8", "ts"]]).hlsBlocked)
+        XCTAssertFalse(parseAccount(["auth": 1]).hlsBlocked)
+        let client = XtreamClient(login: login)
+        let channel = Channel(id: "7", name: "Kanal", categoryId: "1")
+        XCTAssertEqual(client.liveURLs(channel, preferTS: false).map(\.pathExtension), ["m3u8", "ts"])
+        XCTAssertEqual(client.liveURLs(channel, preferTS: true).map(\.pathExtension), ["ts", "m3u8"])
+        XCTAssertTrue(isHLS(client.liveURL(channel)))
+        XCTAssertFalse(isHLS(client.liveTSURL(channel)))
+    }
 }

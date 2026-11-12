@@ -572,6 +572,19 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Caches/Fyrlys/forrige-logg.txt (`AppLog.onChange`, hvert halve sekund), merket `kjorer-framme` (UserDefaults,
   fjernes i bakgrunnen og ved ⌘Q på Mac), signalet som én byte i Caches/Fyrlys/signal; «## Krasj …» i feilrapporten.
   Ikke i testmodus uten `FYRLYS_TEST_CRASH`.
+- **0.2.6**: TV-kanalene som MPEG-TS med VLC (eieren 12.11: «Fyrlys fungerer fint å spille av på Windows, men apple tv
+  fungerte ikke, samme xtream code», TV-kanalene). Core: `Account.allowedFormats`/`hlsBlocked` (fra
+  `allowed_output_formats`), `XtreamClient.liveTSURL`/`liveURLs(_:preferTS:)`, `isHLS`. `AppModel.providerURLs` gir
+  HLS så TS (TS først når `preferTS`: abonnementet har ikke HLS, eller `ts-foran@<innlogging>` er satt av
+  `liveWorked` etter at TS virket der HLS feilet). `PlayerModel`: `vlc` (`playVLC` for adresser som ikke er HLS;
+  onEnd = nytt forsøk), går til neste adresse med en gang når HLS svarer 4xx (`refused`), ellers etter to feil.
+  Visningene: Apple TV `LiveVLCScreen` (PlayerView.swift: `VLCSurface`, opp/ned bytter kanal, infolinja, `live-vlc`),
+  iPhone/iPad/Mac `VLCSurface` med `LiveVLCBadge` (pause, lyd; `live-vlc`); minispilleren og spolingen på Mac bare med
+  Apples avspiller. Falsk leverandør: `/live/<bruker>/<passord>/<id>.ts` er en direktesending i TS (`stream_ts`),
+  brukeren `tsbruker` (passord test) får 403 på HLS; testskjermen `player-ts`, testene `test34TSmedVLC` (Apple TV,
+  iPhone, iPad). Nedtellingen til neste episode: `VODPlayerModel.countdown` (10 s fra starten av rulleteksten til
+  slutt, venter på pause, stopper ved spoling ut), `UpNextCard(seconds:)` «Neste episode om {seconds} s», og slutten
+  oppdages også når tiden når lengden (`duration`).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -895,3 +908,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - 9.11.2026: 0.2.5 (se Arkitektur): lokalt bygget og testet (test33Innlogging, test29/30Multiview, test17Mkv,
   test22PlexEpisoder, krasjet på Mac med `kill -SEGV`); kontrollsenteret for VLC er ikke sett på en ekte enhet.
   0.2.5 (bygg 74) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, alle jobbene grønne, sendt til den eksterne gruppa.
+- 12.11.2026: 0.2.6 (se Arkitektur): TS med VLC lokalt testet på iPhone, Apple TV og Mac mot den falske leverandøren;
+  ikke prøvd mot leverandøren til eieren ennå (årsaken der er ikke bekreftet: HLS stengt, eller et format Apples avspiller
+  ikke kan).

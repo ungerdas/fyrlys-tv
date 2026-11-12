@@ -32,6 +32,7 @@ from urllib.parse import parse_qs, urlparse
 SAMPLE = "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8"
 USER, PASSWORD = "test", "test"
 BLOCKED_USER = "blokkert"
+TS_USER = "tsbruker"
 
 CATEGORIES = [
     ("1", "Nyheter"),
@@ -269,6 +270,24 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print("[falsk]", fmt % args, flush=True)
 
+    def stream_ts(self):
+        """En direktesending i MPEG-TS uten lengde (som /live/…/<id>.ts hos en Xtream-server), til appen lukker den."""
+        self.send_response(200)
+        self.send_header("Content-Type", "video/mp2t")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        if self.command == "HEAD":
+            return
+        n = int(time.time() // 2)
+        try:
+            for _ in range(300):
+                self.wfile.write(LIVE[n % len(LIVE)])
+                self.wfile.flush()
+                n += 1
+                time.sleep(2)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
     def send(self, code, body=b"", kind="application/json", headers=None):
         self.send_response(code)
         self.send_header("Content-Type", kind)
@@ -307,6 +326,9 @@ class Handler(BaseHTTPRequestHandler):
         host = self.headers.get("Host", "127.0.0.1")
 
         if url.path == "/player_api.php":
+            # «tsbruker» (passord test): som test, men kanalene finnes bare som MPEG-TS (HLS gir 403)
+            if q.get("username") == TS_USER:
+                q["username"] = USER
             # «blokkert» (passord test): en leverandør som stenger ute VLC (403), så appen må prøve som en annen klient
             if q.get("username") == BLOCKED_USER:
                 if self.headers.get("User-Agent", "").startswith("VLC"):
@@ -440,11 +462,16 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(404, b"", "text/plain")
 
         if len(parts) == 4 and parts[0] == "live":
-            if parts[1] != USER or parts[2] != PASSWORD:
+            if parts[1] not in (USER, TS_USER) or parts[2] != PASSWORD:
                 return self.send(401, b"", "text/plain")
             cid = parts[3].split(".")[0]
             if cid == "90" or not cid.isdigit() or int(cid) not in CATEGORY_OF:
                 return self.send(404, b"", "text/plain")
+            # MPEG-TS: en direktesending som ikke tar slutt (bitene fra tools/testdata/direkte i ring)
+            if parts[3].endswith(".ts"):
+                return self.stream_ts()
+            if parts[1] == TS_USER:
+                return self.send(403, b"Forbidden", "text/plain")
             return self.send(302, b"", "text/plain", {"Location": SAMPLE})
 
         self.send(404, b"", "text/plain")

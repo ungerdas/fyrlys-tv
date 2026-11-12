@@ -12,6 +12,8 @@ import Observation
 @Observable
 final class PlayerModel {
     let player = AVPlayer()
+    /// VLC spiller kanalen (MPEG-TS, eller noe Apples avspiller ikke kan); ellers Apples avspiller
+    private(set) var vlc: VLCEngine?
     private(set) var channel: Channel
     let list: [Channel]
     private(set) var error: String?
@@ -45,6 +47,8 @@ final class PlayerModel {
     @ObservationIgnored private var playingProvider = true
     /// adressen kanalen spilles fra (også når avspilleren spiller fra bufferet på enheten)
     @ObservationIgnored private var sourceURL: URL?
+    /// HLS feilet for kanalen (så TS med VLC prøves; virker det, spilles kanalene som TS heretter)
+    @ObservationIgnored private var hlsFailed = false
     /// spilleren er stoppet (lukket)
     @ObservationIgnored private var stopped = false
 
@@ -66,7 +70,10 @@ final class PlayerModel {
         pendingOpen?.cancel()
         pendingOpen = nil
         // en annen kanal begynner med blanke ark (før kunne feilene på forrige kanal gi feilmelding med en gang)
-        if channel.id != self.channel.id { failures = [] }
+        if channel.id != self.channel.id {
+            failures = []
+            hlsFailed = false
+        }
         let urls = app.providerURLs(channel)
         let provider = urls.isEmpty ? nil : urls[min(providerStep[channel.id] ?? 0, urls.count - 1)]
         var url = app.streamURL(channel)
@@ -99,11 +106,42 @@ final class PlayerModel {
             return
         }
         Task { await LiveShift.shared.stop() }
-        play(url, gen)
+        if isHLS(url) {
+            play(url, gen)
+        } else {
+            playVLC(url, gen)
+        }
+    }
+
+    /// VLC med [url]: MPEG-TS fra leverandøren (Apples avspiller kan ikke spille det), som i Fyrlys for Windows.
+    private func playVLC(_ url: URL, _ gen: Int) {
+        stopObserving()
+        player.replaceCurrentItem(with: nil)
+        vlc?.stop()
+        let engine = VLCEngine()
+        let channel = self.channel
+        let afterHLS = hlsFailed
+        engine.onFail = { [weak self] in self?.failed(gen, L("Strømmen kunne ikke spilles.")) }
+        // en direktesending skal ikke ta slutt: åpnes igjen
+        engine.onEnd = { [weak self] in self?.failed(gen, nil) }
+        var started = false
+        engine.onTime = { [weak self] _ in
+            guard !started, let self, gen == self.generation else { return }
+            started = true
+            self.failures = []
+            self.app.liveWorked(channel, from: url, afterHLSFailed: afterHLS)
+            AppLog.shared.add("TV: kanal \(channel.id) spiller med VLC")
+        }
+        vlc = engine
+        engine.open(url, start: 0)
     }
 
     /// Avspilleren med [url] (fra leverandøren, en egen strøm, eller bufferet på enheten).
     private func play(_ url: URL, _ gen: Int) {
+        if let vlc {
+            vlc.stop()
+            self.vlc = nil
+        }
         let asset = AVURLAsset(url: url, options: [AVURLAssetHTTPUserAgentKey: ProviderAgent.current])
         let item = AVPlayerItem(asset: asset)
         item.externalMetadata = metadata()
@@ -168,6 +206,8 @@ final class PlayerModel {
         stallTimer = nil
         stopObserving()
         player.replaceCurrentItem(with: nil)
+        vlc?.stop()
+        vlc = nil
         channel = next
         error = nil
         pendingOpen?.cancel()
@@ -278,6 +318,8 @@ final class PlayerModel {
         stopObserving()
         player.pause()
         player.replaceCurrentItem(with: nil)
+        vlc?.stop()
+        vlc = nil
     }
 
     private func stopObserving() {
@@ -324,10 +366,13 @@ final class PlayerModel {
             open(channel)
             return
         }
-        // leverandørens adresse feiler to ganger, og det finnes en til (M3U-lista: adressen som står der, når HLS ikke
-        // virket)
+        // leverandørens adresse feiler to ganger, og det finnes en til (MPEG-TS med VLC når HLS ikke virket, eller
+        // adressen i M3U-lista); med en gang når serveren svarte 4xx (HLS er ikke med i abonnementet o.l.)
         let step = providerStep[channel.id] ?? 0
-        if playingProvider, failures.count >= 2, step + 1 < app.providerURLs(channel).count {
+        let refused = vlc == nil && (Self.httpCode(player.currentItem).map { (400..<500).contains($0) } ?? false)
+        if playingProvider, failures.count >= 2 || refused, step + 1 < app.providerURLs(channel).count {
+            if let url = sourceURL, isHLS(url) { hlsFailed = true }
+            AppLog.shared.add("TV: kanal \(channel.id): prøver \(app.providerURLs(channel)[step + 1].pathExtension)")
             providerStep[channel.id] = step + 1
             failures = []
             open(channel)
@@ -336,6 +381,7 @@ final class PlayerModel {
         if failures.count <= Self.triesPerMinute {
             let wait: [Double] = [2, 5, 10]
             let seconds = wait[min(failures.count, wait.count) - 1]
+            vlc?.stop()
             Task {
                 try? await Task.sleep(for: .seconds(seconds))
                 guard next == self.generation else { return }
@@ -343,6 +389,8 @@ final class PlayerModel {
             }
         } else {
             player.pause()
+            vlc?.stop()
+            vlc = nil
             // feilen med en gang (med knappene), og forklaringen når den er funnet; overskriften over sier alt at
             // kanalen ikke kunne spilles, så her står bare hvorfor (før sto «Kanalen kunne ikke spilles» to ganger)
             error = message.map { app.client?.redact($0) ?? $0 } ?? L("Sendingen stoppet opp")

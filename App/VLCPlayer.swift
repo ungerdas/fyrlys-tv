@@ -715,7 +715,7 @@ struct VLCPlayerScreen: View {
 }
 
 /// En knapp uten utseende (hele skjermen i spilleren).
-private struct BareButtonStyle: ButtonStyle {
+struct BareButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
     }
