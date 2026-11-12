@@ -1,0 +1,5 @@
+20:30:54 start: xcodebuild build-for-testing -project Fyrlys.xcodeproj -scheme FyrlysMobil -derivedDataPath build/dd -destination platform=iOS Simulator,id=FA1105A3-CFB2-45AC-B4DB-EBAC55DD946D CURRENT_PROJECT_VERSION=75
+20:32:10 ferdig (0): build/bygg-iphone.log
+20:35:48 simulatoren varmet opp
+20:35:49 start: xcodebuild test-without-building -project Fyrlys.xcodeproj -scheme FyrlysMobil -derivedDataPath build/dd -test-timeouts-enabled YES -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 360 -retry-tests-on-failure -test-iterations 3 -destination platform=iOS Simulator,id=FA1105A3-CFB2-45AC-B4DB-EBAC55DD946D -resultBundlePath build/iphone.xcresult
+20:57:03 ferdig (0): build/test-iphone.log
