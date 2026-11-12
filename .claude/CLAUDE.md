@@ -911,3 +911,4 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - 12.11.2026: 0.2.6 (se Arkitektur): TS med VLC lokalt testet på iPhone, Apple TV og Mac mot den falske leverandøren;
   ikke prøvd mot leverandøren til eieren ennå (årsaken der er ikke bekreftet: HLS stengt, eller et format Apples avspiller
   ikke kan).
+  0.2.6 (bygg 75) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, alle jobbene grønne, sendt til den eksterne gruppa.
