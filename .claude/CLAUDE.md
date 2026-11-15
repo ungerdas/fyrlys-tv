@@ -935,3 +935,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   av innloggingene → 0.2.7. Mistanke: tjeneren for bufferet på enheten (`ShiftServer`) som har stoppet, eller
   leverandøren som nekter forbindelsen; ikke undersøkt videre.
   0.2.7 (bygg 76) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, alle jobbene grønne, sendt til den eksterne gruppa.
+- 15.11.2026: «er multi view låst til 4 samtidig? det er jo ofte jeg bare vil se to, en i litt større vindu og en i
+  litt mindre vindu, eller tre med en på toppen og en i bunn.» → 0.2.8 (se Multiview i Arkitektur): oppsett og antall
+  bilder. Lokalt testet på Apple TV (`test30Multiview`), iPhone (`test29Multiview`) og Mac (tre bilder via System
+  Events, med `--tilkoblinger 3`). 0.2.8 (bygg 77) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, alle jobbene
+  grønne, sendt til den eksterne gruppa. Ikke prøvd med ekte strømmer hos leverandøren hans.
