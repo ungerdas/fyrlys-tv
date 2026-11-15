@@ -226,7 +226,7 @@ enum WindowSnapshot {
             NSLog("FYRLYS_SNAPSHOT ingen vindu (%d)", NSApp.windows.count)
             return
         }
-        if let sheet = window.attachedSheet { window = sheet }
+        while let sheet = window.attachedSheet { window = sheet }
         guard let view = window.contentView?.superview ?? window.contentView,
               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
         view.cacheDisplay(in: view.bounds, to: rep)

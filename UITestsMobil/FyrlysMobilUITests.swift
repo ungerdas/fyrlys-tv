@@ -706,6 +706,19 @@ final class FyrlysMobilUITests: XCTestCase {
         first.doubleTap()
         wait(2)
         shot("50-multiview-stort")
+        first.doubleTap()
+        wait(1.5)
+        // oppsettet «ett stort øverst»: det første bildet blir det store, det andre står under
+        find(app, "multiview-oppsett").tap()
+        // (id-en kommer ikke alltid med inn i menyen: teksten)
+        let top = app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@", "oppsett-topp",
+                                                   "Ett stort øverst")).firstMatch
+        XCTAssertTrue(top.waitForExistence(timeout: 5), "menyen med oppsettene kom ikke")
+        top.tap()
+        wait(2)
+        XCTAssertGreaterThan(first.frame.width, second.frame.width, "det første bildet ble ikke stort")
+        XCTAssertGreaterThanOrEqual(second.frame.minY, first.frame.maxY, "det andre bildet står ikke under")
+        shot("65-multiview-topp")
         find(app, "lukk-multiview").tap()
         let multiview = find(app, "multiview")
         for _ in 0..<10 where multiview.exists { wait(1) }

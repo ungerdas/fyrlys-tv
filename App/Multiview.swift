@@ -8,8 +8,8 @@ import AppKit
 #endif
 
 // Multiview: opptil fire kanaler samtidig, som i Fyrlys for Windows (`lib/ui/multiview_page.dart`). Hvert bilde bruker
-// én tilkobling: innloggingene i rekkefølge (den i bruk først), så mange bilder som hver av dem har tilkoblinger til,
-// høyst fire. Lyden kommer bare fra det valgte bildet. Ingenting huskes, og kanalene kommer ikke i «Sist sett».
+// én tilkobling: innloggingene i rekkefølge (den i bruk først), høyst så mange bilder som de har tilkoblinger til, og
+// høyst fire. Det begynner med så mange bilder som sist (to første gang); oppsettet og antallet huskes på enheten. Lyden kommer bare fra det valgte bildet. Ingenting huskes, og kanalene kommer ikke i «Sist sett».
 
 /// Multiview vises (fra hurtigmenyen på et kort, eller fra spilleren), med [channel] i det første bildet.
 struct MultiviewRequest: Identifiable {
@@ -237,28 +237,42 @@ final class MultiviewTile: Identifiable {
     }
 }
 
-/// Bildene, det valgte (lyden kommer derfra) og det store bildet.
+/// Bildene, det valgte (lyden kommer derfra), det store bildet og oppsettet. Hvor mange bilder det kan være, er
+/// tilkoblingene til innloggingene (høyst fire); det begynner med så mange som sist (to første gang), og bilder kan
+/// legges til og fjernes. Det første bildet er hovedbildet (det store i «side» og «topp»).
 @MainActor
 @Observable
 final class MultiviewModel {
     enum Phase: Equatable { case connecting, ready, tooFew }
 
     private(set) var phase: Phase = .connecting
+    /// bildene i rekkefølge, hovedbildet først
     private(set) var tiles: [MultiviewTile] = []
-    /// det valgte bildet (lyden kommer derfra)
+    /// id-en til det valgte bildet (lyden kommer derfra)
     private(set) var selected = 0
-    /// det ene bildet over hele skjermen (nil: alle bildene)
+    /// id-en til det ene bildet over hele skjermen (nil: alle bildene)
     var big: Int?
     private(set) var muted = false
     /// bildene er fra flere innlogginger (navnet står da ved kanalen)
     private(set) var severalLogins = false
+    var layout: MultiviewLayout {
+        didSet { defaults.set(layout.rawValue, forKey: "multiview-oppsett") }
+    }
+    /// én innlogging per tilkobling (høyst fire)
+    @ObservationIgnored private var slots: [Login] = []
+    @ObservationIgnored private var nextId = 0
+    @ObservationIgnored private let defaults = TestSupport.defaults
     private let app: AppModel
 
     static let maxTiles = 4
 
     init(app: AppModel) {
         self.app = app
+        layout = MultiviewLayout(rawValue: TestSupport.defaults.string(forKey: "multiview-oppsett") ?? "") ?? .grid
     }
+
+    var canAdd: Bool { tiles.count < slots.count }
+    var canRemove: Bool { tiles.count > 2 }
 
     /// Spør abonnementene hvor mange tilkoblinger de har, og lager bildene.
     func start(first: Channel?) async {
@@ -271,31 +285,77 @@ final class MultiviewModel {
             for await (index, count) in group { found[index] = count }
             return found
         }
-        var made: [MultiviewTile] = []
+        var slots: [Login] = []
         for (index, login) in logins.enumerated() {
-            for _ in 0..<max(1, counts[index]) where made.count < Self.maxTiles {
-                made.append(MultiviewTile(id: made.count, login: login, app: app))
-            }
+            for _ in 0..<max(1, counts[index]) where slots.count < Self.maxTiles { slots.append(login) }
         }
-        guard made.count >= 2 else {
+        self.slots = slots
+        guard slots.count >= 2 else {
             phase = .tooFew
             return
         }
-        tiles = made
-        severalLogins = Set(made.map(\.login.id)).count > 1
+        let saved = defaults.integer(forKey: "multiview-antall")
+        let wanted = min(slots.count, max(2, saved == 0 ? 2 : saved))
+        for _ in 0..<wanted { _ = makeTile() }
+        severalLogins = Set(slots.map(\.id)).count > 1
         phase = .ready
-        if let first { made[0].open(first) }
+        if let first { tiles[0].open(first) }
+        selected = tiles[0].id
         updateAudio()
     }
 
-    func toggleBig(_ index: Int) {
-        big = big == index ? nil : index
+    /// Et bilde til (tomt), med en innlogging som har en ledig tilkobling.
+    @discardableResult
+    func addTile() -> MultiviewTile? {
+        guard canAdd, let tile = makeTile() else { return nil }
+        defaults.set(tiles.count, forKey: "multiview-antall")
+        updateAudio()
+        return tile
     }
 
-    /// Lyden fra bildet [index].
-    func select(_ index: Int) {
-        guard selected != index else { return }
-        selected = index
+    func remove(_ tile: MultiviewTile) {
+        guard canRemove, let index = tiles.firstIndex(where: { $0.id == tile.id }) else { return }
+        tile.stop()
+        tiles.remove(at: index)
+        if big == tile.id { big = nil }
+        if selected == tile.id { selected = tiles[0].id }
+        defaults.set(tiles.count, forKey: "multiview-antall")
+        updateAudio()
+    }
+
+    /// [tile] blir hovedbildet (først).
+    func makeMain(_ tile: MultiviewTile) {
+        guard let index = tiles.firstIndex(where: { $0.id == tile.id }), index > 0 else { return }
+        tiles.remove(at: index)
+        tiles.insert(tile, at: 0)
+    }
+
+    func isMain(_ tile: MultiviewTile) -> Bool { tiles.first?.id == tile.id }
+
+    private func makeTile() -> MultiviewTile? {
+        var used: [String: Int] = [:]
+        for tile in tiles { used[tile.login.id, default: 0] += 1 }
+        for login in slots {
+            if used[login.id, default: 0] > 0 {
+                used[login.id, default: 0] -= 1
+                continue
+            }
+            let tile = MultiviewTile(id: nextId, login: login, app: app)
+            nextId += 1
+            tiles.append(tile)
+            return tile
+        }
+        return nil
+    }
+
+    func toggleBig(_ id: Int) {
+        big = big == id ? nil : id
+    }
+
+    /// Lyden fra bildet med id-en [id].
+    func select(_ id: Int) {
+        guard selected != id else { return }
+        selected = id
         updateAudio()
     }
 
@@ -315,8 +375,9 @@ final class MultiviewModel {
 
 // ── visningene ──
 
-/// Multiview over hele skjermen: to bilder ved siden av hverandre (over hverandre når skjermen står), tre eller fire i
-/// to rader. Apple TV: fokus velger bildet (og lyden), trykk gir stort bilde (eller kanalvalget for et tomt bilde),
+/// Multiview over hele skjermen i oppsettet som er valgt (`multiviewFrames`): like store, ett stort med de andre ved
+/// siden av, eller ett stort øverst; «Oppsett», «Legg til et bilde» og «Fjern bildet» i hurtigmenyen (og i knappen
+/// `multiview-oppsett` øverst på iPhone, iPad og Mac). Apple TV: fokus velger bildet (og lyden), trykk gir stort bilde (eller kanalvalget for et tomt bilde),
 /// hold inne for å bytte kanal, Menu tilbake. iPhone og iPad: trykk velger, dobbelttrykk gir stort bilde, hold inne
 /// for å bytte kanal.
 struct MultiviewView: View {
@@ -400,17 +461,13 @@ struct MultiviewView: View {
 
     private func grid(_ model: MultiviewModel) -> some View {
         GeometryReader { geometry in
-            let frames = Self.frames(in: geometry.size, count: model.tiles.count)
+            let frames = multiviewFrames(model.layout, count: model.tiles.count, in: geometry.size)
             ZStack(alignment: .topLeading) {
-                if model.tiles.count == 3 {
-                    // det fjerde feltet er svart
-                    let empty = Self.cell(3, of: geometry.size)
-                    Color.black.frame(width: empty.width, height: empty.height).offset(x: empty.minX, y: empty.minY)
-                }
-                ForEach(model.tiles) { tile in
+                ForEach(Array(model.tiles.enumerated()), id: \.element.id) { position, tile in
                     let isBig = model.big == tile.id
                     let hidden = model.big != nil && !isBig
-                    let frame = isBig ? CGRect(origin: .zero, size: geometry.size) : frames[tile.id]
+                    let frame = isBig || position >= frames.count
+                        ? CGRect(origin: .zero, size: geometry.size) : frames[position]
                     tileView(tile, model: model, big: isBig)
                         .frame(width: frame.width, height: frame.height)
                         .offset(x: frame.minX, y: frame.minY)
@@ -420,6 +477,8 @@ struct MultiviewView: View {
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+            .animation(.easeInOut(duration: 0.25), value: model.layout)
+            .animation(.easeInOut(duration: 0.25), value: model.tiles.map(\.id))
         }
         #if os(tvOS)
         .ignoresSafeArea()
@@ -429,25 +488,11 @@ struct MultiviewView: View {
         #endif
     }
 
-    /// Feltene: to ved siden av hverandre (over hverandre når skjermen er høyere enn den er bred), ellers to rader.
-    static func frames(in size: CGSize, count: Int) -> [CGRect] {
-        let gap: CGFloat = 4
-        if count <= 2 {
-            if size.height > size.width {
-                let h = (size.height - gap) / 2
-                return (0..<count).map { CGRect(x: 0, y: CGFloat($0) * (h + gap), width: size.width, height: h) }
-            }
-            let w = (size.width - gap) / 2
-            return (0..<count).map { CGRect(x: CGFloat($0) * (w + gap), y: 0, width: w, height: size.height) }
-        }
-        return (0..<count).map { cell($0, of: size) }
-    }
-
-    /// Felt [index] av fire (to rader).
-    static func cell(_ index: Int, of size: CGSize) -> CGRect {
-        let gap: CGFloat = 4
-        let w = (size.width - gap) / 2, h = (size.height - gap) / 2
-        return CGRect(x: CGFloat(index % 2) * (w + gap), y: CGFloat(index / 2) * (h + gap), width: w, height: h)
+    /// Et bilde til, og kanalvalget for det med en gang.
+    private func add(_ model: MultiviewModel) {
+        guard let tile = model.addTile() else { return }
+        model.select(tile.id)
+        picking = tile
     }
 
     @ViewBuilder
@@ -506,6 +551,13 @@ struct MultiviewView: View {
                       systemImage: model.big == tile.id ? "rectangle.split.2x2" : "rectangle.inset.filled")
             }
         }
+        if model.layout != .grid && !model.isMain(tile) {
+            Button {
+                model.makeMain(tile)
+            } label: {
+                Label(L("Gjør til hovedbildet"), systemImage: "arrow.up.left.and.arrow.down.right")
+            }
+        }
         if tile.error != nil {
             Button {
                 tile.retry()
@@ -513,11 +565,63 @@ struct MultiviewView: View {
                 Label(L("Prøv igjen"), systemImage: "arrow.clockwise")
             }
         }
+        layoutMenu(model)
+        if model.canAdd {
+            Button {
+                add(model)
+            } label: {
+                Label(L("Legg til et bilde"), systemImage: "plus.rectangle")
+            }
+        }
+        if model.canRemove {
+            Button {
+                model.remove(tile)
+            } label: {
+                Label(L("Fjern bildet"), systemImage: "minus.rectangle")
+            }
+        }
         Button {
             model.toggleMute()
         } label: {
             Label(model.muted ? L("Lyd på") : L("Lyd av"),
                   systemImage: model.muted ? "speaker.wave.2" : "speaker.slash")
+        }
+    }
+
+    /// Oppsettet: like store, ett stort med de små ved siden av, eller ett stort øverst.
+    private func layoutMenu(_ model: MultiviewModel) -> some View {
+        Menu {
+            ForEach(MultiviewLayout.allCases, id: \.self) { layout in
+                Button {
+                    model.layout = layout
+                } label: {
+                    if model.layout == layout {
+                        Label(Self.name(of: layout), systemImage: "checkmark")
+                    } else {
+                        Text(Self.name(of: layout))
+                    }
+                }
+                .accessibilityIdentifier("oppsett-\(layout.rawValue)")
+            }
+        } label: {
+            Label(L("Oppsett"), systemImage: Self.icon(of: model.layout))
+        }
+        .accessibilityIdentifier("multiview-oppsett")
+    }
+
+    static func name(of layout: MultiviewLayout) -> String {
+        switch layout {
+        case .grid: L("Like store")
+        case .side: L("Ett stort, de andre ved siden av")
+        case .top: L("Ett stort øverst")
+        }
+    }
+
+    static func icon(of layout: MultiviewLayout) -> String {
+        switch layout {
+        case .grid: "square.grid.2x2"
+        case .side: "rectangle.leftthird.inset.filled"
+        case .top: "rectangle.topthird.inset.filled"
         }
     }
 
@@ -544,6 +648,47 @@ struct MultiviewView: View {
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
+            Menu {
+                ForEach(MultiviewLayout.allCases, id: \.self) { layout in
+                    Button {
+                        model.layout = layout
+                    } label: {
+                        Label(Self.name(of: layout), systemImage: model.layout == layout ? "checkmark" : Self.icon(of: layout))
+                    }
+                    .accessibilityIdentifier("oppsett-\(layout.rawValue)")
+                }
+                if model.canAdd || model.canRemove {
+                    Divider()
+                }
+                if model.canAdd {
+                    Button {
+                        add(model)
+                    } label: {
+                        Label(L("Legg til et bilde"), systemImage: "plus.rectangle")
+                    }
+                    .accessibilityIdentifier("legg-til-bilde")
+                }
+                if model.canRemove, let tile = model.tiles.first(where: { $0.id == model.selected }) {
+                    Button {
+                        model.remove(tile)
+                    } label: {
+                        Label(L("Fjern det valgte bildet"), systemImage: "minus.rectangle")
+                    }
+                    .accessibilityIdentifier("fjern-bilde")
+                }
+            } label: {
+                Image(systemName: Self.icon(of: model.layout))
+                    .font(.system(size: 15, weight: .bold))
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color.white.opacity(0.14)))
+            }
+            .menuIndicator(.hidden)
+            #if os(macOS)
+            .menuStyle(.borderlessButton)
+            #endif
+            .fixedSize()
+            .accessibilityIdentifier("multiview-oppsett")
+            .accessibilityLabel(L("Oppsett"))
             Button {
                 model.toggleMute()
             } label: {

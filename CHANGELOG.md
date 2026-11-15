@@ -1,5 +1,14 @@
 # Endringer
 
+## v0.2.8
+
+- **Multiview med valgfritt oppsett og antall bilder.** Multiview begynner nå med to bilder (eller så mange som
+  sist), ikke med så mange som abonnementene har tilkoblinger til. Under «Oppsett» kan du velge «Like store», «Ett
+  stort, de andre ved siden av» (et stort bilde med de små i en kolonne til høyre) eller «Ett stort øverst» (de små på
+  en rad under). «Gjør til hovedbildet» flytter et bilde dit det store står. «Legg til et bilde» og «Fjern bildet»
+  bestemmer hvor mange (to til fire, så langt tilkoblingene rekker). Apple TV: hold inne på et bilde; iPhone, iPad og
+  Mac: knappen øverst, eller hold inne på et bilde. Oppsettet og antallet huskes.
+
 ## v0.2.7
 
 - **Innloggingene synkes med iCloud.** Legger du inn en innlogging på Apple TV, iPhone, iPad eller Mac, dukker den

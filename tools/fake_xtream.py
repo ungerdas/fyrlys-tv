@@ -341,7 +341,7 @@ class Handler(BaseHTTPRequestHandler):
             if action is None:
                 return self.json({
                     "user_info": {"username": USER, "auth": 1, "status": "Active",
-                                  "exp_date": str(int(now) + 90 * 86400), "max_connections": "1",
+                                  "exp_date": str(int(now) + 90 * 86400), "max_connections": str(CONNECTIONS),
                                   "active_cons": "0"},
                     "server_info": {"timestamp_now": int(now), "timezone": "Europe/Oslo"},
                 })
@@ -502,14 +502,20 @@ def live_playlist(now):
     return ("\n".join(lines) + "\n").encode()
 
 
+# max_connections i abonnementet (--tilkoblinger)
+CONNECTIONS = 1
+
+
 def main():
-    global CATEGORY_OF
+    global CATEGORY_OF, CONNECTIONS
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8899)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--kanaler", type=int, default=0, help="en stor, oppdiktet liste med så mange kanaler")
     parser.add_argument("--kategorier", type=int, default=450)
+    parser.add_argument("--tilkoblinger", type=int, default=1, help="max_connections i abonnementet")
     args = parser.parse_args()
+    CONNECTIONS = args.tilkoblinger
     if args.kanaler:
         make_big(args.kanaler, args.kategorier)
     CATEGORY_OF = {cid: c for cid, _, c in CHANNELS}

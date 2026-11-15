@@ -847,6 +847,16 @@ final class FyrlysUITests: XCTestCase {
         remote.press(.menu)
         wait(2)
         XCTAssertTrue(first.exists && second.exists, "bildene kom ikke tilbake etter stort bilde")
+        // oppsettet «ett stort, de andre ved siden av» fra hurtigmenyen: det første bildet blir det store
+        remote.press(.select, forDuration: 1.5)
+        wait(1.5)
+        XCTAssertTrue(choose(app, "Oppsett"), "fant ikke «Oppsett» i hurtigmenyen")
+        wait(1.5)
+        XCTAssertTrue(choose(app, "Ett stort, de andre ved siden av"), "fant ikke oppsettet i menyen")
+        wait(2)
+        XCTAssertGreaterThan(first.frame.width, second.frame.width * 2, "det første bildet ble ikke stort")
+        XCTAssertGreaterThan(second.frame.minX, first.frame.maxX, "det andre bildet står ikke ved siden av")
+        shot("64-multiview-side")
         let multiview = find(app, "multiview")
         for _ in 0..<3 where multiview.exists {
             remote.press(.menu)

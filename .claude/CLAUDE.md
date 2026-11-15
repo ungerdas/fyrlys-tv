@@ -408,7 +408,14 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   innlogginger, eller `maxConnections` ≥ 2), og i spilleren (`PlayerModel.openMultiview`: `pendingMultiview`, spilleren
   lukkes først, `showPendingReplay` viser den), `multiview-knapp` på iPhone/iPad. Id-ene `multiview`,
   `multiview-bilde-<n>`. Testskjermen `multiview` (M3U-lista som innlogging nummer to, `TestSupport.extraLogins`);
-  testene `test30Multiview` (Apple TV) og `test29Multiview` (iPhone og iPad).
+  testene `test30Multiview` (Apple TV) og `test29Multiview` (iPhone og iPad). Fra 0.2.8 (eieren 15.11: «ofte jeg bare
+  vil se to, en i litt større vindu og en i litt mindre vindu, eller tre med en på toppen»): tilkoblingene er
+  `slots` (høyst fire), bildene begynner med `multiview-antall` (to første gang), `addTile`/`remove`/`makeMain`
+  (hovedbildet = det første i `tiles`; id-ene er faste, rammene etter plassen), oppsettet `MultiviewLayout`
+  (Core `MultiviewLayout.swift`: `like`/`side`/`topp`, `multiviewFrames`, 16:9 i side og topp; side blir topp når
+  skjermen står) i `multiview-oppsett`; hurtigmenyen («Oppsett», «Gjør til hovedbildet», «Legg til et bilde», «Fjern
+  bildet») og knappen `multiview-oppsett` med `oppsett-<…>`, `legg-til-bilde`, `fjern-bilde` på iPhone/iPad/Mac.
+  Falsk leverandør: `--tilkoblinger N` (max_connections).
 - **TV-spilleren fra 0.1.30** (pakken «TV-spilleren» fra Windows-lista; hvordan Windows gjør det: mpv tar vare på det
   siste selv, `lib/ui/player_page.dart`, `lib/ui/playback.dart`, `lib/core/picture.dart`): pause og tilbakespoling i
   direktesending med et buffer på enheten: `Core/.../LiveShift.swift` (`parseHLS`: hovedliste med varianter (lyden for
