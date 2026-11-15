@@ -927,3 +927,4 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   at den først kom med en rød runding oppe til venstre); feilrapporten ble ikke sendt, og han ville heller ha iCloud-synk
   av innloggingene → 0.2.7. Mistanke: tjeneren for bufferet på enheten (`ShiftServer`) som har stoppet, eller
   leverandøren som nekter forbindelsen; ikke undersøkt videre.
+  0.2.7 (bygg 76) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, alle jobbene grønne, sendt til den eksterne gruppa.
