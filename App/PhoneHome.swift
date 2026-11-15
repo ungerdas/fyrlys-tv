@@ -273,6 +273,13 @@ private struct AccountMenu: View {
             }
             .buttonStyle(PressStyle())
             .accessibilityIdentifier("legg-til-innlogging")
+            Button {
+                model.syncLogins.toggle()
+            } label: {
+                menuButton(model.syncLogins ? L("iCloud-synk av innlogginger: på") : L("iCloud-synk av innlogginger: av"))
+            }
+            .buttonStyle(PressStyle())
+            .accessibilityIdentifier("synk-innlogginger")
             Button(action: openPlex) {
                 menuButton(model.plex.client != nil
                            ? L("Plex: {server}", ["server": model.plex.server?.name ?? ""]) : L("Plex …"))

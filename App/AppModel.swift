@@ -99,6 +99,8 @@ final class AppModel {
     private let cache = TestSupport.listCache
     private let defaults = TestSupport.defaults
     @ObservationIgnored private var cloudStore: CloudStore?
+    /// innloggingene i iCloud (delt mellom Apple TV, iPhone, iPad og Mac)
+    @ObservationIgnored private lazy var loginCloud = LoginCloud(defaults: defaults)
 
     /// Favorittene og «Dine kategorier» i iCloud, delt mellom enhetene (ikke i testene: de skal begynne tomme).
     private var store: KeyValueStore {
@@ -143,11 +145,26 @@ final class AppModel {
             } else {
                 phase = .signedOut
             }
-        } else if let saved = Keychain.loadAll().first {
-            logins = Keychain.loadAll()
-            use(saved)
         } else {
-            phase = .signedOut
+            // de på enheten, flettet med dem fra iCloud (lagt til på en annen enhet)
+            var saved = Keychain.loadAll()
+            if let cloud = loginCloud.load() {
+                let merged = mergeLogins(local: saved, cloud: cloud, removedHere: Set(loginCloud.removedHere),
+                                         keep: saved.first?.id)
+                if merged != saved {
+                    AppLog.shared.add("Innlogginger fra iCloud: \(merged.count - saved.count) nye")
+                    saved = merged
+                    Keychain.saveAll(saved)
+                }
+            }
+            loginCloud.observe { [weak self] in self?.loginsChangedElsewhere() }
+            loginCloud.push(saved)
+            if let first = saved.first {
+                logins = saved
+                use(first)
+            } else {
+                phase = .signedOut
+            }
         }
     }
 
@@ -201,10 +218,54 @@ final class AppModel {
         use(login, fresh: lists)
     }
 
+    /// Innloggingene i nøkkelringen på enheten, og i iCloud (når det er på).
+    private func persistLogins() {
+        guard !TestSupport.isActive else { return }
+        Keychain.saveAll(logins)
+        loginCloud.push(logins)
+    }
+
+    /// En annen enhet har lagt til, endret eller fjernet en innlogging: flettes inn (den i bruk her blir stående).
+    private func loginsChangedElsewhere() {
+        guard let cloud = loginCloud.load() else { return }
+        let merged = mergeLogins(local: logins, cloud: cloud, removedHere: Set(loginCloud.removedHere),
+                                 keep: login?.id)
+        guard merged != logins else { return }
+        AppLog.shared.add("Innloggingene endret på en annen enhet (\(merged.count))")
+        logins = merged
+        Keychain.saveAll(logins)
+        if let current = login, let updated = merged.first(where: { $0.id == current.id }), updated != current,
+           updated.server == current.server, updated.password == current.password {
+            // nytt navn (eller klient) fra en annen enhet
+            login = updated
+        }
+        if login == nil, phase == .signedOut, let first = merged.first {
+            use(first)
+        }
+    }
+
+    /// Synk innloggingene med iCloud (bryteren i innstillingene).
+    var syncLogins: Bool {
+        get {
+            _ = loginSyncVersion
+            return loginCloud.enabled
+        }
+        set {
+            loginCloud.enabled = newValue
+            loginSyncVersion += 1
+            if newValue {
+                loginsChangedElsewhere()
+                persistLogins()
+            }
+        }
+    }
+    private var loginSyncVersion = 0
+
     /// Den nye (eller oppdaterte) innloggingen først i lista.
     private func save(_ login: Login) {
+        if !TestSupport.isActive { loginCloud.noteAdded(login.id) }
         logins = [login] + logins.filter { $0.id != login.id }
-        if !TestSupport.isActive { Keychain.saveAll(logins) }
+        persistLogins()
         addingLogin = false
     }
 
@@ -213,7 +274,7 @@ final class AppModel {
         guard other.id != login?.id else { return }
         pendingPlay = nil
         logins = [other] + logins.filter { $0.id != other.id }
-        if !TestSupport.isActive { Keychain.saveAll(logins) }
+        persistLogins()
         account = nil
         use(other)
     }
@@ -223,23 +284,27 @@ final class AppModel {
         let renamed = target.named(name)
         logins = logins.map { $0.id == target.id ? renamed : $0 }
         if login?.id == target.id { login = renamed }
-        if !TestSupport.isActive { Keychain.saveAll(logins) }
+        persistLogins()
     }
 
     /// Fjerner en lagret innlogging som ikke er i bruk.
     func remove(_ other: Login) {
         guard other.id != login?.id else { return }
         cache.remove(other.id)
+        if !TestSupport.isActive { loginCloud.noteRemoved(other.id) }
         logins.removeAll { $0.id == other.id }
-        if !TestSupport.isActive { Keychain.saveAll(logins) }
+        persistLogins()
     }
 
     /// Logger ut av den som er i bruk; finnes det flere, brukes den neste.
     func signOut() {
         pendingPlay = nil
-        if let login { cache.remove(login.id) }
+        if let login {
+            cache.remove(login.id)
+            if !TestSupport.isActive { loginCloud.noteRemoved(login.id) }
+        }
         logins.removeAll { $0.id == login?.id }
-        if !TestSupport.isActive { Keychain.saveAll(logins) }
+        persistLogins()
         if let next = logins.first {
             account = nil
             use(next)

@@ -1,5 +1,13 @@
 # Endringer
 
+## v0.2.7
+
+- **Innloggingene synkes med iCloud.** Legger du inn en innlogging på Apple TV, iPhone, iPad eller Mac, dukker den
+  opp på de andre med samme Apple-ID, med navnet du har gitt den. Logger du ut eller fjerner en innlogging, forsvinner
+  den også på de andre (men aldri den som er i bruk på en annen enhet). Apple TV synker ikke iCloud-nøkkelringen, så
+  innloggingene (også passordene) ligger i appens iCloud-data, kryptert av Apple; på hver enhet ligger de fortsatt i
+  nøkkelringen. Kan slås av: «Synk innloggingene med iCloud» i innstillingene (Konto på iPhone).
+
 ## v0.2.6
 
 - **TV-kanaler som bare finnes som MPEG-TS spilles nå.** Apple-appen ba alltid om kanalene som HLS (.m3u8), mens

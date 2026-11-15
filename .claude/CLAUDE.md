@@ -585,6 +585,16 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   iPhone, iPad). Nedtellingen til neste episode: `VODPlayerModel.countdown` (10 s fra starten av rulleteksten til
   slutt, venter på pause, stopper ved spoling ut), `UpNextCard(seconds:)` «Neste episode om {seconds} s», og slutten
   oppdages også når tiden når lengden (`duration`).
+- **0.2.7**: innloggingene i iCloud (eieren 15.11: «jeg ønsker meg noe form for icloud sync, slik at hvis jeg legger inn
+  på apple tv eller mobil, så synces det»; valgte innloggingene, og så appens iCloud-data på alle fordi tvOS ikke synker
+  iCloud-nøkkelringen: `kSecAttrSynchronizable` virker ikke der). Core `LoginSync.swift`: `SyncedLogins` (lista og
+  fjernede id-er, høyst 50), `mergeLogins(local:cloud:removedHere:keep:)` (fjernet andre steder tas bort, unntatt den i
+  bruk; endret andre steder vinner; nye til slutt), `syncedLogins`. App: `LoginCloud` (CloudStore.swift: nøkkelen
+  `innlogginger` i `NSUbiquitousKeyValueStore`, av med `innlogginger-icloud-av`, fjernet her i
+  `innlogginger-fjernet`, `observe` på `didChangeExternally`), `AppModel.persistLogins()` (nøkkelringen + iCloud;
+  erstatter `Keychain.saveAll` overalt), flettingen i `start()`, `loginsChangedElsewhere()` (bruker den første når
+  enheten er utlogget), `syncLogins` (bryteren `synk-innlogginger`: Apple TV og iPad/Mac i innstillingene, iPhone i
+  Konto). Av i testene. Ikke prøvd mellom ekte enheter (krever det signerte bygget med iCloud).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -913,3 +923,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   ikke kan).
   0.2.6 (bygg 75) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, alle jobbene grønne, sendt til den eksterne gruppa.
   Eieren 12.11 etter 0.2.6 på Apple TV-en: «Fungerer fint her nå!» TS med VLC løste det med leverandøren hans.
+- 15.11.2026: eieren meldte at TV-kanalene igjen ikke spilte på Apple TV-en («Kunne ikke koble til tjeneren», etter
+  at den først kom med en rød runding oppe til venstre); feilrapporten ble ikke sendt, og han ville heller ha iCloud-synk
+  av innloggingene → 0.2.7. Mistanke: tjeneren for bufferet på enheten (`ShiftServer`) som har stoppet, eller
+  leverandøren som nekter forbindelsen; ikke undersøkt videre.

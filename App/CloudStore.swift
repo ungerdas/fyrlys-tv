@@ -75,3 +75,65 @@ final class CloudStore: KeyValueStore {
         }
     }
 }
+
+/// Innloggingene i iCloud (nøkkelen «innlogginger»), så en innlogging lagt til på Apple TV, iPhone, iPad eller Mac
+/// finnes på de andre med samme Apple-ID. Apple TV synker ikke iCloud-nøkkelringen, så de ligger i appens iCloud-data
+/// (kryptert av Apple); på enheten ligger de fortsatt i nøkkelringen. Kan slås av i innstillingene. Ikke i testene.
+@MainActor
+final class LoginCloud {
+    static let key = "innlogginger"
+    static let offKey = "innlogginger-icloud-av"
+    static let removedKey = "innlogginger-fjernet"
+
+    private let cloud = NSUbiquitousKeyValueStore.default
+    private let defaults: UserDefaults
+    private var observer: NSObjectProtocol?
+
+    init(defaults: UserDefaults) {
+        self.defaults = defaults
+    }
+
+    var enabled: Bool {
+        get { !TestSupport.isActive && !defaults.bool(forKey: Self.offKey) }
+        set { defaults.set(!newValue, forKey: Self.offKey) }
+    }
+
+    /// Det som ligger i iCloud (nil: ingenting, eller av).
+    func load() -> SyncedLogins? {
+        guard enabled, let data = cloud.data(forKey: Self.key) else { return nil }
+        return try? JSONDecoder().decode(SyncedLogins.self, from: data)
+    }
+
+    func push(_ logins: [Login]) {
+        guard enabled else { return }
+        let synced = syncedLogins(logins, removed: removedHere)
+        guard let data = try? JSONEncoder().encode(synced), cloud.data(forKey: Self.key) != data else { return }
+        cloud.set(data, forKey: Self.key)
+    }
+
+    /// Fjernet på denne enheten (logget ut, eller fjernet i lista): skal ikke komme tilbake fra en annen enhet.
+    var removedHere: [String] { defaults.stringArray(forKey: Self.removedKey) ?? [] }
+
+    func noteRemoved(_ id: String) {
+        defaults.set(Array((removedHere.filter { $0 != id } + [id]).suffix(SyncedLogins.removedLimit)),
+                     forKey: Self.removedKey)
+    }
+
+    /// Lagt til igjen.
+    func noteAdded(_ id: String) {
+        defaults.set(removedHere.filter { $0 != id }, forKey: Self.removedKey)
+    }
+
+    /// [changed] når en annen enhet har endret innloggingene.
+    func observe(_ changed: @escaping () -> Void) {
+        guard observer == nil else { return }
+        cloud.synchronize()
+        observer = NotificationCenter.default.addObserver(
+            forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification, object: cloud, queue: .main
+        ) { note in
+            let keys = note.userInfo?[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String] ?? []
+            guard keys.contains(LoginCloud.key) else { return }
+            MainActor.assumeIsolated { changed() }
+        }
+    }
+}

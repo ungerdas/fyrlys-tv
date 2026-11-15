@@ -88,6 +88,15 @@ struct SettingsView: View {
                                 .frame(minWidth: 520, alignment: .leading)
                         }
                         .accessibilityIdentifier("legg-til-innlogging")
+                        Toggle(isOn: Binding(get: { model.syncLogins }, set: { model.syncLogins = $0 })) {
+                            Label(L("Synk innloggingene med iCloud"), systemImage: "icloud")
+                        }
+                        .frame(maxWidth: 760)
+                        .accessibilityIdentifier("synk-innlogginger")
+                        Text(L("Innloggingene (også passordene) lagres i iCloud-kontoen din, så de finnes på Apple TV, iPhone, iPad og Mac med samme Apple-ID."))
+                            .font(.system(size: 22))
+                            .foregroundStyle(Theme.muted)
+                            .frame(maxWidth: 760, alignment: .leading)
                     }
 
                     PlexSettings()

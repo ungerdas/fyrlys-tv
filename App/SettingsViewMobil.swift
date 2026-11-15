@@ -42,7 +42,7 @@ struct SettingsView: View {
                     Text(L("{n} kanaler i {c} kategorier", ["n": model.channels.count, "c": model.categories.count]))
                 }
                 .listRowBackground(Theme.surface)
-                Section(L("Innlogginger")) {
+                Section {
                     ForEach(model.logins.filter { $0.id != model.login?.id }, id: \.id) { other in
                         Button(L("Bytt til {name}", ["name": other.label])) { model.switchTo(other) }
                             .swipeActions {
@@ -68,6 +68,14 @@ struct SettingsView: View {
                         Label(L("Legg til innlogging"), systemImage: "plus")
                     }
                     .accessibilityIdentifier("legg-til-innlogging")
+                    Toggle(isOn: Binding(get: { model.syncLogins }, set: { model.syncLogins = $0 })) {
+                        Label(L("Synk innloggingene med iCloud"), systemImage: "icloud")
+                    }
+                    .accessibilityIdentifier("synk-innlogginger")
+                } header: {
+                    Text(L("Innlogginger"))
+                } footer: {
+                    Text(L("Innloggingene (også passordene) lagres i iCloud-kontoen din, så de finnes på Apple TV, iPhone, iPad og Mac med samme Apple-ID."))
                 }
                 .listRowBackground(Theme.surface)
                 PlexSettings()
