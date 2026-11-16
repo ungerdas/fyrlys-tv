@@ -1068,4 +1068,5 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   sveiper, og da kom han ikke opp fra «Spill av»; årsaken var at fanelinja fulgte lista bak (se Seriesiden). Etter
   rettingen: «Nå fungerte å svipe opp.» Samme dag: «i menyen på plex, så trenger vi kun poster på filmer» → bare
   plakaten i Plex-fanen. Lokalt testet på Apple TV (simulator og hans Apple TV), iPhone og Mac; pushet 16.11 («push
-  når du er ferdig»).
+  når du er ferdig»). 0.2.11 (bygg 80) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, sendt til den eksterne gruppa;
+  iPad-testene grønne, de andre testjobbene fikk ingen Mac og ble kjørt på nytt.
