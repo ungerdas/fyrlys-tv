@@ -10,3 +10,5 @@ Core/.swiftpm/
 __pycache__/
 # VLCKit, hentet av tools/vlckit.sh
 Vendor/
+# lokale innstillinger (teamet til signeringen på egne enheter)
+Lokal.xcconfig

@@ -43,6 +43,19 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   10 min for iPhone; første iPhone-test kan feile med «Timed out waiting for AX loaded notification» mens
   simulatoren starter (bare kjør igjen). `swift test --package-path Core` virker også her (99 tester). Hans ekte innlogginger, Plex og adresser brukes bare på
   enhetene, aldri i repoet, testene, loggene som pushes eller commit-meldingene.
+- **Rett på eierens Apple TV fra Mac-en (fra 16.11.2026)**: eieren vil prøve endringene på Apple TV-en før push
+  («så vi slipper å pushe før vi vet alt fungerer fint»). Apple TV-en er sammenkoblet i Xcode, kontoen hans er lagt inn
+  der, og teamet står i `Lokal.xcconfig` (bare `DEVELOPMENT_TEAM = …`, i `.gitignore`; team-ID-en skal ikke i repoet).
+  Bygg: `xcodebuild build -project Fyrlys.xcodeproj -scheme Fyrlys -configuration Release -destination
+  'platform=tvOS,id=<UDID>' -derivedDataPath build/DerivedDataDevice -allowProvisioningUpdates
+  -allowProvisioningDeviceRegistration -xcconfig Lokal.xcconfig` (UDID-en fra `xcodebuild -showdestinations`: en annen
+  enn i devicectl); legg på og start: `xcrun devicectl device install app --device <id fra xcrun devicectl list
+  devices> build/DerivedDataDevice/Build/Products/Release-appletvos/Fyrlys.app` og `xcrun devicectl device process
+  launch --device <id> no.fyrlys.tv`. Xcode laget utviklersertifikatet og profilene selv (automatisk signering). I en
+  xcconfig er kommentarer `//`: med `#` feilet bygget, og byggetjenesten husket den ødelagte fila til
+  `build/DerivedDataDevice` ble slettet. Bygget erstatter TestFlight-appen (samme app; innlogginger, favoritter og Plex
+  står), men har ikke iCloud og Top Shelf (rettighetene får bare TestFlight-byggene); byggnummeret er 1. Tilbake:
+  installer fra TestFlight.
 - **Skjermbilder**: UI-testene (`UITests/FyrlysUITests.swift`) tar bilder i simulatoren, og workflowen legger dem i
   grenen `skjermbilder` (overskrives hver gang); iPhone og iPad (`UITestsMobil/FyrlysMobilUITests.swift`, «NN-iphone-…»
   og «NN-ipad-…») i grenen `skjermbilder-mobil`. Den grunne klonen trenger en refspec:
