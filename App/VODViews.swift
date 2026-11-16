@@ -721,23 +721,42 @@ struct PosterCard: View {
     let item: VODItem
     var episode: Episode?
 
+    /// Plex-fanen: bare plakaten på Apple TV, og bare tittelen under på iPhone, iPad og Mac (eieren 16.11: «trenger kun
+    /// poster på filmer. Vi trenger ikke den lille 2026 og stjernegreiene under»); uten bilde står navnet i plakaten.
+    /// En episode (seriens plakat) har fortsatt serien og episoden.
+    private var posterOnly: Bool { item.isPlex && episode == nil }
+
     var body: some View {
         #if os(tvOS)
-        VStack(alignment: .leading, spacing: 0) {
+        if posterOnly {
             image
-            text
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .accessibilityLabel(item.name)
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                image
+                text
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+            }
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         #else
         VStack(alignment: .leading, spacing: 7) {
             image
                 .clipShape(RoundedRectangle(cornerRadius: Metrics.posterRadius, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: Metrics.posterRadius, style: .continuous)
                     .strokeBorder(Theme.line, lineWidth: 0.5))
-            text
+            if posterOnly {
+                Text(item.name)
+                    .font(.system(size: Metrics.posterTitle, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            } else {
+                text
+            }
         }
         .contentShape(Rectangle())
         #endif
@@ -912,10 +931,11 @@ struct VODDetailView: View {
     /// episoden med fokus i raden, og sesongene der fokus alt er flyttet til episoden du skal se
     @FocusState private var focusedEpisode: String?
     @State private var steered: Set<Int> = []
-    /// knappen med fokus øverst; når fokus kommer inn i toppen (opp fra sesongene, ned fra fanelinja), flyttes det til
-    /// «Spill av» eller «Fortsett» (`main`)
+    /// «Spill av»/«Fortsett» (`main`), stjernen, og et usynlig felt under plakaten på høyde med knappene (`catcher`):
+    /// rett over «Sesong 1» står plakaten, så opp derfra hoppet fokus til fanelinja; nå lander det i feltet og flyttes
+    /// til knappen
     @FocusState private var headerFocus: HeaderFocus?
-    enum HeaderFocus: Hashable { case main, start, favorite, watched }
+    enum HeaderFocus: Hashable { case main, start, favorite, watched, catcher }
     #endif
 
     private var model: VODModel { app.vod(for: item) }
@@ -1085,14 +1105,23 @@ struct VODDetailView: View {
                 noticeText
             }
         }
-        // hele bredden, og på Apple TV en egen del for fokus: opp fra sesongene havner da på knappene, også når
-        // knappene ikke står rett over (rett over «Sesong 1» står plakaten, og fokus hoppet til fanelinja)
-        .frame(maxWidth: .infinity, alignment: .leading)
         #if os(tvOS)
-        .focusSection()
-        // ikke defaultFocus(priority: .userInitiated): da kom fokus verken ned fra fanelinja eller opp dit igjen
+        // Ikke en focusSection() rundt toppen (eller defaultFocus): med den kom fokus på Apple TV-en ikke videre opp fra
+        // «Spill av» når en sveipet (eieren 16.11); klikk virket. Feltet står til venstre for knappene, ikke over dem.
+        .overlay(alignment: .bottomLeading) {
+            if details != nil {
+                Color.clear
+                    .frame(width: Metrics.detailPoster, height: 60)
+                    .focusable()
+                    .focused($headerFocus, equals: .catcher)
+                    .accessibilityHidden(true)
+            }
+        }
+        // kommer fokus inn i toppen (ned fra fanelinja, opp fra sesongene) på noe annet enn «Spill av»/«Fortsett»: dit
         .onChange(of: headerFocus) { old, now in
-            if old == nil, let now, now != .main { headerFocus = .main }
+            guard let now, now != .main, old == nil || now == .catcher else { return }
+            let hasMain = item.kind == .movies || details.flatMap(nextEpisode) != nil
+            headerFocus = hasMain ? .main : .favorite
         }
         #endif
     }

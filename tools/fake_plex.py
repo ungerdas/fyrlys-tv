@@ -88,7 +88,13 @@ def media(rid, ext="mkv"):
 
 MOVIES = [
     {"ratingKey": "1001", "type": "movie", "title": "Nordlys over fjorden", "year": 2022, "audienceRating": 8.1,
-     "summary": "En oppdiktet film om en fyrvokter som ser nordlyset for første gang.", "duration": 30000,
+     # lang handling, som hos ekte filmer (toppen av siden blir høyere enn skjermen på Apple TV)
+     "summary": "En oppdiktet film om en fyrvokter som ser nordlyset for første gang. " * 2
+                + "Vinteren er lang på øya, og båten med post og mat kommer bare hver fjortende dag. Når stormen "
+                "slår ut lyset i fyret, må hun velge mellom å vente på hjelp fra land og å ro ut alene i mørket. "
+                "Underveis møter hun losen som har seilt forbi fyret i tretti år uten å gå i land, og værvarsleren "
+                "som har spådd uværet i en uke uten at noen har hørt på henne. Sammen må de holde lyset tent til "
+                "skipene har kommet trygt inn til land.", "duration": 30000,
      "viewOffset": 12000, "Genre": [{"tag": "Drama"}], "tagline": "Lyset kommer alltid tilbake.",
      "studio": "Fyrlys Film",
      "Role": [{"tag": "Kari Fyr", "role": "Fyrvokteren", "thumb": "/library/metadata/1001/role/1"},
@@ -259,7 +265,9 @@ class Handler(BaseHTTPRequestHandler):
                 {"name": "Hjemmekino", "provides": "server", "clientIdentifier": "falsk-server", "owned": True,
                  "accessToken": self.token(q), "connections": [
                      {"protocol": "http", "uri": "http://127.0.0.1:9", "local": True, "relay": False},
-                     {"protocol": "http", "uri": f"http://127.0.0.1:{port}", "local": False, "relay": False}]},
+                     # adressen den ble spurt på (også fra en ekte Apple TV på hjemmenettet)
+                     {"protocol": "http", "uri": f"http://{self.headers.get('Host') or f'127.0.0.1:{port}'}",
+                      "local": False, "relay": False}]},
             ])
 
         # ── serveren ──

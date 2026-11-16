@@ -344,6 +344,17 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(find(app, "spill-av").waitForExistence(timeout: 15), "«Spill av» mangler")
         wait(2)
         shot("21-film")
+        // opp fra «Spill av» til fanelinja, og ned igjen (eieren 16.11: kom ikke videre opp fra «Spill av»)
+        let play = find(app, "spill-av")
+        XCTAssertTrue(until(5) { play.hasFocus }, "fokus står ikke på «Spill av»")
+        let tabs = app.tabBars.firstMatch.buttons.matching(NSPredicate(format: "hasFocus == true"))
+        print("FOKUS før: spill-av \(play.hasFocus), fanelinja \(tabs.count)")
+        remote.press(.up)
+        wait(1.5)
+        print("FOKUS etter opp: spill-av \(play.hasFocus), fanelinja \(tabs.count)")
+        XCTAssertTrue(until(4) { !play.hasFocus && tabs.count > 0 }, "opp fra «Spill av» gikk ikke til fanelinja")
+        remote.press(.down)
+        XCTAssertTrue(until(4) { play.hasFocus }, "ned fra fanelinja gikk ikke til «Spill av»")
         remote.press(.select)
         let player = find(app, "vod-spiller")
         XCTAssertTrue(player.waitForExistence(timeout: 20), "spilleren kom ikke")
@@ -920,6 +931,34 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertFalse(multiview.exists, "Menu lukket ikke multiview")
     }
 
+    /// Fokus øverst på siden for en serie (eieren 16.11, på Apple TV-en med tvOS 26.6: kom ikke videre opp fra «Spill
+    /// av», og opp fra «Sesong 1» hoppet til fanelinja): opp fra knappen til fanelinja og ned igjen, og opp fra sesong 1
+    /// til knappen. Fokus oppfører seg ikke likt i simulatoren og på en ekte Apple TV, så testen kjøres også der (se
+    /// CLAUDE.md).
+    func test37Fokus() {
+        let app = launch("series")
+        let series = find(app, "vod-9001")
+        XCTAssertTrue(series.waitForExistence(timeout: 30), "seriene kom ikke")
+        XCTAssertTrue(focus(app, series), "fikk ikke fokus på serien")
+        remote.press(.select)
+        let next = find(app, "fortsett-serie")
+        XCTAssertTrue(next.waitForExistence(timeout: 15), "siden for serien kom ikke")
+        let tabs = app.tabBars.firstMatch.buttons.matching(NSPredicate(format: "hasFocus == true"))
+        XCTAssertTrue(until(5) { next.hasFocus }, "fokus står ikke på knappen til episoden")
+        remote.press(.up)
+        let up = until(4) { !next.hasFocus && tabs.count > 0 }
+        print("FOKUS opp fra knappen: knappen \(next.hasFocus), fanelinja \(tabs.count)")
+        XCTAssertTrue(up, "opp fra knappen gikk ikke til fanelinja")
+        remote.press(.down)
+        XCTAssertTrue(until(4) { next.hasFocus }, "ned fra fanelinja gikk ikke til knappen")
+        let season = find(app, "sesong-1")
+        XCTAssertTrue(focus(app, season), "fikk ikke fokus på sesong 1")
+        remote.press(.up)
+        let fromSeason = until(4) { next.hasFocus }
+        print("FOKUS opp fra sesong 1: knappen \(next.hasFocus), fanelinja \(tabs.count)")
+        XCTAssertTrue(fromSeason, "opp fra sesong 1 gikk ikke til knappen")
+    }
+
     /// Pause og tilbakespoling i direktesending: en ekte direktesending i HLS hos den falske leverandøren (som egen strøm
     /// for Fjordkanalen) spilles fra bufferet på Apple TV-en, også etter en pause.
     func test31Tilbakespoling() {
@@ -1012,6 +1051,16 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(find(app, "medvirkende").exists, "«Medvirkende» mangler")
         XCTAssertTrue(app.staticTexts["Fyrvokteren"].exists, "rollen mangler under skuespilleren")
         shot("29-plex-film")
+        // lang handling (toppen er høyere enn skjermen): opp fra «Fortsett» til fanelinja, og ned igjen (eieren 16.11:
+        // kom ikke videre opp fra «Spill av» på Apple TV-en)
+        let tabs = app.tabBars.firstMatch.buttons.matching(NSPredicate(format: "hasFocus == true"))
+        XCTAssertTrue(until(5) { play.hasFocus }, "fokus står ikke på «Fortsett»")
+        remote.press(.up)
+        wait(1.5)
+        print("FOKUS etter opp: spill-av \(play.hasFocus), fanelinja \(tabs.count)")
+        XCTAssertTrue(until(4) { !play.hasFocus && tabs.count > 0 }, "opp fra «Fortsett» gikk ikke til fanelinja")
+        remote.press(.down)
+        XCTAssertTrue(until(4) { play.hasFocus }, "ned fra fanelinja gikk ikke til «Fortsett»")
         remote.press(.select)
         let time = find(app, "vod-tid")
         XCTAssertTrue(time.waitForExistence(timeout: 20), "spilleren kom ikke")

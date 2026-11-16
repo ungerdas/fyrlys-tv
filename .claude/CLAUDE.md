@@ -56,6 +56,15 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `build/DerivedDataDevice` ble slettet. Bygget erstatter TestFlight-appen (samme app; innlogginger, favoritter og Plex
   står), men har ikke iCloud og Top Shelf (rettighetene får bare TestFlight-byggene); byggnummeret er 1. Tilbake:
   installer fra TestFlight.
+  **UI-testene på Apple TV-en** (fokus oppfører seg ikke likt i simulatoren med tvOS 26.2 og på hans Apple TV med
+  tvOS 26.6): de falske serverne også på hjemmenettet (`python3 tools/fake_xtream.py --host 0.0.0.0 --port 18899` og
+  `tools/fake_plex.py --host 0.0.0.0 --port 18897`; brannmuren på Mac-en er av; Plex-tilkoblingen oppgir adressen den
+  ble spurt på), så `TEST_RUNNER_FYRLYS_TEST_SERVER=http://<Mac-ens adresse, ipconfig getifaddr en1>:18899
+  TEST_RUNNER_FYRLYS_TEST_PLEX=…:18897 xcodebuild test -configuration Release` med samme `-destination`,
+  `-allowProvisioningUpdates` og `-xcconfig Lokal.xcconfig`, `-only-testing:` for testene (f.eks. `test37Fokus`).
+  Testen tar over skjermen, og appen kjører med testdata (ikke innloggingene hans). Etterpå: fjern
+  `no.fyrlys.tv.uitests.xctrunner` med `xcrun devicectl device uninstall app`, og legg på det vanlige bygget igjen.
+  XCUIRemote klikker; sveip på fjernkontrollen kan ikke testes.
 - **Skjermbilder**: UI-testene (`UITests/FyrlysUITests.swift`) tar bilder i simulatoren, og workflowen legger dem i
   grenen `skjermbilder` (overskrives hver gang); iPhone og iPad (`UITestsMobil/FyrlysMobilUITests.swift`, «NN-iphone-…»
   og «NN-ipad-…») i grenen `skjermbilder-mobil`. Den grunne klonen trenger en refspec:
@@ -530,13 +539,16 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `MacEpisodeCell`) har fått sesongtilstanden, hurtigmenyen, handlingen i sesongen og merket. Falsk Plex: `/children`
   (handlingen i sesong 1, nøklene 2100/2200), episodene med `thumb` og `parentRatingKey`; falsk leverandør:
   `seasons` med `overview`. Testene `test13Serier`/`test14Serier` (sesongen som sett, knappen går til S2 E1) og
-  `test19PlexSerier`/`test20PlexSerier` («Fortsett» på 2102, fokus ned i raden på Apple TV). Fra 0.2.11 er `header`
-  hele bredden og en `focusSection()` på Apple TV: opp fra «Sesong 1» (plakaten står rett over) hoppet fokus til
-  fanelinja (eieren: «slet også med å navigere meg opp når man sto på seson 1 knappen»). Knappene øverst har
-  `headerFocus` (`main`, `start`, `favorite`, `watched`), og kommer fokus inn i toppen på en annen enn `main`, flyttes
-  det dit (`onChange`). Ikke `defaultFocus(…, priority: .userInitiated)`: med den kom fokus på Apple TV-en verken ned
-  fra fanelinja eller opp dit igjen (eieren: «kommer ikke lenger enn Fortsett knappen»). `test13Serier` går opp fra
-  sesong 1 til knappen, videre til fanelinja og ned igjen.
+  `test19PlexSerier`/`test20PlexSerier` («Fortsett» på 2102, fokus ned i raden på Apple TV). Fokus øverst på siden
+  (0.2.11; eieren: «slet også med å navigere meg opp når man sto på seson 1 knappen»: rett over «Sesong 1» står
+  plakaten, og fokus hoppet til fanelinja): et usynlig `focusable()`-felt under plakaten på høyde med knappene
+  (`headerFocus == .catcher`, overlay nede til venstre på `header`) tar imot fokus opp fra sesongene, og `onChange`
+  flytter det til `main` («Spill av»/«Fortsett», ellers stjernen); kommer fokus inn i toppen (ned fra fanelinja) på en
+  annen knapp (`start`, `favorite`, `watched`), flyttes det også til `main`. IKKE en `focusSection()` rundt toppen eller
+  `defaultFocus(…, priority: .userInitiated)`: på Apple TV-en hans (tvOS 26.6) kom fokus da ikke videre opp fra «Spill
+  av» når han sveipet («kommer ikke lenger enn Fortsett knappen», «jeg sveiper»); klikk virket, og i simulatoren
+  (tvOS 26.2) virket alt. `test37Fokus` (serien), `test12Filmer` og `test17Plex` (filmen med lang handling: toppen er
+  høyere enn skjermen) går opp til fanelinja og ned igjen; kjørt på Apple TV-en også.
 - **Mac fra 0.2.2** (eieren 7.11.2026: «det neste vi skal bygge er app til MacOS»; valgte egen Mac-app (ikke
   Catalyst: MobileVLCKit har ingen del for Catalyst, og iPad-apper kjører ikke på hans Intel-Mac), utseendet som Fyrlys
   for Windows, ut via TestFlight som de andre): målet `FyrlysMac` (macOS 14, samme bundle-id, sandkasse med
