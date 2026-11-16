@@ -984,29 +984,46 @@ struct VODDetailView: View {
         #if os(macOS)
         macPage
         #else
-        ScrollView {
-            VStack(alignment: .leading, spacing: 34) {
-                header
-                    // litt luft over logoen, så bakgrunnsbildet synes
-                    .padding(.top, Metrics.detailHeroTop)
-                if item.kind == .series {
-                    episodes
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 34) {
+                    header
+                        // litt luft over logoen, så bakgrunnsbildet synes
+                        .padding(.top, Metrics.detailHeroTop)
+                    if item.kind == .series {
+                        episodes
+                    }
+                    peopleRow
+                    relatedRow
                 }
-                peopleRow
-                relatedRow
+                .padding(.horizontal, Metrics.detailPadding)
+                .padding(.vertical, Metrics.detailPadding * 0.6)
+                .id(Self.top)
+                // til venstre (en smal side ble ellers lagt midt i rullelista)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                #if os(tvOS)
+                .hidesScrollIndex()
+                // fanelinja følger siden (ellers fulgte den lista bak: åpnet fra en rad lenger ned sto den skjult, og
+                // med sveip kom en ikke opp dit fra «Spill av»)
+                .movesTabBar()
+                #endif
             }
-            .padding(.horizontal, Metrics.detailPadding)
-            .padding(.vertical, Metrics.detailPadding * 0.6)
-            // til venstre (en smal side ble ellers lagt midt i rullelista)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollIndicators(.never)
+            .background(backdropLayer)
             #if os(tvOS)
-            .hidesScrollIndex()
+            // knappene øverst har fokus: helt til toppen, så fanelinja kommer helt fram (fokusmotoren ruller bare så langt
+            // at knappen synes)
+            .onChange(of: headerFocus) { _, now in
+                guard let now, now != .catcher else { return }
+                withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo(Self.top, anchor: .top) }
+            }
             #endif
         }
-        .scrollIndicators(.never)
-        .background(backdropLayer)
         #endif
     }
+
+    /// toppen av siden (dit den rulles når knappene øverst får fokus)
+    static let top = "toppen"
 
     /// Favoritt eller ikke (filmen eller serien står da under «Favoritter» på Hjem).
     private var favoriteButton: some View {
@@ -1059,7 +1076,7 @@ struct VODDetailView: View {
                         Text(details.plot)
                             .font(.system(size: Metrics.detailText))
                             .foregroundStyle(Theme.ink2)
-                            .lineLimit(8)
+                            .lineLimit(Metrics.detailPlotLines)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     // de medvirkende står i raden under når de finnes, ellers som en linje
@@ -1133,7 +1150,7 @@ struct VODDetailView: View {
             RemoteImage(url: logo, maxPoints: Metrics.detailLogo) {
                 titleText
             }
-            .frame(maxWidth: Metrics.detailLogo, maxHeight: Metrics.detailLogo * 0.38, alignment: .leading)
+            .frame(maxWidth: Metrics.detailLogo, maxHeight: Metrics.detailLogoHeight, alignment: .leading)
             .accessibilityLabel(item.name)
             .accessibilityIdentifier("vod-logo")
         } else {

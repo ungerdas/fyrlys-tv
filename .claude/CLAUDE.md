@@ -547,8 +547,12 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   annen knapp (`start`, `favorite`, `watched`), flyttes det også til `main`. IKKE en `focusSection()` rundt toppen eller
   `defaultFocus(…, priority: .userInitiated)`: på Apple TV-en hans (tvOS 26.6) kom fokus da ikke videre opp fra «Spill
   av» når han sveipet («kommer ikke lenger enn Fortsett knappen», «jeg sveiper»); klikk virket, og i simulatoren
-  (tvOS 26.2) virket alt. `test37Fokus` (serien), `test12Filmer` og `test17Plex` (filmen med lang handling: toppen er
-  høyere enn skjermen) går opp til fanelinja og ned igjen; kjørt på Apple TV-en også.
+  (tvOS 26.2) virket alt. Årsaken var fanelinja: siden for en film eller serie hadde ikke `movesTabBar()`, så fanelinja
+  fulgte lista bak (åpnet fra en rad lenger ned sto den skjult), og med sveip kommer en ikke til en skjult fanelinje
+  (klikk henter den fram). Nå har siden `movesTabBar()`, ruller helt opp (`proxy.scrollTo(top)`) når en knapp øverst
+  får fokus, og toppen får plass på skjermen (`Metrics.detailPlotLines` 4, `detailLogoHeight` 230 på Apple TV).
+  `test37Fokus` (serien), `test12Filmer` og `test17Plex` (filmen med lang handling, åpnet fra den tredje raden på Hjem:
+  fanelinja framme, «Fortsett» på skjermen) går opp til fanelinja og ned igjen; kjørt på Apple TV-en også.
 - **Mac fra 0.2.2** (eieren 7.11.2026: «det neste vi skal bygge er app til MacOS»; valgte egen Mac-app (ikke
   Catalyst: MobileVLCKit har ingen del for Catalyst, og iPad-apper kjører ikke på hans Intel-Mac), utseendet som Fyrlys
   for Windows, ut via TestFlight som de andre): målet `FyrlysMac` (macOS 14, samme bundle-id, sandkasse med

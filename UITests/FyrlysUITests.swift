@@ -1055,6 +1055,13 @@ final class FyrlysUITests: XCTestCase {
         // kom ikke videre opp fra «Spill av» på Apple TV-en)
         let tabs = app.tabBars.firstMatch.buttons.matching(NSPredicate(format: "hasFocus == true"))
         XCTAssertTrue(until(5) { play.hasFocus }, "fokus står ikke på «Fortsett»")
+        // filmen er åpnet fra den tredje raden på Hjem (der hadde fanelinja glidd bort): på siden er den framme igjen, og
+        // «Fortsett» står helt på skjermen
+        let bar = app.tabBars.firstMatch
+        let screen = app.windows.firstMatch.frame
+        XCTAssertTrue(until(4) { bar.exists && bar.frame.minY >= 0 }, "fanelinja er skjult på siden for filmen")
+        XCTAssertLessThanOrEqual(play.frame.maxY, screen.maxY, "«Fortsett» står utenfor skjermen")
+        print("FOKUS fanelinja \(bar.frame.minY), «Fortsett» nederst \(play.frame.maxY) av \(screen.maxY)")
         remote.press(.up)
         wait(1.5)
         print("FOKUS etter opp: spill-av \(play.hasFocus), fanelinja \(tabs.count)")

@@ -142,6 +142,10 @@ enum Metrics {
     static let seasonSummaryWidth: CGFloat = 1200
     /// logoen til filmen (bredden; høyden 0,38 av den), bakgrunnsbildet øverst og de medvirkende
     static let detailLogo: CGFloat = 760
+    /// høyst så høy logo og så mange linjer av handlingen øverst på siden: knappene skal synes når siden står helt
+    /// øverst, med fanelinja framme
+    static let detailLogoHeight: CGFloat = 230
+    static let detailPlotLines = 4
     static let detailBackdrop: CGFloat = 820
     /// det største plakatene (høyden, i rutenettet) og bakgrunnsbildet (bredden) vises, så de hentes skarpt nok
     static let posterPoints: CGFloat = 480
@@ -223,6 +227,8 @@ enum Metrics {
     static let seasonSummaryWidth: CGFloat = 700
     /// logoen til filmen (bredden; høyden 0,38 av den), bakgrunnsbildet øverst og de medvirkende
     static let detailLogo: CGFloat = 230
+    static let detailLogoHeight: CGFloat = 230 * 0.38
+    static let detailPlotLines = 8
     static let detailBackdrop: CGFloat = 320
     /// det største plakatene (høyden, i rutenettet på iPad) og bakgrunnsbildet (bredden) vises
     static let posterPoints: CGFloat = 340

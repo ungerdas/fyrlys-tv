@@ -5,6 +5,9 @@
 - Sesongene viser ikke lenger hvor mange episoder som er usett, bare en hake når hele sesongen er sett.
 - Apple TV: opp fra en sesong går til «Spill av»/«Fortsett» øverst på siden. Før hoppet fokus rett til fanelinja når
   du sto på den første sesongen (plakaten står over den), så det var vanskelig å komme opp på serier med én sesong.
+- Apple TV: fanelinja kommer fram på siden for en film eller serie. Åpnet du en tittel fra en rad lenger ned, sto den
+  skjult, og med sveip kom du ikke opp dit fra «Spill av». Siden ruller helt opp når knappene øverst får fokus, og
+  handlingen står med høyst fire linjer (logoen litt lavere), så knappene synes med fanelinja framme.
 - Plex-fanen viser bare plakaten på filmer og serier (på iPhone, iPad og Mac med tittelen under), uten årstall og
   terningkast. Episodene i radene har fortsatt serien og episoden.
 
