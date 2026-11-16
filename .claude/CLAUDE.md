@@ -1069,4 +1069,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   rettingen: «Nå fungerte å svipe opp.» Samme dag: «i menyen på plex, så trenger vi kun poster på filmer» → bare
   plakaten i Plex-fanen. Lokalt testet på Apple TV (simulator og hans Apple TV), iPhone og Mac; pushet 16.11 («push
   når du er ferdig»). 0.2.11 (bygg 80) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, sendt til den eksterne gruppa;
-  iPad-testene grønne, de andre testjobbene fikk ingen Mac og ble kjørt på nytt.
+  iPad-testene grønne, de andre testjobbene fikk ingen Mac og ble kjørt på nytt: iPhone og Mac grønne, Apple TV feilet
+  i `test13Serier` (ned fra fanelinja). Det skjedde også på hans Apple TV: trykket ned kom 0,03 s etter at fanelinja
+  fikk fokus (etter hurtigmenyen på sesongen) og ble borte; med `wait(1)` først går den, både der og i simulatoren.
+  Rettet i testen (ikke i appen), kommer med neste push. Et trykk rett etter at fokus har flyttet seg til fanelinja
+  kan altså bli borte på en ekte Apple TV: vent litt i testene.

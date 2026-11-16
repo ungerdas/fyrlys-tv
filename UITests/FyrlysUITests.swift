@@ -399,9 +399,13 @@ final class FyrlysUITests: XCTestCase {
         // videre opp til fanelinja, og ned igjen til knappen (eieren 16.11: kom ikke lenger enn «Fortsett»)
         remote.press(.up)
         let tabs = app.tabBars.firstMatch.buttons.matching(NSPredicate(format: "hasFocus == true"))
-        XCTAssertTrue(until(4) { tabs.count > 0 }, "opp fra knappen gikk ikke til fanelinja")
+        XCTAssertTrue(until(4) { !next.hasFocus && tabs.count > 0 }, "opp fra knappen gikk ikke til fanelinja")
+        wait(1)
         remote.press(.down)
-        XCTAssertTrue(until(4) { next.hasFocus }, "ned fra fanelinja gikk ikke til knappen til episoden")
+        let down = until(4) { next.hasFocus }
+        let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        print("FOKUS ned fra fanelinja: «\(focused.exists ? focused.identifier : "-")» \(focused.exists ? focused.label : "")")
+        XCTAssertTrue(down, "ned fra fanelinja gikk ikke til knappen til episoden")
         // favoritt: serien står så under «Favoritter» på Hjem
         let star = find(app, "vod-favoritt")
         XCTAssertTrue(star.exists, "stjernen mangler")
@@ -957,6 +961,15 @@ final class FyrlysUITests: XCTestCase {
         let fromSeason = until(4) { next.hasFocus }
         print("FOKUS opp fra sesong 1: knappen \(next.hasFocus), fanelinja \(tabs.count)")
         XCTAssertTrue(fromSeason, "opp fra sesong 1 gikk ikke til knappen")
+        // og derfra opp til fanelinja og ned igjen
+        remote.press(.up)
+        XCTAssertTrue(until(4) { !next.hasFocus && tabs.count > 0 }, "opp fra knappen (etter sesong 1) gikk ikke til fanelinja")
+        wait(1)
+        remote.press(.down)
+        let back = until(4) { next.hasFocus }
+        let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+        print("FOKUS ned igjen etter sesong 1: «\(focused.exists ? focused.identifier : "-")» \(focused.exists ? focused.label : "")")
+        XCTAssertTrue(back, "ned fra fanelinja (etter sesong 1) gikk ikke til knappen")
     }
 
     /// Pause og tilbakespoling i direktesending: en ekte direktesending i HLS hos den falske leverandøren (som egen strøm
