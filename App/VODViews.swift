@@ -908,6 +908,11 @@ struct VODDetailView: View {
     @State private var busy = false
     /// en feil som vises en liten stund (Plex svarte ikke da noe skulle merkes som sett)
     @State private var notice: String?
+    #if os(tvOS)
+    /// episoden med fokus i raden, og sesongene der fokus alt er flyttet til episoden du skal se
+    @FocusState private var focusedEpisode: String?
+    @State private var steered: Set<Int> = []
+    #endif
 
     private var model: VODModel { app.vod(for: item) }
 
@@ -958,10 +963,12 @@ struct VODDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 34) {
                 header
-                peopleRow
+                    // litt luft over logoen, så bakgrunnsbildet synes
+                    .padding(.top, Metrics.detailHeroTop)
                 if item.kind == .series {
                     episodes
                 }
+                peopleRow
                 relatedRow
             }
             .padding(.horizontal, Metrics.detailPadding)
@@ -1003,8 +1010,9 @@ struct VODDetailView: View {
             }
             .frame(width: Metrics.detailPoster, height: Metrics.detailPoster * 1.5)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: Metrics.detailStack) {
                 titleView
+                    .padding(.bottom, Metrics.detailStack * 0.5)
                 if let tagline = details?.tagline {
                     Text(tagline)
                         .font(.system(size: Metrics.detailText, weight: .medium).italic())
@@ -1106,9 +1114,9 @@ struct VODDetailView: View {
                 .frame(height: Metrics.detailBackdrop)
                 .frame(maxWidth: .infinity)
                 .clipped()
-                .overlay(LinearGradient(colors: [Theme.bg.opacity(0.35), Theme.bg.opacity(0.75), Theme.bg],
+                .overlay(LinearGradient(colors: [Theme.bg.opacity(0.15), Theme.bg.opacity(0.6), Theme.bg],
                                         startPoint: .top, endPoint: .bottom))
-                .overlay(LinearGradient(colors: [Theme.bg.opacity(0.8), Theme.bg.opacity(0.2), .clear],
+                .overlay(LinearGradient(colors: [Theme.bg.opacity(0.75), Theme.bg.opacity(0.12), .clear],
                                         startPoint: .leading, endPoint: .trailing))
                 .accessibilityHidden(true)
             }
@@ -1344,6 +1352,8 @@ struct VODDetailView: View {
         .accessibilityIdentifier("fortsett-serie")
     }
 
+    /// Sesongene og episodene i den som er valgt: på Apple TV en rad med store bilder, på iPhone og iPad en liste (to
+    /// i bredden når det er plass).
     @ViewBuilder
     private var episodes: some View {
         if let details {
@@ -1353,49 +1363,199 @@ struct VODDetailView: View {
                     .foregroundStyle(Theme.muted)
             } else {
                 let current = season ?? details.seasons[0].number
-                VStack(alignment: .leading, spacing: 20) {
-                    ScrollView(.horizontal) {
-                        HStack(spacing: 16) {
-                            ForEach(details.seasons) { s in
-                                Button {
-                                    season = s.number
-                                } label: {
-                                    Text(L("Sesong {n}", ["n": s.number]))
-                                        .fontWeight(s.number == current ? .bold : .regular)
-                                }
-                                .vodSeason(selected: s.number == current)
-                                .accessibilityIdentifier("sesong-\(s.number)")
-                            }
-                        }
-                        .padding(.vertical, 12)
+                let shown = details.seasons.first { $0.number == current }
+                let list = shown?.episodes ?? []
+                let next = upNext(details)
+                VStack(alignment: .leading, spacing: 16) {
+                    seasonPicker(details, current: current)
+                    if let summary = shown?.summary, !summary.isEmpty {
+                        Text(summary)
+                            .font(.system(size: Metrics.detailText - 3))
+                            .foregroundStyle(Theme.ink2)
+                            .lineLimit(3)
+                            .frame(maxWidth: Metrics.seasonSummaryWidth, alignment: .leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("sesong-handling")
                     }
-                    .scrollIndicators(.never)
                     #if os(tvOS)
-                    .scrollClipDisabled()
-                    .focusSection()
-                    #endif
-                    LazyVStack(alignment: .leading, spacing: 14) {
+                    episodeRow(list, next: next, fallback: details.backdrop, season: current)
+                    #else
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: Metrics.episodeRowMin), spacing: 14,
+                                                 alignment: .top)],
+                              alignment: .leading, spacing: 14) {
                         let _ = watched
-                        ForEach(details.seasons.first { $0.number == current }?.episodes ?? []) { episode in
+                        ForEach(list) { episode in
+                            let mark = next?.id == episode.id ? next?.label : nil
                             Button {
                                 play(episode)
                             } label: {
                                 EpisodeRow(episode: episode, seen: app.progress(episode.progressKey),
-                                           finished: finished(episode))
+                                           finished: finished(episode), mark: mark, fallback: details.backdrop)
                             }
                             .posterButtonStyle()
+                            .accessibilityValue(mark ?? "")
                             // id-en før hurtigmenyen (etter den ble id-en borte av og til på iPhone og iPad)
                             .accessibilityIdentifier("episode-\(episode.id)")
                             .contextMenu { episodeActions(episode) }
                         }
                     }
-                    #if os(tvOS)
-                    .focusSection()
                     #endif
                 }
             }
         }
     }
+
+    /// Sesongene som knapper: hake når hele sesongen er sett, «4 usette» når du har begynt på den; hold inne for å
+    /// merke hele sesongen som sett eller ikke sett.
+    private func seasonPicker(_ details: VODDetails, current: Int) -> some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 16) {
+                let _ = watched
+                ForEach(details.seasons) { s in
+                    let state = seasonState(s)
+                    Button {
+                        season = s.number
+                    } label: {
+                        HStack(spacing: 8) {
+                            if state.done {
+                                Image(systemName: "checkmark")
+                                    .fontWeight(.bold)
+                            }
+                            Text(seasonName(s.number))
+                                .fontWeight(s.number == current ? .bold : .regular)
+                            if let unseen = state.unseen {
+                                Text(verbatim: "· " + unseen)
+                            }
+                        }
+                    }
+                    .vodSeason(selected: s.number == current)
+                    .accessibilityLabel(seasonName(s.number))
+                    .accessibilityValue(state.done ? L("Sett") : (state.unseen ?? ""))
+                    .accessibilityIdentifier("sesong-\(s.number)")
+                    .contextMenu { seasonActions(s) }
+                }
+            }
+            .padding(.vertical, 12)
+        }
+        .scrollIndicators(.never)
+        #if os(tvOS)
+        .scrollClipDisabled()
+        .focusSection()
+        #endif
+    }
+
+    /// Sett ferdig (alle episodene), begynt på (noe er sett, eller du er midt i en), og «4 usette» når du har begynt.
+    private func seasonState(_ s: Season) -> (done: Bool, started: Bool, unseen: String?) {
+        let seen = s.episodes.filter(finished).count
+        if !s.episodes.isEmpty, seen == s.episodes.count { return (true, true, nil) }
+        let started = seen > 0 || s.episodes.contains { app.progress($0.progressKey) > 0 }
+        let unseen = s.episodes.count - seen
+        guard started, unseen > 0 else { return (false, started, nil) }
+        return (false, true, unseen == 1 ? L("1 usett") : L("{n} usette", ["n": unseen]))
+    }
+
+    /// Hold inne på en sesong: hele sesongen som sett eller ikke sett.
+    @ViewBuilder
+    private func seasonActions(_ s: Season) -> some View {
+        let state = seasonState(s)
+        if !state.done {
+            Button {
+                Task { await markSeason(s, true) }
+            } label: {
+                Label(L("Merk sesongen som sett"), systemImage: "checkmark.circle")
+            }
+        }
+        if state.started {
+            Button {
+                Task { await markSeason(s, false) }
+            } label: {
+                Label(L("Merk sesongen som ikke sett"), systemImage: "eye.slash")
+            }
+        }
+    }
+
+    /// En hel sesong som sett eller ikke sett: Plex på serveren (sesongen, ellers episode for episode), leverandøren
+    /// på enheten.
+    private func markSeason(_ s: Season, _ seen: Bool) async {
+        busy = true
+        defer { busy = false }
+        if item.isPlex {
+            do {
+                if let key = s.key {
+                    try await model.setWatched(key, seen)
+                } else {
+                    for episode in s.episodes { try await model.setWatched(episode.id, seen) }
+                }
+            } catch {
+                notice = error.localizedDescription
+                return
+            }
+        }
+        for episode in s.episodes {
+            if !item.isPlex { app.setFinished(episode.progressKey, seen) }
+            app.setProgress(episode.progressKey, nil)
+            if seen {
+                model.finishedHere.insert(episode.progressKey)
+            } else {
+                model.finishedHere.remove(episode.progressKey)
+            }
+        }
+        watched += 1
+        if item.isPlex { await reloadPlex() }
+    }
+
+    /// Episoden du skal se, merket «Fortsett» (du er midt i den) eller «Neste» (den etter den siste du har sett), når
+    /// du har begynt på serien.
+    private func upNext(_ details: VODDetails) -> (id: String, label: String)? {
+        guard let next = nextEpisode(details), next.seen > 0 || next.after else { return nil }
+        return (next.episode.id, next.seen > 0 ? L("Fortsett") : L("Neste"))
+    }
+
+    #if os(tvOS)
+    /// Episodene i sesongen som en rad med store bilder (som i Plex- og Apple TV-appen). Raden står på episoden du skal
+    /// se, og første gang fokus kommer ned i raden, havner det der.
+    private func episodeRow(_ list: [Episode], next: (id: String, label: String)?, fallback: String?,
+                            season: Int) -> some View {
+        let target = list.contains { $0.id == next?.id } ? next?.id : nil
+        return ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .top, spacing: Metrics.episodeGap) {
+                    let _ = watched
+                    ForEach(list) { episode in
+                        let mark = episode.id == target ? next?.label : nil
+                        Button {
+                            play(episode)
+                        } label: {
+                            EpisodeCard(episode: episode, seen: app.progress(episode.progressKey),
+                                        finished: finished(episode), mark: mark, fallback: fallback)
+                        }
+                        .buttonStyle(.card)
+                        .focused($focusedEpisode, equals: episode.id)
+                        .accessibilityValue(mark ?? "")
+                        .accessibilityIdentifier("episode-\(episode.id)")
+                        .contextMenu { episodeActions(episode) }
+                        .id(episode.id)
+                    }
+                }
+                .padding(.vertical, Metrics.shelfPad)
+            }
+            .scrollIndicators(.never)
+            .scrollClipDisabled()
+            .focusSection()
+            .task(id: "\(season)|\(target ?? "")") {
+                // når raden er lagt ut: episoden du skal se først (ellers den første)
+                try? await Task.sleep(for: .milliseconds(80))
+                if let id = target ?? list.first?.id { proxy.scrollTo(id, anchor: .leading) }
+            }
+        }
+        .onChange(of: focusedEpisode) { old, now in
+            guard old == nil, now != nil, !steered.contains(season) else { return }
+            steered.insert(season)
+            // første gang fokus kommer ned i raden: til episoden du skal se
+            if let target, now != target { focusedEpisode = target }
+        }
+    }
+    #endif
 
     /// Hold inne på en episode (Mac: høyreklikk eller ⋮): sett eller ikke sett.
     @ViewBuilder
@@ -1588,7 +1748,8 @@ extension VODDetailView {
     /// Plakaten med skygge, og under den hvor langt du har sett filmen.
     private var macPoster: some View {
         let _ = watched
-        let fraction = item.kind == .movies ? macFraction(app.progress(item.progressKey), details?.duration) : nil
+        let fraction = item.kind == .movies ? watchedFraction(app.progress(item.progressKey), of: details?.duration ?? "")
+            : nil
         return VStack(spacing: 6) {
             RemoteImage(url: (details?.poster ?? item.poster).flatMap { URL(string: $0) }, fill: true,
                         maxPoints: 345) {
@@ -1714,30 +1875,47 @@ extension VODDetailView {
             } else {
                 let current = season ?? details.seasons[0].number
                 let _ = watched
+                let next = upNext(details)
                 FlowLayout(spacing: 8) {
                     ForEach(details.seasons) { s in
-                        let done = !s.episodes.isEmpty && s.episodes.allSatisfy(finished)
+                        let state = seasonState(s)
                         Button {
                             season = s.number
                         } label: {
                             HStack(spacing: 6) {
-                                if done { Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)) }
-                                Text(L("Sesong {n}", ["n": s.number]))
+                                if state.done { Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)) }
+                                Text(seasonName(s.number))
+                                if let unseen = state.unseen { Text(verbatim: "· " + unseen) }
                             }
                         }
                         .buttonStyle(MacChoiceStyle(selected: s.number == current))
+                        .accessibilityLabel(seasonName(s.number))
+                        .accessibilityValue(state.done ? L("Sett") : (state.unseen ?? ""))
                         .accessibilityIdentifier("sesong-\(s.number)")
+                        .contextMenu { seasonActions(s) }
                     }
                 }
                 .padding(.horizontal, Self.macPad)
                 .padding(.top, 24)
                 .padding(.bottom, 8)
+                if let summary = details.seasons.first(where: { $0.number == current })?.summary, !summary.isEmpty {
+                    Text(summary)
+                        .font(.system(size: 13.5))
+                        .lineSpacing(2)
+                        .foregroundStyle(Theme.ink2)
+                        .lineLimit(4)
+                        .frame(maxWidth: 820, alignment: .leading)
+                        .padding(.horizontal, Self.macPad)
+                        .padding(.bottom, 4)
+                        .textSelection(.enabled)
+                }
                 let columns = max(1, Int(((width - 2 * (Self.macPad - 8)) / 760).rounded(.up)))
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .top), count: columns),
                           alignment: .leading, spacing: 4) {
                     ForEach(details.seasons.first { $0.number == current }?.episodes ?? []) { episode in
                         MacEpisodeCell(episode: episode, code: macCode(episode),
                                        seen: app.progress(episode.progressKey), finished: finished(episode),
+                                       mark: next?.id == episode.id ? next?.label : nil,
                                        fallback: details.backdrop) {
                             play(episode)
                         } menu: {
@@ -1757,23 +1935,6 @@ extension VODDetailView {
     private func macCode(_ episode: Episode) -> String {
         String(format: "S%02dE%02d", episode.season, episode.number)
     }
-}
-
-/// Hvor langt [seen] sekunder er av lengden («34 min», «1 t 45 min», på engelsk «1 h 45 min»), 0–1.
-func macFraction(_ seen: Double, _ length: String?) -> Double? {
-    guard seen > 0, let length else { return nil }
-    var minutes = 0.0
-    var number: Double?
-    for token in length.lowercased().split(whereSeparator: { $0 == " " }) {
-        if let n = Double(token) {
-            number = n
-        } else if let n = number {
-            if token.hasPrefix("t") || token.hasPrefix("h") { minutes += n * 60 } else if token.hasPrefix("m") { minutes += n }
-            number = nil
-        }
-    }
-    guard minutes > 0 else { return nil }
-    return min(1, seen / (minutes * 60))
 }
 
 /// Et merke under tittelen (år, sjanger, «4K» …), som i Windows-appen; merkene fra navnet («PRE») i gult.
@@ -1875,6 +2036,8 @@ private struct MacEpisodeCell<Menu: View>: View {
     let code: String
     let seen: Double
     let finished: Bool
+    /// «Neste» eller «Fortsett» på episoden du skal se
+    let mark: String?
     let fallback: String?
     let play: () -> Void
     @ViewBuilder let menu: () -> Menu
@@ -1890,7 +2053,8 @@ private struct MacEpisodeCell<Menu: View>: View {
                     .font(.system(size: 15, weight: .semibold))
                     .lineLimit(1)
                 let info = [episode.duration.isEmpty ? nil : episode.duration,
-                            seen > 0 ? L("Stoppet ved {time}", ["time": playTime(seen)]) : nil].compactMap { $0 }
+                            seen > 0 ? (remainingText(seen, of: episode.duration)
+                                ?? L("Stoppet ved {time}", ["time": playTime(seen)])) : nil].compactMap { $0 }
                 if !info.isEmpty {
                     Text(info.joined(separator: " · "))
                         .font(.system(size: 12.5))
@@ -1964,7 +2128,17 @@ private struct MacEpisodeCell<Menu: View>: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(6)
             }
-            if let fraction = macFraction(seen, episode.duration) {
+            if let mark {
+                Text(mark)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Theme.signalInk)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Theme.signal))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(6)
+            }
+            if !finished, let fraction = watchedFraction(seen, of: episode.duration) {
                 MacProgressBar(fraction: fraction, track: Color.black.opacity(0.4))
                     .frame(maxHeight: .infinity, alignment: .bottom)
             }
@@ -1975,67 +2149,175 @@ private struct MacEpisodeCell<Menu: View>: View {
 }
 #endif
 
-/// En episode: bildet (ellers nummeret), nummeret og tittelen, handlingen og lengden, og hvor langt du har sett.
+/// En episode i lista (iPhone og iPad): bildet (med hake, strek og «Neste»), nummeret og tittelen, lengden eller hvor
+/// mye som er igjen, og handlingen.
 private struct EpisodeRow: View {
     let episode: Episode
     let seen: Double
     var finished = false
+    var mark: String?
+    var fallback: String?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 18) {
-            still
-            VStack(alignment: .leading, spacing: 6) {
+        HStack(alignment: .top, spacing: 14) {
+            EpisodeStill(episode: episode, seen: seen, finished: finished, mark: mark, fallback: fallback,
+                         width: Metrics.episodeImage)
+            VStack(alignment: .leading, spacing: 4) {
                 (Text(verbatim: "\(episode.number)  ").foregroundStyle(Theme.signal)
                     + Text(episode.title).foregroundStyle(Theme.ink))
                     .font(.system(size: Metrics.detailText, weight: .semibold))
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                EpisodeMeta(episode: episode, seen: seen)
+                    .font(.system(size: Metrics.detailText - 3, weight: .medium))
                 if !episode.plot.isEmpty {
                     Text(episode.plot)
-                        .font(.system(size: Metrics.detailText - 4))
+                        .font(.system(size: Metrics.detailText - 3))
                         .foregroundStyle(Theme.muted)
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .multilineTextAlignment(.leading)
-                }
-                if seen > 0 {
-                    Text(L("Sett til {time}", ["time": playTime(seen)]))
-                        .font(.system(size: Metrics.detailText - 5, weight: .medium))
-                        .foregroundStyle(Theme.signal)
-                } else if finished {
-                    Label(L("Sett"), systemImage: "checkmark")
-                        .font(.system(size: Metrics.detailText - 5, weight: .medium))
-                        .foregroundStyle(Theme.muted)
                 }
             }
             Spacer(minLength: 0)
-            if !episode.duration.isEmpty {
-                Text(verbatim: episode.duration)
-                    .font(.system(size: Metrics.detailText - 4))
-                    .foregroundStyle(Theme.muted)
-            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
+        .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
+}
 
-    /// Bildet fra episoden i 16:9; uten bilde nummeret stort.
-    private var still: some View {
+#if os(tvOS)
+/// En episode i raden på Apple TV: bildet (med hake, strek og «Neste»), nummeret og tittelen, lengden eller hvor mye
+/// som er igjen, og handlingen.
+private struct EpisodeCard: View {
+    let episode: Episode
+    let seen: Double
+    let finished: Bool
+    let mark: String?
+    let fallback: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            EpisodeStill(episode: episode, seen: seen, finished: finished, mark: mark, fallback: fallback,
+                         width: Metrics.episodeCard, radius: 0)
+            VStack(alignment: .leading, spacing: 5) {
+                (Text(verbatim: "\(episode.number)  ").foregroundStyle(Theme.signal)
+                    + Text(episode.title).foregroundStyle(Theme.ink))
+                    .font(.system(size: Metrics.episodeTitle, weight: .semibold))
+                    .lineLimit(1)
+                EpisodeMeta(episode: episode, seen: seen)
+                    .font(.system(size: Metrics.episodeTitle - 3, weight: .medium))
+                if !episode.plot.isEmpty {
+                    Text(episode.plot)
+                        .font(.system(size: Metrics.episodeTitle - 3))
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(width: Metrics.episodeCard, height: Metrics.episodeCardText, alignment: .topLeading)
+        }
+        .background(Theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+#endif
+
+/// Lengden på episoden, eller hvor mye som er igjen når du er midt i den (gult).
+private struct EpisodeMeta: View {
+    let episode: Episode
+    let seen: Double
+
+    var body: some View {
+        if let left = remainingText(seen, of: episode.duration) {
+            Text(left)
+                .foregroundStyle(Theme.signal)
+        } else if seen > 0 {
+            Text(L("Sett til {time}", ["time": playTime(seen)]))
+                .foregroundStyle(Theme.signal)
+        } else if !episode.duration.isEmpty {
+            Text(verbatim: episode.duration)
+                .foregroundStyle(Theme.muted)
+        }
+    }
+}
+
+/// Bildet fra episoden i 16:9 (uten bilde: seriens bakgrunnsbilde, mørkere, med nummeret), med en hake når den er
+/// sett, «Neste» eller «Fortsett» oppe til venstre og en strek nederst når du er midt i den.
+struct EpisodeStill: View {
+    let episode: Episode
+    let seen: Double
+    let finished: Bool
+    let mark: String?
+    let fallback: String?
+    let width: CGFloat
+    var radius: CGFloat = 8
+
+    var body: some View {
         Color.clear
-            .frame(width: Metrics.episodeImage, height: Metrics.episodeImage * 9 / 16)
+            .frame(width: width, height: width * 9 / 16)
             .overlay {
-                RemoteImage(url: episode.image.flatMap(URL.init(string:)), fill: true,
-                            maxPoints: Metrics.episodeImage) {
+                RemoteImage(url: (episode.image ?? fallback).flatMap(URL.init(string:)), fill: true,
+                            maxPoints: width) {
+                    Theme.surface2
+                }
+            }
+            .overlay {
+                if episode.image == nil {
                     ZStack {
-                        Theme.bg.opacity(0.5)
+                        Color.black.opacity(0.45)
                         Text(verbatim: "\(episode.number)")
-                            .font(.system(size: Metrics.detailText * 1.6, weight: .bold))
+                            .font(.system(size: width * 0.17, weight: .heavy))
                             .foregroundStyle(Theme.signal)
                     }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(alignment: .topTrailing) {
+                if finished {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: Metrics.stillFont, weight: .bold))
+                        .foregroundStyle(Theme.signalInk)
+                        .frame(width: Metrics.stillBadge, height: Metrics.stillBadge)
+                        .background(Circle().fill(Theme.signal))
+                        .padding(Metrics.stillBadge * 0.25)
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if let mark {
+                    Text(mark)
+                        .font(.system(size: Metrics.stillFont, weight: .bold))
+                        .foregroundStyle(Theme.signalInk)
+                        .padding(.horizontal, Metrics.stillFont * 0.6)
+                        .padding(.vertical, Metrics.stillFont * 0.2)
+                        .background(Capsule().fill(Theme.signal))
+                        .padding(Metrics.stillBadge * 0.25)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if !finished, let fraction = watchedFraction(seen, of: episode.duration) {
+                    ProgressStrip(fraction: fraction)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+}
+
+/// Hvor langt du har sett, som en strek nederst i bildet.
+struct ProgressStrip: View {
+    let fraction: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Rectangle().fill(Color.black.opacity(0.45))
+                Rectangle().fill(Theme.signal)
+                    .frame(width: geo.size.width * max(0.04, min(1, fraction)))
+            }
+        }
+        .frame(height: Metrics.stillBar)
     }
 }
 

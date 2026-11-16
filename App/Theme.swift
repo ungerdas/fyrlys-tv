@@ -127,9 +127,22 @@ enum Metrics {
     static let detailText: CGFloat = 26
     /// bredden på episodebildet (16:9) i episodelista
     static let episodeImage: CGFloat = 288
+    /// luften over logoen (så bakgrunnsbildet synes) og mellom linjene øverst på siden for en film eller serie
+    static let detailHeroTop: CGFloat = 90
+    static let detailStack: CGFloat = 20
+    /// episodene i en rad: bredden på kortet (bildet i 16:9), høyden på teksten under, avstanden og tittelen
+    static let episodeCard: CGFloat = 400
+    static let episodeCardText: CGFloat = 150
+    static let episodeGap: CGFloat = 40
+    static let episodeTitle: CGFloat = 23
+    /// haken og «Neste» på episodebildet, og streken nederst
+    static let stillBadge: CGFloat = 34
+    static let stillFont: CGFloat = 17
+    static let stillBar: CGFloat = 6
+    static let seasonSummaryWidth: CGFloat = 1200
     /// logoen til filmen (bredden; høyden 0,38 av den), bakgrunnsbildet øverst og de medvirkende
     static let detailLogo: CGFloat = 760
-    static let detailBackdrop: CGFloat = 700
+    static let detailBackdrop: CGFloat = 820
     /// det største plakatene (høyden, i rutenettet) og bakgrunnsbildet (bredden) vises, så de hentes skarpt nok
     static let posterPoints: CGFloat = 480
     static let backdropPoints: CGFloat = 1920
@@ -197,7 +210,17 @@ enum Metrics {
     static let detailPoster: CGFloat = 120
     static let detailTitle: CGFloat = 22
     static let detailText: CGFloat = 15
-    static let episodeImage: CGFloat = 132
+    static let episodeImage: CGFloat = 156
+    /// luften over logoen (så bakgrunnsbildet synes) og mellom linjene øverst på siden for en film eller serie
+    static let detailHeroTop: CGFloat = 44
+    static let detailStack: CGFloat = 14
+    /// episodelista: to i bredden når hver får minst så mye plass (iPad på tvers)
+    static let episodeRowMin: CGFloat = 440
+    /// haken og «Neste» på episodebildet, og streken nederst
+    static let stillBadge: CGFloat = 20
+    static let stillFont: CGFloat = 11
+    static let stillBar: CGFloat = 4
+    static let seasonSummaryWidth: CGFloat = 700
     /// logoen til filmen (bredden; høyden 0,38 av den), bakgrunnsbildet øverst og de medvirkende
     static let detailLogo: CGFloat = 230
     static let detailBackdrop: CGFloat = 320

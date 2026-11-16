@@ -407,6 +407,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({
                     "info": {"name": "Losene", "plot": "En oppdiktet serie om losene langs kysten.", "genre": "Drama",
                              "releaseDate": "2020-09-01", "rating": "7.9"},
+                    "seasons": [{"season_number": season, "name": f"Sesong {season}",
+                                 "overview": "Oppdiktet sesong: losene får en ny båt." if season == 1 else ""}
+                                for season in seasons],
                     "episodes": {str(season): [{
                         "id": str(sid * 100 + season * 10 + n + 1), "episode_num": n + 1, "title": title,
                         "container_extension": "m3u8", "season": season,

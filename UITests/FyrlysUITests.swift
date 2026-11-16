@@ -44,7 +44,9 @@ final class FyrlysUITests: XCTestCase {
             let focused = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
             let id = focused.exists ? focused.identifier : ""
             let inSidebar = sidebar(id)
-            let onCard = ["kanal-", "vod-", "episode-", "rad-", "fortsett-"].contains { id.hasPrefix($0) }
+            // på siden (ikke i fanelinja): kortene, og sesongene og knappene på siden for en serie
+            let onCard = ["kanal-", "vod-", "episode-", "rad-", "fortsett-", "sesong-", "merk-"]
+                .contains { id.hasPrefix($0) }
             if !inSidebar && !onCard {
                 // i fanelinja (eller ingen fokus): ned
                 remote.press(.down)
@@ -366,8 +368,19 @@ final class FyrlysUITests: XCTestCase {
         let next = find(app, "fortsett-serie")
         XCTAssertTrue(next.exists, "knappen til episoden du skal se, mangler")
         XCTAssertTrue(next.label.contains("S1 E1"), "første episode skulle stå på knappen: \(next.label)")
+        XCTAssertTrue(find(app, "sesong-handling").exists, "handlingen i sesong 1 mangler")
         wait(2)
         shot("23-serie")
+        // hold inne på sesong 1: hele sesongen som sett (haken), og knappen går til første episode i sesong 2
+        let season = find(app, "sesong-1")
+        XCTAssertTrue(focus(app, season), "fikk ikke fokus på sesong 1")
+        remote.press(.select, forDuration: 1.5)
+        wait(1.5)
+        XCTAssertTrue(choose(app, "Merk sesongen som sett"), "fant ikke «Merk sesongen som sett» i hurtigmenyen")
+        XCTAssertTrue(until(10) { (season.value as? String) == "Sett" }, "sesong 1 ble ikke sett: \(season.value ?? "")")
+        XCTAssertTrue(until(5) { next.label.contains("S2 E1") }, "knappen gikk ikke til sesong 2: \(next.label)")
+        wait(1)
+        shot("70-serie-sesong-sett")
         // favoritt: serien står så under «Favoritter» på Hjem
         let star = find(app, "vod-favoritt")
         XCTAssertTrue(star.exists, "stjernen mangler")
@@ -1020,6 +1033,18 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(next.label.contains("S1 E2"), "episoden du er midt i, skulle stå på knappen: \(next.label)")
         wait(2)
         shot("35-plex-serie")
+        // sesongene og episodene: «2 usette» i sesong 1, handlingen i sesongen, og episoden du er midt i merket
+        // «Fortsett»; ned fra sesongene havner fokus på den
+        let season = find(app, "sesong-1")
+        XCTAssertEqual(season.value as? String, "2 usette", "sesong 1 skulle ha to usette")
+        XCTAssertTrue(find(app, "sesong-handling").exists, "handlingen i sesong 1 mangler")
+        let resume = find(app, "episode-2102")
+        XCTAssertEqual(resume.value as? String, "Fortsett", "episoden du er midt i, er ikke merket")
+        XCTAssertTrue(focus(app, find(app, "sesong-2")), "fikk ikke fokus på sesong 2")
+        remote.press(.down)
+        XCTAssertTrue(until(5) { resume.hasFocus }, "fokus kom ikke til episoden du er midt i")
+        wait(1)
+        shot("71-plex-serie-episoder")
         XCTAssertTrue(focus(app, next), "fikk ikke fokus på knappen til episoden")
         remote.press(.select)
         let time = find(app, "vod-tid")

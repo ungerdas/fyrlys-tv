@@ -499,6 +499,24 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `totalCostLimit` 180 MB. Plex bes om plakater 720 × 1080 (`imageURL` standard), bakgrunn 1920 × 1080, bredbilder
   1280 × 720, episoder 960 × 540, roller 400 × 400 og logoen 1600 × 800 med `fit: true` (`minSize=0&upscale=0`:
   hele logoen innenfor rammen, ikke beskåret som plakatene).
+- **Seriesiden fra 0.2.10** (eieren 16.11 valgte fem forslag: «1-5 kjør», og «kanskje littegranne mer luft med logoen
+  osv, slik at bakgrunnsbildet er littegranne mer tydelig»): i `VODDetailView` står `episodes` rett under `header`
+  (foran `peopleRow` og `relatedRow`); `seasonPicker` (`seasonName`: sesong 0 = «Spesialer»; `seasonState`: hake når
+  alt er sett, «4 usette» når du har begynt; `accessibilityValue` «Sett»/«2 usette»; hurtigmeny `seasonActions` →
+  `markSeason`: Plex `setWatched(Season.key)` (sesongens ratingKey fra `/children`, ellers `parentRatingKey`),
+  leverandøren `setFinished` per episode), handlingen i sesongen (`sesong-handling`; Core `Season.summary`: Plex
+  `parseSeasonInfo` fra `/library/metadata/<serie>/children`, hentet samtidig med `allLeaves`; Xtream `seasons[].
+  overview`). Apple TV: `episodeRow` (`LazyHStack` med `EpisodeCard`, `.card`, `Metrics.episodeCard` 400, raden rulles
+  til episoden du skal se med `ScrollViewReader`, og første gang fokus kommer ned i raden per sesong flyttes det dit:
+  `focusedEpisode`/`steered`); iPhone/iPad: `LazyVGrid` (`episodeRowMin` 440) med `EpisodeRow`. Felles `EpisodeStill`
+  (16:9, uten bilde seriens bakgrunn med nummeret; hake, «Fortsett»/«Neste» (`upNext`), `ProgressStrip`) og
+  `EpisodeMeta` («18 min igjen»: Core `remainingText`, `durationMinutes`, `watchedFraction`, som erstattet
+  `macFraction`). Episodekortene har `accessibilityValue` «Fortsett»/«Neste». Toppen: `Metrics.detailHeroTop` (Apple
+  TV 90, iOS 44) og `detailStack`, bakgrunnsbildet 820 høyt på Apple TV og lysere toning. Mac (`macSeasons`,
+  `MacEpisodeCell`) har fått sesongtilstanden, hurtigmenyen, handlingen i sesongen og merket. Falsk Plex: `/children`
+  (handlingen i sesong 1, nøklene 2100/2200), episodene med `thumb` og `parentRatingKey`; falsk leverandør:
+  `seasons` med `overview`. Testene `test13Serier`/`test14Serier` (sesongen som sett, knappen går til S2 E1) og
+  `test19PlexSerier`/`test20PlexSerier` («2 usette», «Fortsett» på 2102, fokus ned i raden på Apple TV).
 - **Mac fra 0.2.2** (eieren 7.11.2026: «det neste vi skal bygge er app til MacOS»; valgte egen Mac-app (ikke
   Catalyst: MobileVLCKit har ingen del for Catalyst, og iPad-apper kjører ikke på hans Intel-Mac), utseendet som Fyrlys
   for Windows, ut via TestFlight som de andre): målet `FyrlysMac` (macOS 14, samme bundle-id, sandkasse med
@@ -1000,4 +1018,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - 16.11.2026: eieren om multiview: «blå kant hele tiden, og navn synlig hele tiden, det er vel ikke nødvendig?» →
   0.2.10: kanten og navnene er borte etter 4 s (se Multiview i Arkitektur). Lokalt testet: `test30Multiview` (Apple
   TV, også at et trykk mot kanten henter dem fram og at fokus flytter seg som før), `test29Multiview` (iPhone) og musa
-  over bildene på Mac. Committet lokalt, ikke pushet.
+  over bildene på Mac. Samme dag: «er det noe vi kan gjøre med plex siden? særlig serie visningen» → fem forslag,
+  eieren valgte alle («1-5 kjør») og mer luft øverst → seriesiden (se Arkitektur), også i 0.2.10. Lokalt testet på
+  Apple TV (`test13Serier`, `test19PlexSerier` og de andre testene som bruker siden), iPhone og iPad (`test14Serier`,
+  `test20PlexSerier` og de andre) og Mac (bildet). Pushet 16.11 («push når du er ferdig»).

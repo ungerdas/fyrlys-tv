@@ -284,6 +284,11 @@ public let english: [String: String] = [
     "Fra start": "From the start",
     "Ingen episoder.": "No episodes.",
     "Sesong {n}": "Season {n}",
+    "Spesialer": "Specials",
+    "Fortsett": "Resume",
+    "{time} igjen": "{time} left",
+    "1 usett": "1 unwatched",
+    "{n} usette": "{n} unwatched",
     "Sesong {s}, episode {e}": "Season {s}, episode {e}",
     "Sett til {time}": "Watched to {time}",
     "Kunne ikke spilles: leverandøren svarte ikke med filen, eller alle tilkoblingene dine er i bruk.":
@@ -365,6 +370,8 @@ public let english: [String: String] = [
     // siden for en film eller serie
     "Merk som sett": "Mark as watched",
     "Merk som ikke sett": "Mark as unwatched",
+    "Merk sesongen som sett": "Mark season as watched",
+    "Merk sesongen som ikke sett": "Mark season as unwatched",
     "Mer som dette": "More like this",
     "Mer": "More",
     "Mer fra {category}": "More from {category}",

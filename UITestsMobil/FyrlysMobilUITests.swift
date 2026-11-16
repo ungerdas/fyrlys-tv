@@ -435,8 +435,19 @@ final class FyrlysMobilUITests: XCTestCase {
         let next = find(app, "fortsett-serie")
         XCTAssertTrue(next.exists, "knappen til episoden du skal se, mangler")
         XCTAssertTrue(next.label.contains("S1 E1"), "første episode skulle stå på knappen: \(next.label)")
+        XCTAssertTrue(find(app, "sesong-handling").exists, "handlingen i sesong 1 mangler")
         wait(2)
         shot("21-serie")
+        // hold inne på sesong 1: hele sesongen som sett (haken), og knappen går til første episode i sesong 2
+        let season = find(app, "sesong-1")
+        season.press(forDuration: 1.2)
+        let seen = app.buttons["Merk sesongen som sett"]
+        XCTAssertTrue(seen.waitForExistence(timeout: 5), "«Merk sesongen som sett» mangler i menyen")
+        seen.tap()
+        XCTAssertTrue(until(10) { (season.value as? String) == "Sett" }, "sesong 1 ble ikke sett: \(season.value ?? "")")
+        XCTAssertTrue(until(5) { next.label.contains("S2 E1") }, "knappen gikk ikke til sesong 2: \(next.label)")
+        wait(1)
+        shot("70-serie-sesong-sett")
         // stjernen oppe til høyre (finnes den ikke på id-en i verktøylinja, så på teksten)
         var star = find(app, "vod-favoritt")
         if !star.waitForExistence(timeout: 5) { star = app.buttons["Legg til i favoritter"] }
@@ -578,6 +589,15 @@ final class FyrlysMobilUITests: XCTestCase {
         let next = find(app, "fortsett-serie")
         if !next.waitForExistence(timeout: 15), episode.exists { episode.tap() }
         XCTAssertTrue(next.waitForExistence(timeout: 15), "episoden i raden åpnet ikke serien")
+        // sesongene og episodene: «2 usette» i sesong 1, og episoden du er midt i merket «Fortsett»
+        let season = find(app, "sesong-1")
+        XCTAssertTrue(season.waitForExistence(timeout: 10), "sesong 1 mangler")
+        XCTAssertEqual(season.value as? String, "2 usette", "sesong 1 skulle ha to usette")
+        let resume = find(app, "episode-2102")
+        XCTAssertTrue(resume.waitForExistence(timeout: 10), "episoden du er midt i, mangler")
+        XCTAssertEqual(resume.value as? String, "Fortsett", "episoden du er midt i, er ikke merket")
+        wait(1)
+        shot("71-plex-serie")
         next.tap()
         let time = find(app, "vod-tid")
         XCTAssertTrue(time.waitForExistence(timeout: 20), "episoden startet ikke")

@@ -389,7 +389,11 @@ public struct PlexClient: Sendable {
         }
         var details = parseDetails(meta, client: self)
         if item.kind == .series {
-            details.seasons = parseEpisodes(try await json("/library/metadata/\(item.id)/allLeaves"), client: self)
+            // episodene, og sesongene for seg (handlingen i hver sesong; svarer de ikke, står episodene likevel)
+            async let leaves = json("/library/metadata/\(item.id)/allLeaves")
+            async let children = json("/library/metadata/\(item.id)/children", timeout: 10)
+            let seasons = (try? await children).map(parseSeasonInfo) ?? [:]
+            details.seasons = parseEpisodes(try await leaves, client: self, seasons: seasons)
         }
         return details
     }
@@ -867,14 +871,37 @@ func plexEpisode(_ e: [String: Any], client: PlexClient) -> Episode? {
                    watched: (int(e["viewCount"]) ?? 0) > 0)
 }
 
-public func parseEpisodes(_ container: [String: Any], client: PlexClient) -> [Season] {
-    let episodes: [Episode] = (container["Metadata"] as? [[String: Any]] ?? []).compactMap {
-        plexEpisode($0, client: client)
+public func parseEpisodes(_ container: [String: Any], client: PlexClient,
+                          seasons: [Int: PlexSeasonInfo] = [:]) -> [Season] {
+    let raw = container["Metadata"] as? [[String: Any]] ?? []
+    let episodes: [Episode] = raw.compactMap { plexEpisode($0, client: client) }
+    // sesongen på serveren også fra episodene (når /children ikke svarte)
+    var parents: [Int: String] = [:]
+    for e in raw {
+        if let key = nonEmpty(e["parentRatingKey"]) { parents[int(e["parentIndex"]) ?? 1] = key }
     }
     let groups = Dictionary(grouping: episodes, by: \.season)
     return groups.keys.sorted { seasonOrder($0) < seasonOrder($1) }.map { number in
-        Season(number: number, episodes: (groups[number] ?? []).sorted { $0.number < $1.number })
+        Season(number: number, episodes: (groups[number] ?? []).sorted { $0.number < $1.number },
+               summary: seasons[number]?.summary ?? "", key: seasons[number]?.key ?? parents[number])
     }
+}
+
+/// En sesong fra /library/metadata/<serie>/children: handlingen og nøkkelen på serveren.
+public struct PlexSeasonInfo: Sendable, Equatable {
+    public var summary: String
+    public var key: String?
+}
+
+/// /library/metadata/<serie>/children: sesongene (ikke «Alle episodene», som ikke har nummer).
+public func parseSeasonInfo(_ container: [String: Any]) -> [Int: PlexSeasonInfo] {
+    var found: [Int: PlexSeasonInfo] = [:]
+    for s in container["Metadata"] as? [[String: Any]] ?? [] {
+        let type = text(s["type"])
+        guard type.isEmpty || type == "season", let number = int(s["index"]) else { continue }
+        found[number] = PlexSeasonInfo(summary: nonEmpty(s["summary"]) ?? "", key: nonEmpty(s["ratingKey"]))
+    }
+    return found
 }
 
 /// «Fortsett å se»: filmene som de er, episodene med serien sin (én gang per serie), med hvor langt du har kommet og

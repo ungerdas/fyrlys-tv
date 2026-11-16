@@ -140,6 +140,24 @@ final class PlexTests: XCTestCase {
         XCTAssertTrue(seasons[0].episodes[1].watched)
         XCTAssertEqual(seasons[1].episodes[0].title, "Episode 1")
 
+        // sesongene for seg (/children): handlingen og nøkkelen; uten dem nøkkelen fra episodene (parentRatingKey)
+        let info = parseSeasonInfo(container("""
+        {"MediaContainer": {"Metadata": [
+          {"ratingKey": "300", "type": "season", "index": 1, "summary": "Losene kommer til byen."},
+          {"key": "/library/metadata/201/allLeaves", "title": "Alle episodene"},
+          {"ratingKey": "310", "type": "season", "index": 2, "summary": ""}]}}
+        """))
+        XCTAssertEqual(info[1], PlexSeasonInfo(summary: "Losene kommer til byen.", key: "300"))
+        XCTAssertEqual(info[2], PlexSeasonInfo(summary: "", key: "310"))
+        XCTAssertEqual(info.count, 2)
+        let withInfo = parseEpisodes(container("""
+        {"MediaContainer": {"Metadata": [
+          {"ratingKey": "301", "type": "episode", "parentIndex": 1, "index": 1, "parentRatingKey": "300"},
+          {"ratingKey": "401", "type": "episode", "parentIndex": 3, "index": 1, "parentRatingKey": "400"}]}}
+        """), client: client, seasons: info)
+        XCTAssertEqual(withInfo.map(\.summary), ["Losene kommer til byen.", ""])
+        XCTAssertEqual(withInfo.map(\.key), ["300", "400"])
+
         let deck = container("""
         {"MediaContainer": {"Metadata": [
           {"ratingKey": "301", "type": "episode", "title": "Utløpet", "grandparentRatingKey": "201",

@@ -7,7 +7,7 @@ oppdiktede filmer og serier, på samme port. Nøkkelen er «test-token».
 - /api/v2/resources: serveren «Hjemmekino» med en tilkobling på hjemmenettet som ikke svarer (port 9) og en utenfra
   som er denne serveren (Fyrlys skal finne den som svarer), og en spiller som ikke er en server.
 - Serveren: bibliotekene Filmer (movie), Serier (show), Musikk (artist) og Andre videoer (movie, tomt; kan skjules), filmene 1001–1003 (1003 svarer 404),
-  serien 2001 med to sesonger, «Fortsett å se», radene på Hjem (/hubs/promoted: «Nytt fra Kystkanalen» med episoder,
+  serien 2001 med to sesonger (/children: handlingen i sesong 1; episodene med bilde), «Fortsett å se», radene på Hjem (/hubs/promoted: «Nytt fra Kystkanalen» med episoder,
   «Nylig lagt til» med filmer og en sesong, og hele raden under /hubs/home/recentlyAdded, «Se alle»), søket
   (/hubs/search), flere på en gang (/library/metadata/1001,2001: favorittene), plakatene (ensfargede PNG) og filene
   (tools/testdata/stormnatt.mkv, med Range), og /:/timeline og /:/scrobble (skrives i loggen).
@@ -119,7 +119,12 @@ EPISODES = [
 for e in EPISODES:
     e.update({"summary": f"Oppdiktet episode: {e['title']}.", "duration": 30000, "grandparentRatingKey": "2001",
               "grandparentTitle": "Fyrvokterne", "grandparentThumb": "/library/metadata/2001/thumb/1",
-              "grandparentArt": "/library/metadata/2001/art/1", "Media": media(e["ratingKey"])})
+              "grandparentArt": "/library/metadata/2001/art/1", "Media": media(e["ratingKey"]),
+              "parentRatingKey": f"2{e['parentIndex']}00", "thumb": f"/library/metadata/{e['ratingKey']}/thumb/1"})
+# sesongene for seg (/library/metadata/2001/children): handlingen i hver sesong
+SEASONS = [{"ratingKey": "2100", "type": "season", "index": 1, "title": "Sesong 1",
+            "summary": "Oppdiktet sesong: fyrvokterne kommer til øya."},
+           {"ratingKey": "2200", "type": "season", "index": 2, "title": "Sesong 2", "summary": ""}]
 # markørene (millisekunder) og undertekstene: de norske inni fila, og en engelsk fil ved siden av
 MARKERS = {
     "2102": [{"type": "credits", "startTimeOffset": 20000, "endTimeOffset": 30000, "final": True}],
@@ -311,8 +316,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.container(Hub=[{"type": kind, "hubIdentifier": kind,
                                         "Metadata": [m for m in hits if m["type"] == kind]}
                                        for kind in ("movie", "show", "episode")])
-        m = re.fullmatch(r"/library/metadata/([\d,]+)(/allLeaves)?", path)
+        m = re.fullmatch(r"/library/metadata/([\d,]+)(/allLeaves|/children)?", path)
         if m and all(k in METADATA for k in m.group(1).split(",")):
+            if m.group(2) == "/children":
+                return self.container(Metadata=SEASONS if m.group(1) == "2001" else [])
             if m.group(2):
                 return self.container(Metadata=[e for e in EPISODES if e["grandparentRatingKey"] == m.group(1)])
             return self.container(Metadata=[METADATA[k] for k in m.group(1).split(",")])

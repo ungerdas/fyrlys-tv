@@ -2,6 +2,16 @@
 
 ## v0.2.10
 
+- **Ny seriedel på siden for en serie (Plex og leverandøren).** Sesongene og episodene står rett under toppen, foran
+  de medvirkende og «Mer som dette». På Apple TV er episodene en rad med store bilder du blar sideveis i, med tittel,
+  lengde og handling under; raden står på episoden du skal se, og fokus havner der når du går ned i den. På iPhone og
+  iPad er de en liste med større bilder (to i bredden på iPad på tvers).
+- **Sett og framdrift på bildet.** Episodene du har sett, har en hake, den du er midt i har en strek nederst og «18 min
+  igjen», og den du skal se er merket «Fortsett» eller «Neste».
+- **Sesongene:** en hake når hele sesongen er sett, og «4 usette» når du har begynt på den. Hold inne på en sesong for å
+  merke hele sesongen som sett eller ikke sett. Handlingen i sesongen (fra Plex eller leverandøren) står under
+  sesongene, og sesong 0 heter «Spesialer».
+- **Mer luft øverst** på siden for en film eller serie, og et litt tydeligere bakgrunnsbilde.
 - **Multiview uten kant og navn hele tiden.** Den blå kanten rundt bildet med lyden og navnet på kanalen nede i hvert
   bilde blir borte etter fire sekunder. De kommer fram igjen når du bruker fjernkontrollen (også når fokus ikke kan
   flytte seg lenger), trykker på et bilde eller flytter musa over bildene på Mac og iPad. «Velg kanal» og feilene står

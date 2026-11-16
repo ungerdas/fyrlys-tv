@@ -457,6 +457,32 @@ final class VODTests: XCTestCase {
         XCTAssertEqual(d.year, "2019")
         let list = parseSeriesInfo(["episodes": [episodes]])
         XCTAssertEqual(list.seasons.first?.episodes.count, 2)
+        // handlingen i hver sesong («seasons» med season_number og overview; «N/A» er tomt)
+        let withSeasons = parseSeriesInfo(["episodes": ["1": episodes, "2": [["id": "2001"]]],
+                                           "seasons": [["season_number": 1, "overview": "Det begynner."],
+                                                       ["season_number": "2", "overview": "N/A"]]])
+        XCTAssertEqual(withSeasons.seasons.map(\.summary), ["Det begynner.", ""])
+    }
+
+    /// Lengden fra teksten på siden, hvor langt du har sett og hvor mye som er igjen.
+    func testRemainingTime() {
+        XCTAssertEqual(durationMinutes("44 min"), 44)
+        XCTAssertEqual(durationMinutes("1 t 32 min"), 92)
+        XCTAssertEqual(durationMinutes("1 h 5 min"), 65)
+        XCTAssertEqual(durationMinutes("2 t"), 120)
+        XCTAssertEqual(durationMinutes("01:30:00"), 90)
+        XCTAssertNil(durationMinutes(""))
+        XCTAssertNil(durationMinutes("lang"))
+        XCTAssertEqual(watchedFraction(11 * 60, of: "44 min") ?? 0, 0.25, accuracy: 0.001)
+        XCTAssertNil(watchedFraction(0, of: "44 min"))
+        XCTAssertEqual(watchedFraction(3600, of: "44 min"), 1)
+        XCTAssertEqual(remainingText(26 * 60, of: "44 min"), "18 min igjen")
+        XCTAssertEqual(remainingText(10 * 60, of: "1 t 30 min"), "1 t 20 min igjen")
+        XCTAssertNil(remainingText(0, of: "44 min"))
+        XCTAssertNil(remainingText(3000, of: "44 min"))
+        XCTAssertNil(remainingText(60, of: ""))
+        XCTAssertEqual(seasonName(2), "Sesong 2")
+        XCTAssertEqual(seasonName(0), "Spesialer")
     }
 
     /// Navnene uten merkene på slutten (som Fyrlys for Windows): merkene og året for seg.

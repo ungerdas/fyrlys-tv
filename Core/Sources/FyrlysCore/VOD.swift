@@ -110,7 +110,18 @@ public struct VODResume: Codable, Hashable, Identifiable, Sendable {
 public struct Season: Hashable, Identifiable, Sendable {
     public let number: Int
     public let episodes: [Episode]
+    /// handlingen i sesongen (Plex og leverandøren, når de har den)
+    public var summary: String
+    /// Plex: sesongen på serveren (en hel sesong kan merkes som sett)
+    public var key: String?
     public var id: Int { number }
+
+    public init(number: Int, episodes: [Episode], summary: String = "", key: String? = nil) {
+        self.number = number
+        self.episodes = episodes
+        self.summary = summary
+        self.key = key
+    }
 }
 
 /// Det som står på siden for en film eller serie.
@@ -474,6 +485,13 @@ public func parseSeriesInfo(_ json: Any) -> VODDetails {
     } else if let lists = root["episodes"] as? [Any] {
         for (i, value) in lists.enumerated() { raw.append((i + 1, value as? [[String: Any]] ?? [])) }
     }
+    // handlingen i hver sesong: «seasons» er en liste (eller et objekt) med season_number og overview
+    var summaries: [Int: String] = [:]
+    let seasonList = root["seasons"] as? [Any] ?? (root["seasons"] as? [String: Any]).map { Array($0.values) } ?? []
+    for case let info as [String: Any] in seasonList {
+        guard let number = int(info["season_number"]), let overview = meaningful(info["overview"]) else { continue }
+        summaries[number] = overview
+    }
     var seasons: [Season] = []
     for (number, list) in raw {
         let episodes: [Episode] = list.compactMap { e in
@@ -490,7 +508,10 @@ public func parseSeriesInfo(_ json: Any) -> VODDetails {
                            image: nonEmpty(info["movie_image"]),
                            ext: nonEmpty(e["container_extension"]) ?? "mp4")
         }.sorted { $0.number < $1.number }
-        if !episodes.isEmpty { seasons.append(Season(number: episodes[0].season, episodes: episodes)) }
+        if !episodes.isEmpty {
+            let season = episodes[0].season
+            seasons.append(Season(number: season, episodes: episodes, summary: summaries[season] ?? ""))
+        }
     }
     d.seasons = seasons.sorted { seasonOrder($0.number) < seasonOrder($1.number) }
     return d
@@ -511,6 +532,47 @@ public func neighbours(of current: Episode, in seasons: [Season]) -> (previous: 
         return (nil, nil)
     }
     return (i > 0 ? list[i - 1] : nil, i + 1 < list.count ? list[i + 1] : nil)
+}
+
+/// Lengden i minutter slik den står på siden («44 min», «1 t 32 min», på engelsk «1 h 32 min», eller «01:32:00»);
+/// nil når den ikke kan leses.
+public func durationMinutes(_ text: String) -> Double? {
+    let t = text.trimmingCharacters(in: .whitespaces).lowercased()
+    let parts = t.split(separator: ":", omittingEmptySubsequences: false).map { Double($0) }
+    if parts.count == 3, let h = parts[0], let m = parts[1], let s = parts[2] {
+        let total = h * 60 + m + s / 60
+        return total > 0 ? total : nil
+    }
+    var minutes = 0.0
+    var number: Double?
+    for token in t.split(separator: " ") {
+        if let n = Double(token) {
+            number = n
+        } else if let n = number {
+            if token.hasPrefix("t") || token.hasPrefix("h") { minutes += n * 60 } else if token.hasPrefix("m") { minutes += n }
+            number = nil
+        }
+    }
+    return minutes > 0 ? minutes : nil
+}
+
+/// Hvor langt [seen] sekunder er av lengden [length] (0–1); nil når du ikke har begynt, eller lengden ikke er kjent.
+public func watchedFraction(_ seen: Double, of length: String) -> Double? {
+    guard seen > 0, let minutes = durationMinutes(length) else { return nil }
+    return min(1, seen / (minutes * 60))
+}
+
+/// «18 min igjen» for det du er midt i; nil når du ikke har begynt, eller lengden ikke er kjent.
+public func remainingText(_ seen: Double, of length: String) -> String? {
+    guard seen > 0, let minutes = durationMinutes(length) else { return nil }
+    let left = (minutes * 60 - seen) / 60
+    guard left > 0 else { return nil }
+    return L("{time} igjen", ["time": minutesText(Int(left.rounded()))])
+}
+
+/// «Sesong 2», eller «Spesialer» for sesong 0.
+public func seasonName(_ number: Int) -> String {
+    number == 0 ? L("Spesialer") : L("Sesong {n}", ["n": number])
 }
 
 /// «1 t 32 min» eller «44 min».
