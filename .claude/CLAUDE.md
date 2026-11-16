@@ -1021,4 +1021,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   over bildene på Mac. Samme dag: «er det noe vi kan gjøre med plex siden? særlig serie visningen» → fem forslag,
   eieren valgte alle («1-5 kjør») og mer luft øverst → seriesiden (se Arkitektur), også i 0.2.10. Lokalt testet på
   Apple TV (`test13Serier`, `test19PlexSerier` og de andre testene som bruker siden), iPhone og iPad (`test14Serier`,
-  `test20PlexSerier` og de andre) og Mac (bildet). Pushet 16.11 («push når du er ferdig»).
+  `test20PlexSerier` og de andre) og Mac (bildet). Pushet 16.11 («push når du er ferdig»). 0.2.10 (bygg 79) er i
+  TestFlight, VALID for TV_OS, IOS og MAC_OS, sendt til den eksterne gruppa; UI-testjobbene fikk ingen Mac («not
+  acquired by Runner») og ble kjørt på nytt med `gh run rerun <id> --failed` (lager ikke et nytt TestFlight-bygg). Ikke
+  prøvd mot Plex-serveren hans: bakgrunnsbildet med den nye toningen, handlingen i sesongene, «Merk sesongen som sett».
