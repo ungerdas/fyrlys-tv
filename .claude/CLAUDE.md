@@ -1062,3 +1062,10 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   acquired by Runner») og ble kjørt på nytt med `gh run rerun <id> --failed` (lager ikke et nytt TestFlight-bygg); da
   ble alle grønne. Ikke
   prøvd mot Plex-serveren hans: bakgrunnsbildet med den nye toningen, handlingen i sesongene, «Merk sesongen som sett».
+- 16.11.2026: eieren om 0.2.10 på Apple TV-en: «fint fint», men «å vise antall usette er ikke nødvendig» og vanskelig å
+  komme opp fra «Sesong 1» → 0.2.11. Første gang Mac-en la appen rett på Apple TV-en hans (se Arbeidsmåte). To forsøk
+  på fokuset (en `focusSection()` rundt toppen, så også `defaultFocus`) virket i simulatoren og med klikk, men han
+  sveiper, og da kom han ikke opp fra «Spill av»; årsaken var at fanelinja fulgte lista bak (se Seriesiden). Etter
+  rettingen: «Nå fungerte å svipe opp.» Samme dag: «i menyen på plex, så trenger vi kun poster på filmer» → bare
+  plakaten i Plex-fanen. Lokalt testet på Apple TV (simulator og hans Apple TV), iPhone og Mac; pushet 16.11 («push
+  når du er ferdig»).
