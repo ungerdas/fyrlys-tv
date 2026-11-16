@@ -18,11 +18,11 @@ final class CloudStore: KeyValueStore {
         if let observer { NotificationCenter.default.removeObserver(observer) }
     }
 
-    /// Bare favorittene (kanaler, filmer og serier), favorittkategoriene, egne strømmer og de skjulte Plex-bibliotekene
-    /// deles.
+    /// Bare favorittene (kanaler, filmer og serier), favorittkategoriene, landene som vises, egne strømmer og de
+    /// skjulte Plex-bibliotekene deles.
     static func shared(_ key: String) -> Bool {
         key.hasPrefix("favorites@") || key.hasPrefix("favoriteCategories@") || key.hasPrefix("vodFavorites@")
-            || key == "egne-strommer" || key == "plex-skjulte" || key == "feilrapport-tv"
+            || key.hasPrefix("land@") || key == "egne-strommer" || key == "plex-skjulte" || key == "feilrapport-tv"
     }
 
     private static func mergedKey(_ key: String) -> String { "icloud-flettet@" + key }

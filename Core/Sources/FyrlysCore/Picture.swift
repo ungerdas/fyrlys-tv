@@ -88,10 +88,11 @@ public func codecName(_ code: String) -> String {
     case "dvh1", "dvhe": return "Dolby Vision"
     case "av01", "av1": return "AV1"
     case "vp09", "vp9": return "VP9"
-    case "mp2v", "mpeg2video": return "MPEG-2"
+    case "mp2v", "mpeg2video", "mpgv": return "MPEG-2"
     case "mp4a", "aac": return "AAC"
-    case "ac-3", "ac3": return "AC3"
-    case "ec-3", "eac3": return "E-AC3"
+    case "ac-3", "ac3", "a52": return "AC3"
+    case "ec-3", "eac3", "a52b": return "E-AC3"
+    case "mpga": return "MP2"
     case "ac-4", "ac4": return "AC-4"
     case ".mp3", "mp3", "mp2": return "MP3"
     case "opus": return "Opus"
@@ -143,6 +144,12 @@ public struct StreamInfo: Equatable, Sendable {
         if stalls > 1 { parts.append(L("stoppet {n} ganger", ["n": stalls])) }
         return parts.joined(separator: " · ")
     }
+}
+
+/// En FourCC fra VLC som tekst: VLC har bokstavene i motsatt rekkefølge (den første i den laveste byten),
+/// 0x34363268 → «h264».
+public func vlcFourCCText(_ code: UInt32) -> String {
+    fourCCText(code.byteSwapped)
 }
 
 /// En FourCC (fra et CMFormatDescription) som tekst: 0x61766331 → «avc1».

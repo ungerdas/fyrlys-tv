@@ -33,6 +33,13 @@ SAMPLE = "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbo
 USER, PASSWORD = "test", "test"
 BLOCKED_USER = "blokkert"
 TS_USER = "tsbruker"
+# «landbruker» (passord test): som test, men med landet foran kategoriene og merker og kvalitet i kanalnavnene, slik
+# noen leverandører skriver dem («Land som vises» og ryddige navn, som i Fyrlys for Windows 2.1.47)
+LAND_USER = "landbruker"
+LAND_CATEGORIES = {"1": "NO: Nyheter [1080p]", "2": "NO: Sport [720p] AND [H265]", "3": "SE: Film og serier [1080p]",
+                   "4": "SE: Barn", "5": "UK | Natur og vitenskap"}
+LAND_CHANNELS = {1: "NOR: Fjordkanalen [720p]", 2: "NOR: Kystnytt 24 [1080p]", 11: "NOR: Nordlys Sport 1 [H265]",
+                 21: "SWE: Kinokanalen [1080p]", 31: "SWE: Barnekanalen", 41: "UK | Villmark [HD]"}
 
 CATEGORIES = [
     ("1", "Nyheter"),
@@ -329,6 +336,9 @@ class Handler(BaseHTTPRequestHandler):
             # «tsbruker» (passord test): som test, men kanalene finnes bare som MPEG-TS (HLS gir 403)
             if q.get("username") == TS_USER:
                 q["username"] = USER
+            land = q.get("username") == LAND_USER
+            if land:
+                q["username"] = USER
             # «blokkert» (passord test): en leverandør som stenger ute VLC (403), så appen må prøve som en annen klient
             if q.get("username") == BLOCKED_USER:
                 if self.headers.get("User-Agent", "").startswith("VLC"):
@@ -346,12 +356,14 @@ class Handler(BaseHTTPRequestHandler):
                     "server_info": {"timestamp_now": int(now), "timezone": "Europe/Oslo"},
                 })
             if action == "get_live_categories":
-                return self.json([{"category_id": cid, "category_name": name, "parent_id": 0}
+                return self.json([{"category_id": cid,
+                                   "category_name": LAND_CATEGORIES.get(cid, name) if land else name, "parent_id": 0}
                                   for cid, name in CATEGORIES])
             if action == "get_live_streams":
                 cat = q.get("category_id")
                 return self.json([{
-                    "num": n + 1, "name": name, "stream_type": "live", "stream_id": cid,
+                    "num": n + 1, "name": LAND_CHANNELS.get(cid, name) if land else name, "stream_type": "live",
+                    "stream_id": cid,
                     "stream_icon": f"http://{host}/logo/{cid}.png" if cid in LOGO_OF else "",
                     "epg_channel_id": None if cid in NO_EPG else f"kanal{cid}", "category_id": c,
                     "tv_archive": 1 if cid in (1, 11) else 0, "tv_archive_duration": 7 if cid in (1, 11) else 0,
@@ -462,7 +474,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(404, b"", "text/plain")
 
         if len(parts) == 4 and parts[0] == "live":
-            if parts[1] not in (USER, TS_USER) or parts[2] != PASSWORD:
+            if parts[1] not in (USER, TS_USER, LAND_USER) or parts[2] != PASSWORD:
                 return self.send(401, b"", "text/plain")
             cid = parts[3].split(".")[0]
             if cid == "90" or not cid.isdigit() or int(cid) not in CATEGORY_OF:

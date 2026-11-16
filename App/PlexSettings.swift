@@ -44,16 +44,6 @@ struct PlexSettings: View {
             }
         }
         .listRowBackground(Theme.surface)
-        .sheet(isPresented: $libraries) {
-            PlexLibrariesSheet()
-                .environment(model)
-                .macSheetSize()
-        }
-        .sheet(isPresented: $chooseUser) {
-            PlexUserSheet()
-                .environment(model)
-                .macSheetSize(width: 460, height: 420)
-        }
         #endif
     }
 
@@ -92,8 +82,18 @@ struct PlexSettings: View {
                 .accessibilityIdentifier("plex-tilkoblet")
             // bibliotekene som vises i Plex-fanen (for eksempel uten «Andre videoer»)
             button(L("Biblioteker"), icon: "books.vertical", id: "plex-biblioteker") { libraries = true }
+                .rowSheet(isPresented: $libraries) {
+                    PlexLibrariesSheet()
+                        .environment(model)
+                        .macSheetSize()
+                }
             if !plex.users.isEmpty {
                 button(L("Bytt bruker"), icon: "person.2", id: "plex-bytt-bruker") { chooseUser = true }
+                    .rowSheet(isPresented: $chooseUser) {
+                        PlexUserSheet()
+                            .environment(model)
+                            .macSheetSize(width: 460, height: 420)
+                    }
                 @Bindable var plex = plex
                 Toggle(isOn: $plex.askWhoIsWatching) {
                     Label(L("Spør hvem som ser på"), systemImage: "person.crop.circle.badge.questionmark")
@@ -405,4 +405,18 @@ struct PlexUserSheet: View {
     #else
     static let avatar: CGFloat = 36
     #endif
+}
+
+extension View {
+    /// Et ark fra en rad i et skjema (iPhone, iPad og Mac): på selve raden, ikke på seksjonen (der havner det på hver
+    /// rad, og arket kom ikke fram på iPad). Apple TV har arkene på seksjonen (`PlexSettings`), så der gjør dette
+    /// ingenting.
+    @ViewBuilder
+    func rowSheet<Content: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) -> some View {
+        #if os(tvOS)
+        self
+        #else
+        sheet(isPresented: isPresented, content: content)
+        #endif
+    }
 }

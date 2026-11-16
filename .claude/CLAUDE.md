@@ -534,6 +534,10 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `lib/ui/plex/plex_detail_page.dart`). `WindowSnapshot` virker også uten testmodus i et Debug-bygg, så Claude kan se
   appen med eierens ekte innlogging (`open -n --env FYRLYS_TEST_SNAPSHOT=1 …/Debug/Fyrlys.app`; han logger inn selv,
   bildene blir på Mac-en). Testskjermene `plex-users` (arket åpent), `plex-film` (1001) og `plex-serie` (2001).
+  Lukk Mac-appen med `pkill -f "DerivedDataMac/Build/Products/Debug/Fyrlys.app/Contents/MacOS/Fyrlys"`: `pkill -x
+  Fyrlys` treffer også appen i simulatorene (SIGTERM midt i en UI-test, så den så ut som et krasj). Innstillingene på
+  Mac åpnes med ⌘, (System Events: `keystroke "," using command down`); knappen i verktøylinja finnes ikke for
+  System Events.
 - **0.2.4** (eieren 8.11: «Hva mer kan vi forbedre?» → «kjør alt»): Mac: `App/MacKeys.swift`: `playerKeys`
   (lokal `NSEvent`-monitor, bare for vinduet spilleren står i: på Mac er `fullScreenCover` et eget arkvindu, så
   `event.window` er arket; ikke mens et `NSText` har fokus), `PlayerCommand`, menyen «Avspilling»
@@ -602,6 +606,42 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   erstatter `Keychain.saveAll` overalt), flettingen i `start()`, `loginsChangedElsewhere()` (bruker den første når
   enheten er utlogget), `syncLogins` (bryteren `synk-innlogginger`: Apple TV og iPad/Mac i innstillingene, iPhone i
   Konto). Av i testene. Ikke prøvd mellom ekte enheter (krever det signerte bygget med iCloud).
+- **Land som vises og ryddige navn fra 0.2.9** (Windows 2.1.47; hvordan Windows gjør det: `lib/core/tidy.dart`,
+  `lib/core/session.dart` `_prepare`, `lib/ui/country_dialog.dart`): Core `Tidy.swift` (`tidyChannelName` →
+  navn + kvalitet, `tidyCategoryName(keepCountry:)`, `countryOf`, `normalizeCountry`, `countryLabel`, `CountryGroup`,
+  `countryGroups`, `countriesSummary`; regulære uttrykk bare når navnet har `[ ( : |`), `Channel.quality` (aldri på
+  disken), `ChannelIndex(lists, merging:, countries:, tidy:)`: slår sammen som før, rydder, og viser bare kategoriene
+  fra landene som er valgt (finnes ingen av dem, alt); `byId` har også de skjulte (favorittene og «Sist sett» står),
+  `countryGroups`/`hasCountries` fra hele lista, `hasSameOptions`. `channelKey` tar bort et merke foran
+  («GOLD: NRK1»), og `matchingStreamKeys` deler «NRK3/SUPER» (`sharedNRK`). App: `AppModel.shownCountries`
+  (`land@<innlogging>`, i iCloud via `CloudStore.shared`, tom = alle), `setShownCountries`, `tidyNames`
+  (`ryddige-navn-av`), `reindex()` (var `remerge`); `PickerLists.byId`, og listene til andre innlogginger i multiview
+  som en `ChannelIndex` med deres land. `App/CountryPicker.swift`: `CountryPicker` (`landvalg`, `land-<kode>`/`land--`,
+  `land-alle`, `land-ingen`, `land-bruk`, `land-avbryt`; Apple TV i fullskjerm, Menu ut bruker valget),
+  `ChannelListSettings` (`velg-land`, `rydd-navn`; Apple TV, iPad og Mac i innstillingene, iPhone i Konto),
+  `QualityBadge` (`kvalitet-<tekst>`) på `ChannelCard` og `BigCard`. Falsk leverandør: brukeren `landbruker` (passord
+  test) med «NO: …», «SE: …», «UK | …» og «NOR: Fjordkanalen [720p]»; testskjermene `land` (innstillingene/Konto) og
+  `land-tv`; testene `test35Land` (Apple TV, iPhone, iPad).
+- **TS-spilleren på Apple TV fra 0.2.9** (`LiveVLCScreen` i `PlayerView.swift`): trykk på bildet gir valgene under
+  infolinja (`live-valg`: `live-kanaler` (`ChannelStrip` over), `live-favoritt`, `live-lyd`/`live-tekst`
+  (`VLCAudioMenu`/`VLCSubtitleMenu`, nå med `id`), `live-bildeformat`, `live-strominfo` (`StreamInfoPanel` over),
+  `live-fra-start`, `live-arkiv`, `live-multiview`); opp/ned bytter kanal når valgene ikke står, Menu og opp tar dem
+  bort. `VLCEngine.apply(PictureFormat)` (`videoCropGeometry` for «fyll», `videoAspectRatio` for strekk/16:9/4:3),
+  `streamInfo()` (`videoSize`, `tracksInformation`, `statistics`: byte per µs × 8 000 000; Core `vlcFourCCText`),
+  `open(live: true)` (ingen undertekster av seg selv). `PlayerModel.streamInfo`/`setPictureFormat` går til VLC når den
+  spiller; «Mer» på iPhone/iPad/Mac har lyd og undertekster med VLC. TV-arkivet fra spilleren: `canArchive`,
+  `openArchive` (`AppModel.pendingArchive`, vist av `showPendingReplay`), også i kontrollene til Apples avspiller.
+- **Tilbakespolingen fra 0.2.9** (eieren 15.11: «Kunne ikke koble til tjeneren»; ikke bekreftet at det var årsaken):
+  `ShiftServer` lytter helst på porten fra sist (`lastPort`, `allowLocalEndpointReuse`), `ensureAlive()` spør seg selv
+  (HEAD) og starter på nytt (fra `AppModel.becameActive` og når avspilleren ikke får kontakt), og gir opp etter 3 s
+  uten `.ready`. `PlayerModel`: `playingLocal`, `localServerFailed` (NSURLError -1004/-1005/-1001 mot 127.0.0.1, også i
+  feilloggen), `localFailures` (to ganger: `shiftOff`, kanalen spilles rett fra leverandøren), loggen med feilkoden
+  (`describe`), `channelConnectionProblem` (Core) når et eget oppslag mot strømmen ikke får svar. Feilskjermen: Apple TV
+  `send-rapport-spiller` (til iPhone via iCloud), iPhone/iPad/Mac `feilrapport-spiller`. Feilrapporten: «Direktesending:
+  HLS/MPEG-TS (VLC) · pause og spoling», «Land som vises … · ryddige navn».
+- **Ark i et skjema (iPhone, iPad, Mac)**: et `.sheet` på en hel `Section` i en `Form` havner på hver rad, og på iPad
+  kom det ikke fram i det hele tatt (landvalget, og «Biblioteker»/«Bytt bruker» i `PlexSettings` før 0.2.9). Legg arket
+  på knappen som åpner det (`rowSheet` i `PlexSettings.swift`). Testen `test36PlexArk` (iPhone og iPad).
 - `.github/workflows/build.yml`: kjernen på Linux (`ubuntu-24.04`, som har Swift; `ubuntu-latest` ble Ubuntu 26 uten
   Swift 1.11.2026, og jobben feilet med 127); UI-testene kjøres med `-retry-tests-on-failure -test-iterations 2` (en
   test som feiler, kjøres én gang til: «Timed out while requesting launch progress» og trykk som ikke tas, skjer av og
@@ -940,3 +980,11 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   bilder. Lokalt testet på Apple TV (`test30Multiview`), iPhone (`test29Multiview`) og Mac (tre bilder via System
   Events, med `--tilkoblinger 3`). 0.2.8 (bygg 77) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, alle jobbene
   grønne, sendt til den eksterne gruppa. Ikke prøvd med ekte strømmer hos leverandøren hans.
+- 16.11.2026: eieren om 0.2.8: «Fungerer bra!» Så lista over forbedringer; valgte 1–2 fra Windows 2.1.47 (land som
+  vises, ryddige navn) og 3–4 (TS-spilleren på Apple TV med valgene til Apples avspiller; «Kunne ikke koble til
+  tjeneren»), «og når du er ferdig så pusher du» → 0.2.9 (se Arkitektur). Lokalt testet: `test35Land`,
+  `test34TSmedVLC` (Apple TV, iPhone, iPad), `test36PlexArk` (iPhone, iPad), spilleren, feilen, egne strømmer,
+  tilbakespolingen, multiview og arkivet på Apple TV, landvalget på Mac. Ikke valgt (fra samme liste): forrige kanal,
+  sovetimer, «Fortsett å se» for IPTV i iCloud, Plex med lavere kvalitet utenfor hjemmet. Om «Kunne ikke koble til
+  tjeneren» var tjeneren for tilbakespolingen eller leverandøren, er ikke bekreftet (feilrapporten fra feilskjermen
+  skal vise det neste gang).

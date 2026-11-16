@@ -169,6 +169,28 @@ public func channelStatusProblem(_ status: Int, provider: Bool) -> String? {
     }
 }
 
+/// Hvorfor en kanal ikke svarte i det hele tatt ([error] fra et eget oppslag mot strømmen), som en setning brukeren
+/// kan gjøre noe med; nil når det ikke sier noe mer enn feilen fra avspilleren. [provider]: strømmen er leverandørens.
+public func channelConnectionProblem(_ error: URLError, provider: Bool) -> String? {
+    switch error.code {
+    case .cannotConnectToHost:
+        return provider ? L("Leverandøren tok ikke imot tilkoblingen til kanalen. Prøv igjen om litt.")
+            : L("Strømmen tok ikke imot tilkoblingen. Prøv igjen om litt.")
+    case .timedOut:
+        return provider ? L("Leverandøren svarte ikke i tide. Prøv igjen om litt.")
+            : L("Strømmen svarte ikke i tide. Prøv igjen om litt.")
+    case .networkConnectionLost, .badServerResponse, .zeroByteResource:
+        return provider ? L("Leverandøren brøt forbindelsen. Det skjer ofte når alle tilkoblingene i abonnementet er i bruk.")
+            : L("Strømmen brøt forbindelsen. Prøv igjen om litt.")
+    case .notConnectedToInternet:
+        return L("Ikke koblet til Internett. Sjekk nettforbindelsen.")
+    case .cannotFindHost, .dnsLookupFailed:
+        return L("Fant ikke serveren. Sjekk nettforbindelsen.")
+    default:
+        return nil
+    }
+}
+
 /// Adressen er HLS (Apples avspiller); ellers spilles den med VLC (MPEG-TS og annet).
 public func isHLS(_ url: URL) -> Bool {
     let ext = url.pathExtension.lowercased()

@@ -63,10 +63,11 @@ private struct PhoneTopBar: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorScheme) private var scheme
     @AppStorage(Appearance.key, store: TestSupport.defaults) private var stored = ""
-    @State private var account = TestSupport.screen == "settings"
+    @State private var account = TestSupport.screen == "settings" || TestSupport.screen == "land"
     @State private var plex = TestSupport.screen == "plex-link"
     @State private var streams = TestSupport.screen == "strommer"
     @State private var report = false
+    @State private var countries = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -125,6 +126,12 @@ private struct PhoneTopBar: View {
                         try? await Task.sleep(for: .milliseconds(450))
                         report = true
                     }
+                } openCountries: {
+                    account = false
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(450))
+                        countries = true
+                    }
                 }
                 .environment(model)
                 .presentationCompactAdaptation(.popover)
@@ -140,6 +147,10 @@ private struct PhoneTopBar: View {
             }
             .sheet(isPresented: $report) {
                 ErrorReportView()
+                    .environment(model)
+            }
+            .sheet(isPresented: $countries) {
+                CountryPicker()
                     .environment(model)
             }
         }
@@ -166,6 +177,7 @@ private struct AccountMenu: View {
     let openPlex: () -> Void
     let openStreams: () -> Void
     let openReport: () -> Void
+    let openCountries: () -> Void
 
     var body: some View {
         // på tvers på iPhone er det ikke alltid plass til alt; da kan menyen rulles
@@ -286,6 +298,20 @@ private struct AccountMenu: View {
             }
             .buttonStyle(PressStyle())
             .accessibilityIdentifier("plex-innstillinger")
+            if model.index.hasCountries {
+                Button(action: openCountries) {
+                    menuButton(L("Land som vises: {countries}", ["countries": countriesSummary(model.shownCountries)]))
+                }
+                .buttonStyle(PressStyle())
+                .accessibilityIdentifier("velg-land")
+            }
+            Button {
+                model.tidyNames.toggle()
+            } label: {
+                menuButton(model.tidyNames ? L("Ryddige kanalnavn: på") : L("Ryddige kanalnavn: av"))
+            }
+            .buttonStyle(PressStyle())
+            .accessibilityIdentifier("rydd-navn")
             Button(action: openStreams) {
                 menuButton(model.streamLines.isEmpty ? L("Egne strømmer …")
                            : L("Egne strømmer ({n})", ["n": model.streamOverrides.count]))

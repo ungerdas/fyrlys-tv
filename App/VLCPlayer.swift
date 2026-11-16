@@ -82,8 +82,11 @@ final class VLCEngine {
     }
 
     /// Spiller [url] fra [start] sekunder inn, med undertekstfilene [subtitles] (Plex) i tillegg og [choose] valgt når
-    /// fila ikke har valgt noen selv. Kommer ikke bildet i gang innen 45 sekunder, regnes det som feil.
-    func open(_ url: URL, start: Double, subtitles: [PlexSubtitle] = [], choose: PlexSubtitle? = nil) {
+    /// fila ikke har valgt noen selv. Kommer ikke bildet i gang innen 45 sekunder, regnes det som feil. [live]: en
+    /// direktesending (ingen undertekster av seg selv: tekst-TV for hørselshemmede skal ikke komme opp uten at du ber
+    /// om det).
+    func open(_ url: URL, start: Double, subtitles: [PlexSubtitle] = [], choose: PlexSubtitle? = nil,
+              live: Bool = false) {
         sidecars = subtitles
         sidecarChoice = choose
         let media = VLCMedia(url: url)
@@ -95,7 +98,7 @@ final class VLCEngine {
             time = start
         }
         // norske undertekster når filmen har dem (kan slås av i kontrollene)
-        if appLanguage == "no" {
+        if appLanguage == "no", !live {
             media.addOption(":sub-language=nor,nob,nno,no,nb,norwegian")
         }
         player.media = media
@@ -150,6 +153,75 @@ final class VLCEngine {
     func selectAudio(_ id: Int32) {
         player.currentAudioTrackIndex = id
         audioTrack = id
+    }
+
+    /// Bildeformatet (som med Apples avspiller): «fyll skjermen» skjærer bildet til formen på skjermen, «strekk» viser
+    /// det med formen på skjermen, 16:9 og 4:3 med det formatet.
+    func apply(_ format: PictureFormat) {
+        let size = surface.bounds.size
+        let screen = size.width > 0 && size.height > 0
+            ? "\(Int(size.width.rounded())):\(Int(size.height.rounded()))" : "16:9"
+        var aspect: String?
+        var crop: String?
+        switch format {
+        case .original: break
+        case .zoom: crop = screen
+        case .stretch: aspect = screen
+        case .wide: aspect = "16:9"
+        case .classic: aspect = "4:3"
+        }
+        // VLC tar en kopi av teksten
+        if let aspect {
+            aspect.withCString { player.videoAspectRatio = UnsafeMutablePointer(mutating: $0) }
+        } else {
+            player.videoAspectRatio = nil
+        }
+        if let crop {
+            crop.withCString { player.videoCropGeometry = UnsafeMutablePointer(mutating: $0) }
+        } else {
+            player.videoCropGeometry = nil
+        }
+    }
+
+    /// Det VLC vet om strømmen nå: oppløsningen, kodekene, bilder i sekundet, bitraten og tapte bilder.
+    func streamInfo() -> StreamInfo {
+        var info = StreamInfo()
+        let size = player.videoSize
+        if size.width > 0, size.height > 0 {
+            info.width = Int(size.width.rounded())
+            info.height = Int(size.height.rounded())
+        }
+        guard let media = player.media else { return info }
+        for case let track as [String: Any] in media.tracksInformation {
+            let type = track[VLCMediaTracksInformationType] as? String
+            let codec = (track[VLCMediaTracksInformationCodec] as? NSNumber).map { vlcFourCCText($0.uint32Value) }
+            let id = (track[VLCMediaTracksInformationId] as? NSNumber)?.int32Value
+            if type == VLCMediaTracksInformationTypeVideo, info.videoCodec == nil {
+                info.videoCodec = codec
+                if let rate = (track[VLCMediaTracksInformationFrameRate] as? NSNumber)?.doubleValue,
+                   let per = (track[VLCMediaTracksInformationFrameRateDenominator] as? NSNumber)?.doubleValue,
+                   rate > 0, per > 0 {
+                    info.fps = rate / per
+                }
+                if info.width == nil,
+                   let width = (track[VLCMediaTracksInformationVideoWidth] as? NSNumber)?.intValue,
+                   let height = (track[VLCMediaTracksInformationVideoHeight] as? NSNumber)?.intValue,
+                   width > 0, height > 0 {
+                    info.width = width
+                    info.height = height
+                }
+            } else if type == VLCMediaTracksInformationTypeAudio, info.audioCodec == nil || id == audioTrack {
+                info.audioCodec = codec
+                let channels = (track[VLCMediaTracksInformationAudioChannelsNumber] as? NSNumber)?.intValue ?? 0
+                info.audioChannels = channels > 0 ? channels : nil
+            }
+        }
+        // VLC: byte per mikrosekund
+        let stats = media.statistics
+        let rate = stats.demuxBitrate > 0 ? stats.demuxBitrate : stats.inputBitrate
+        if rate > 0 { info.bitrate = Double(rate) * 8_000_000 }
+        info.dropped = max(0, Int(stats.lostPictures))
+        return info
     }
 
     func selectSubtitle(_ id: Int32) {
@@ -383,8 +455,9 @@ private struct VLCProgress: View {
 }
 
 /// Lydsporet som meny (når filmen har flere).
-private struct VLCAudioMenu: View {
+struct VLCAudioMenu: View {
     let engine: VLCEngine
+    var id = "vod-lyd"
 
     var body: some View {
         Menu {
@@ -397,14 +470,15 @@ private struct VLCAudioMenu: View {
             VLCMenuLabel(title: L("Lyd"), icon: "speaker.wave.2",
                          value: engine.audioTracks.first { $0.id == engine.audioTrack }?.name)
         }
-        .accessibilityIdentifier("vod-lyd")
+        .accessibilityIdentifier(id)
         .vlcMacMenu()
     }
 }
 
 /// Undertekstene som meny (når filmen har noen), med «av» først.
-private struct VLCSubtitleMenu: View {
+struct VLCSubtitleMenu: View {
     let engine: VLCEngine
+    var id = "vod-tekst"
 
     var body: some View {
         Menu {
@@ -418,7 +492,7 @@ private struct VLCSubtitleMenu: View {
             VLCMenuLabel(title: L("Undertekster"), icon: "captions.bubble",
                          value: engine.subtitleTracks.first { $0.id == engine.subtitleTrack }?.name ?? L("Av"))
         }
-        .accessibilityIdentifier("vod-tekst")
+        .accessibilityIdentifier(id)
         .vlcMacMenu()
     }
 }

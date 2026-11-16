@@ -194,6 +194,8 @@ final class ShiftServer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "no.fyrlys.tilbakespoling")
     private var listener: NWListener?
     private var port: UInt16?
+    /// porten fra sist: en ny tjener prøver den først, så adressene avspilleren alt har, virker igjen
+    private var lastPort: UInt16?
     private var waiting: [CheckedContinuation<UInt16?, Never>] = []
     private var sessions: [String: LiveShiftSession] = [:]
 
@@ -208,6 +210,42 @@ final class ShiftServer: @unchecked Sendable {
         queue.async { self.sessions[id] = nil }
     }
 
+    /// Svarer tjeneren? Den spør seg selv. Har den stoppet (appen var i bakgrunnen, eller Apple TV-en sov, og
+    /// systemet tok porten), startes den på nytt på samme port, så avspilleren kan fortsette med adressen den har.
+    /// false: den kom ikke i gang igjen.
+    @discardableResult
+    func ensureAlive() async -> Bool {
+        guard let port = queue.sync(execute: { self.port }) else { return true }
+        if await Self.answers(port) { return true }
+        AppLog.shared.add("Tilbakespoling: tjeneren på enheten svarte ikke, startes på nytt")
+        queue.sync {
+            if self.port == port {
+                self.listener?.stateUpdateHandler = nil
+                self.listener?.cancel()
+                self.listener = nil
+                self.port = nil
+            }
+        }
+        let again = await start()
+        AppLog.shared.add(again == nil ? "Tilbakespoling: tjeneren kom ikke i gang igjen"
+                          : again == port ? "Tilbakespoling: tjeneren er i gang igjen"
+                          : "Tilbakespoling: tjeneren er i gang igjen på en ny port")
+        return again != nil
+    }
+
+    /// En forespørsel til tjeneren selv (alle svar, også 404, betyr at den lever).
+    private static func answers(_ port: UInt16) async -> Bool {
+        guard let url = URL(string: "http://127.0.0.1:\(port)/") else { return false }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 2)
+        request.httpMethod = "HEAD"
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            return response is HTTPURLResponse
+        } catch {
+            return false
+        }
+    }
+
     private func start() async -> UInt16? {
         await withCheckedContinuation { continuation in
             queue.async {
@@ -217,29 +255,66 @@ final class ShiftServer: @unchecked Sendable {
                 }
                 self.waiting.append(continuation)
                 guard self.listener == nil else { return }
-                do {
-                    let parameters = NWParameters.tcp
-                    parameters.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: .any)
-                    let listener = try NWListener(using: parameters)
-                    listener.newConnectionHandler = { [weak self] connection in self?.accept(connection) }
-                    listener.stateUpdateHandler = { [weak self] state in self?.changed(state) }
-                    self.listener = listener
-                    listener.start(queue: self.queue)
-                } catch {
-                    AppLog.shared.add("Tilbakespoling: tjeneren kom ikke i gang (\(error.localizedDescription))")
-                    self.finish(nil)
-                }
+                self.listen(on: self.lastPort)
             }
         }
     }
 
-    private func changed(_ state: NWListener.State) {
+    /// Lytter på 127.0.0.1, helst på [wanted] (porten fra sist), ellers en ledig port.
+    private func listen(on wanted: UInt16?) {
+        do {
+            let parameters = NWParameters.tcp
+            parameters.allowLocalEndpointReuse = true
+            let port = wanted.flatMap { NWEndpoint.Port(rawValue: $0) } ?? .any
+            parameters.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: port)
+            let listener = try NWListener(using: parameters)
+            listener.newConnectionHandler = { [weak self] connection in self?.accept(connection) }
+            listener.stateUpdateHandler = { [weak self, weak listener] state in
+                guard let self, let listener else { return }
+                self.changed(state, listener, wanted: wanted)
+            }
+            self.listener = listener
+            listener.start(queue: queue)
+            // kommer den ikke i gang (står og venter), spilles kanalen heller rett fra leverandøren
+            queue.asyncAfter(deadline: .now() + 3) { [weak self, weak listener] in
+                guard let self, let listener, self.listener === listener, self.port == nil else { return }
+                listener.stateUpdateHandler = nil
+                listener.cancel()
+                self.listener = nil
+                AppLog.shared.add("Tilbakespoling: tjeneren kom ikke i gang i tide")
+                self.finish(nil)
+            }
+        } catch {
+            if wanted != nil {
+                lastPort = nil
+                listen(on: nil)
+                return
+            }
+            AppLog.shared.add("Tilbakespoling: tjeneren kom ikke i gang (\(error.localizedDescription))")
+            finish(nil)
+        }
+    }
+
+    private func changed(_ state: NWListener.State, _ which: NWListener, wanted: UInt16?) {
+        guard which === listener else { return }
         switch state {
         case .ready:
-            port = listener?.port?.rawValue
+            port = which.port?.rawValue
+            lastPort = port
             finish(port)
-        case .failed, .cancelled:
-            listener?.cancel()
+        case .failed(let error):
+            which.cancel()
+            listener = nil
+            port = nil
+            // porten fra sist er tatt: en annen
+            if wanted != nil, !waiting.isEmpty {
+                lastPort = nil
+                listen(on: nil)
+                return
+            }
+            AppLog.shared.add("Tilbakespoling: tjeneren stoppet (\(error.localizedDescription))")
+            finish(nil)
+        case .cancelled:
             listener = nil
             port = nil
             finish(nil)

@@ -274,9 +274,94 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue((player.value as? String ?? "").contains("1.ts"), "TS ble ikke prøvd: \(player.value ?? "")")
         wait(3)
         shot("64-ts-vlc")
+        // strøminfoen kommer fra VLC («Mer» → «Vis strøminfo»)
+        find(app, "spiller-mer").tap()
+        let show = app.buttons["Vis strøminfo"].firstMatch
+        XCTAssertTrue(show.waitForExistence(timeout: 5), "«Vis strøminfo» mangler i «Mer»")
+        show.tap()
+        let info = find(app, "strominfo")
+        XCTAssertTrue(info.waitForExistence(timeout: 5), "strøminfoen kom ikke")
+        XCTAssertTrue(until(15) { info.label.contains("×") }, "strøminfoen fra VLC mangler: \(info.label)")
         find(app, "neste-kanal").tap()
         XCTAssertTrue(until(30) { (player.value as? String ?? "").contains("2.ts") }, "neste kanal ble ikke åpnet som TS")
         XCTAssertTrue(find(app, "live-vlc").waitForExistence(timeout: 60), "neste kanal kom ikke i gang med VLC")
+    }
+
+    /// Land som vises og ryddige navn (som Fyrlys for Windows 2.1.47), med en liste der landet står foran kategoriene
+    /// og kvaliteten i kanalnavnene: Sverige tas bort (Konto på iPhone, innstillingene på iPad), og på TV-siden er
+    /// navnene ryddet og kategoriene og kanalene fra Sverige borte.
+    func test35Land() {
+        let app = launch("land")
+        let countries = find(app, "velg-land")
+        XCTAssertTrue(countries.waitForExistence(timeout: 30), "«Land som vises» mangler")
+        countries.tap()
+        let sweden = find(app, "land-SE")
+        XCTAssertTrue(sweden.waitForExistence(timeout: 10), "landene kom ikke")
+        XCTAssertTrue(find(app, "land-NO").exists, "Norge mangler")
+        wait(1)
+        shot("66-land")
+        // bryteren står til høyre i raden (et trykk midt på raden traff teksten, og den slo ikke om)
+        sweden.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        if !until(3, { (sweden.value as? String) == "0" }), sweden.switches.firstMatch.exists {
+            sweden.switches.firstMatch.tap()
+        }
+        XCTAssertTrue(until(5) { (sweden.value as? String) == "0" }, "Sverige ble ikke tatt bort: \(sweden.value ?? "")")
+        find(app, "land-bruk").tap()
+        XCTAssertTrue(until(10) { !sweden.exists }, "valget ble ikke lukket")
+        if isPad {
+            XCTAssertTrue(until(10) { countries.label.contains("Norge") && !countries.label.contains("Sverige") },
+                          "valget ble ikke brukt: \(countries.label)")
+        }
+        // innstillingene står (ellers tømmes de ved start)
+        let tv = launch("land-tv", extra: ["FYRLYS_TEST_KEEP": "1"])
+        if isPad {
+            XCTAssertTrue(find(tv, "kanal-1").waitForExistence(timeout: 30), "kanalene kom ikke")
+        } else {
+            let all = find(tv, "hylle-alle")
+            XCTAssertTrue(all.waitForExistence(timeout: 30), "flisene kom ikke")
+            XCTAssertFalse(find(tv, "hylle-3").exists, "kategorien fra Sverige vises fortsatt")
+            all.tap()
+        }
+        let fjord = find(tv, "kanal-1")
+        XCTAssertTrue(fjord.waitForExistence(timeout: 20), "Fjordkanalen mangler")
+        // kortet har ingen tekst selv (knappene i det har sine): teksten inni
+        let tidy = fjord.staticTexts.matching(NSPredicate(format: "label == %@", "Fjordkanalen")).firstMatch
+        XCTAssertTrue(until(10) { tidy.exists }, "navnet ble ikke ryddet")
+        XCTAssertFalse(tv.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "NOR:")).firstMatch.exists,
+                       "et navn med «NOR:» foran står fortsatt")
+        XCTAssertFalse(find(tv, "kanal-21").exists, "kanalen fra Sverige vises fortsatt")
+        if isPad { XCTAssertFalse(find(tv, "hylle-3").exists, "kategorien fra Sverige vises fortsatt") }
+        wait(2)
+        shot("67-land-tv")
+    }
+
+    /// Arkene fra Plex i innstillingene (iPad) og i Konto → Plex (iPhone): «Biblioteker» kommer fram. Et ark på en hel
+    /// seksjon i et skjema havner på hver rad, og kom ikke fram på iPad.
+    func test36PlexArk() {
+        let app = launch("plex")
+        XCTAssertTrue(find(app, "vodkat-1").waitForExistence(timeout: 40), "Plex kom ikke")
+        if isPad {
+            let settings = app.buttons["Innstillinger"].firstMatch
+            XCTAssertTrue(settings.waitForExistence(timeout: 5), "fanen Innstillinger mangler")
+            settings.tap()
+        } else {
+            find(app, "konto").tap()
+            let plex = find(app, "plex-innstillinger")
+            XCTAssertTrue(plex.waitForExistence(timeout: 5), "«Plex» mangler i Konto")
+            plex.tap()
+        }
+        let libraries = find(app, "plex-biblioteker")
+        XCTAssertTrue(libraries.waitForExistence(timeout: 10), "«Biblioteker» mangler")
+        // innstillingene på iPad er en lat liste: rull fram
+        for _ in 0..<6 where !libraries.isHittable {
+            app.swipeUp()
+            wait(0.5)
+        }
+        libraries.tap()
+        XCTAssertTrue(find(app, "plex-bibliotekvalg").waitForExistence(timeout: 10), "valget av bibliotekene kom ikke")
+        XCTAssertTrue(find(app, "vis-bibliotek-1").waitForExistence(timeout: 10), "bibliotekene mangler i valget")
+        wait(1)
+        shot("68-plex-biblioteker")
     }
 
     /// Kanalen som svarer 404: feilen med HTTP-koden, så lukk med knappen.

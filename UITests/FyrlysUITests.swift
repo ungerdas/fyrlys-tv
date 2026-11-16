@@ -294,7 +294,9 @@ final class FyrlysUITests: XCTestCase {
                      + "%.1f s med; 24 steg i kortene %.1f s; 20 steg i sidemenyen %.1f s", cold, warm, grid, sidebar))
     }
 
-    /// En leverandør uten HLS (bare MPEG-TS, som Fyrlys for Windows spiller): kanalen spilles med VLC, og ned bytter kanal.
+    /// En leverandør uten HLS (bare MPEG-TS, som Fyrlys for Windows spiller): kanalen spilles med VLC. Et trykk på
+    /// bildet gir valgene (som i Apples avspiller), strøminfoen kommer fra VLC, Menu tar valgene bort, og ned bytter
+    /// kanal.
     func test34TSmedVLC() {
         let app = launch("player-ts")
         let live = find(app, "live-vlc")
@@ -303,6 +305,23 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue((player.value as? String ?? "").contains("1.ts"), "TS ble ikke prøvd: \(player.value ?? "")")
         wait(4)
         shot("63-ts-vlc")
+        remote.press(.select)
+        let options = find(app, "live-valg")
+        XCTAssertTrue(options.waitForExistence(timeout: 10), "valgene kom ikke")
+        for id in ["live-kanaler", "live-favoritt", "live-bildeformat", "live-strominfo", "live-arkiv"] {
+            XCTAssertTrue(find(app, id).exists, "\(id) mangler blant valgene")
+        }
+        XCTAssertTrue(focusRight(find(app, "live-strominfo")), "fikk ikke fokus på «Strøminfo»")
+        remote.press(.select)
+        let info = find(app, "strominfo")
+        XCTAssertTrue(info.waitForExistence(timeout: 5), "strøminfoen kom ikke")
+        XCTAssertTrue(until(15) { info.label.contains("×") }, "strøminfoen fra VLC mangler: \(info.label)")
+        wait(1)
+        shot("67-ts-valg")
+        remote.press(.menu)
+        XCTAssertTrue(until(5) { !options.exists }, "Menu tok ikke bort valgene")
+        XCTAssertTrue(live.exists, "Menu lukket spilleren i stedet for valgene")
+        wait(1)
         remote.press(.down)
         XCTAssertTrue(until(30) { (player.value as? String ?? "").contains("2.ts") }, "neste kanal ble ikke åpnet som TS")
         XCTAssertTrue(find(app, "live-vlc").waitForExistence(timeout: 60), "neste kanal kom ikke i gang med VLC")
@@ -1127,6 +1146,39 @@ final class FyrlysUITests: XCTestCase {
         wait(3)
         XCTAssertFalse(find(player, "spiller-feil").exists, "feilen kom selv om leverandørens strøm virker")
         shot("37-egen-strom-reserve")
+    }
+
+    /// Land som vises og ryddige navn (som Fyrlys for Windows 2.1.47), med en liste der landet står foran kategoriene
+    /// og kvaliteten i kanalnavnene: Sverige tas bort i innstillingene (Menu ut av valget bruker det), og på TV-siden er
+    /// navnene ryddet («NOR: Fjordkanalen [720p]» → «Fjordkanalen») og kategoriene og kanalene fra Sverige borte.
+    func test35Land() {
+        let app = launch("land")
+        let countries = find(app, "velg-land")
+        XCTAssertTrue(countries.waitForExistence(timeout: 30), "«Land som vises» mangler")
+        XCTAssertTrue(countries.label.contains("Alle land"), "alle land skal vises fra start: \(countries.label)")
+        XCTAssertTrue(focusDown(app, countries, label: "Land som vises"), "fikk ikke fokus på «Land som vises»")
+        remote.press(.select)
+        let sweden = find(app, "land-SE")
+        XCTAssertTrue(sweden.waitForExistence(timeout: 10), "landene kom ikke")
+        XCTAssertTrue(find(app, "land-NO").exists && find(app, "land-UK").exists, "Norge eller Storbritannia mangler")
+        wait(1)
+        shot("65-land")
+        XCTAssertTrue(focusDown(app, sweden, label: "Sverige"), "fikk ikke fokus på Sverige")
+        remote.press(.select)
+        wait(1)
+        remote.press(.menu)
+        XCTAssertTrue(until(10) { countries.exists && countries.label.contains("Norge") && !countries.label.contains("Sverige") },
+                      "valget ble ikke brukt: \(countries.label)")
+        let tv = launch("land-tv", keep: true)
+        let fjord = find(tv, "kanal-1")
+        XCTAssertTrue(fjord.waitForExistence(timeout: 30), "kanalene kom ikke")
+        XCTAssertTrue(until(10) { fjord.label.contains("Fjordkanalen") && !fjord.label.contains("NOR") },
+                      "navnet ble ikke ryddet: \(fjord.label)")
+        XCTAssertTrue(find(tv, "hylle-1").exists, "kategorien fra Norge mangler")
+        XCTAssertFalse(find(tv, "hylle-3").exists, "kategorien fra Sverige vises fortsatt")
+        XCTAssertFalse(find(tv, "kanal-21").exists, "kanalen fra Sverige vises fortsatt")
+        wait(2)
+        shot("66-land-tv")
     }
 
     func test08Settings() {

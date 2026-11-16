@@ -28,9 +28,13 @@ public struct Channel: Codable, Hashable, Identifiable, Sendable {
     public let source: String?
     /// en kanal fra en M3U-liste: adressen og det den heter i TV-guiden (XMLTV)
     public let m3u: M3UChannel?
+    /// kvaliteten som sto i navnet («720p», «H265», «4K»), når den ikke er den vanlige: et merke på kortet (bare med
+    /// ryddige navn, se `tidyChannelName`; aldri i lista på disken)
+    public let quality: String?
 
     public init(id: String, name: String, categoryId: String, number: Int? = nil, logo: String? = nil,
-                archiveDays: Int = 0, hasEpg: Bool = true, source: String? = nil, m3u: M3UChannel? = nil) {
+                archiveDays: Int = 0, hasEpg: Bool = true, source: String? = nil, m3u: M3UChannel? = nil,
+                quality: String? = nil) {
         self.id = id
         self.name = name
         self.categoryId = categoryId
@@ -40,10 +44,11 @@ public struct Channel: Codable, Hashable, Identifiable, Sendable {
         self.hasEpg = hasEpg
         self.source = source
         self.m3u = m3u
+        self.quality = quality
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, categoryId, number, logo, archiveDays, hasEpg, source, m3u
+        case id, name, categoryId, number, logo, archiveDays, hasEpg, source, m3u, quality
     }
 
     /// Id-en hos leverandøren (adressen, programinfoen og arkivet).
@@ -52,14 +57,20 @@ public struct Channel: Codable, Hashable, Identifiable, Sendable {
     /// Samme kanal med et annet navn.
     public func renamed(_ name: String) -> Channel {
         Channel(id: id, name: name, categoryId: categoryId, number: number, logo: logo, archiveDays: archiveDays,
-                hasEpg: hasEpg, source: source, m3u: m3u)
+                hasEpg: hasEpg, source: source, m3u: m3u, quality: quality)
+    }
+
+    /// Samme kanal med det ryddige navnet og kvaliteten som sto i navnet (se `tidyChannelName`).
+    public func tidied(name: String, quality: String?) -> Channel {
+        Channel(id: id, name: name, categoryId: categoryId, number: number, logo: logo, archiveDays: archiveDays,
+                hasEpg: hasEpg, source: source, m3u: m3u, quality: quality)
     }
 
     /// En kanal delt ut av denne ([key] er nøkkelen den spilles fra): egen id, programinfo og arkiv herfra, men ikke
     /// logoen (den er den første kanalens).
     public func split(_ name: String, key: String) -> Channel {
         Channel(id: "\(id)~\(key)", name: name, categoryId: categoryId, number: number, logo: nil,
-                archiveDays: archiveDays, hasEpg: hasEpg, source: streamId, m3u: m3u)
+                archiveDays: archiveDays, hasEpg: hasEpg, source: streamId, m3u: m3u, quality: quality)
     }
 
     /// (lister lagret før hasEpg fantes, leses med programinfo for alle)
@@ -74,6 +85,7 @@ public struct Channel: Codable, Hashable, Identifiable, Sendable {
         hasEpg = try c.decodeIfPresent(Bool.self, forKey: .hasEpg) ?? true
         source = try c.decodeIfPresent(String.self, forKey: .source)
         m3u = try c.decodeIfPresent(M3UChannel.self, forKey: .m3u)
+        quality = try c.decodeIfPresent(String.self, forKey: .quality)
     }
 
     /// Programinfo hentes bare for kanaler som har det, og ikke for eventkanaler (kampen står i navnet, som i Fyrlys

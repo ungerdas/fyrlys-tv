@@ -49,6 +49,12 @@ final class PlayerModel {
     @ObservationIgnored private var sourceURL: URL?
     /// HLS feilet for kanalen (så TS med VLC prøves; virker det, spilles kanalene som TS heretter)
     @ObservationIgnored private var hlsFailed = false
+    /// avspilleren spiller fra bufferet på enheten (tilbakespolingen), ikke rett fra leverandøren
+    @ObservationIgnored private var playingLocal = false
+    /// ganger avspilleren ikke fikk kontakt med tjeneren på enheten, per kanal
+    @ObservationIgnored private var localFailures: [String: Int] = [:]
+    /// kanalene som spilles rett fra leverandøren fordi tjeneren på enheten ikke svarte (så lenge spilleren er åpen)
+    @ObservationIgnored private var shiftOff = Set<String>()
     /// spilleren er stoppet (lukket)
     @ObservationIgnored private var stopped = false
 
@@ -93,7 +99,7 @@ final class PlayerModel {
         scheduleProgramRefresh()
         // pause og tilbakespoling: HLS hentes og bufres på enheten, og avspilleren spiller derfra (det som ikke kan
         // bufres, spilles rett fra leverandøren som før)
-        if app.liveShift, LiveShift.applies(to: url) {
+        if app.liveShift, LiveShift.applies(to: url), !shiftOff.contains(channel.id) {
             // den forrige kanalen slipper tilkoblingen med en gang
             stopObserving()
             player.replaceCurrentItem(with: nil)
@@ -101,10 +107,12 @@ final class PlayerModel {
                 let local = await LiveShift.shared.prepare(url)
                 guard gen == self.generation, !self.stopped else { return }
                 if TestSupport.isActive, let local { self.tried.append(local.path) }
+                self.playingLocal = local != nil
                 self.play(local ?? url, gen)
             }
             return
         }
+        playingLocal = false
         Task { await LiveShift.shared.stop() }
         if isHLS(url) {
             play(url, gen)
@@ -133,7 +141,8 @@ final class PlayerModel {
             AppLog.shared.add("TV: kanal \(channel.id) spiller med VLC")
         }
         vlc = engine
-        engine.open(url, start: 0)
+        engine.open(url, start: 0, live: true)
+        engine.apply(pictureFormat)
     }
 
     /// Avspilleren med [url] (fra leverandøren, en egen strøm, eller bufferet på enheten).
@@ -148,8 +157,8 @@ final class PlayerModel {
         stopObserving()
         statusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
             guard item.status == .failed, let self else { return }
-            let message = item.error?.localizedDescription
-            Task { @MainActor in self.failed(gen, message) }
+            let error = item.error
+            Task { @MainActor in self.failed(gen, error?.localizedDescription, error: error) }
         }
         waitingObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
             guard let self else { return }
@@ -161,9 +170,8 @@ final class PlayerModel {
             center.addObserver(forName: AVPlayerItem.failedToPlayToEndTimeNotification, object: item,
                                queue: .main) { [weak self] note in
                 guard let self else { return }
-                let message = (note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error)?
-                    .localizedDescription
-                Task { @MainActor in self.failed(gen, message) }
+                let error = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+                Task { @MainActor in self.failed(gen, error?.localizedDescription, error: error) }
             },
             // en direktesending skal ikke ta slutt: da åpnes den igjen
             center.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification, object: item,
@@ -235,10 +243,14 @@ final class PlayerModel {
     /// Bildeformatet for kanalen (huskes per kanal).
     var pictureFormat: PictureFormat { app.pictureFormat(for: channel) }
 
-    func setPictureFormat(_ format: PictureFormat) { app.setPictureFormat(format, for: channel) }
+    func setPictureFormat(_ format: PictureFormat) {
+        app.setPictureFormat(format, for: channel)
+        vlc?.apply(format)
+    }
 
     /// Det avspilleren vet om strømmen nå: oppløsningen, kodekene, bilder i sekundet, bitraten og tapte bilder.
     func streamInfo() -> StreamInfo {
+        if let vlc { return vlc.streamInfo() }
         var info = StreamInfo()
         guard let item = player.currentItem else { return info }
         let size = item.presentationSize
@@ -289,6 +301,17 @@ final class PlayerModel {
 
     /// Kanalen har TV-arkiv, og det er kjent hva som går nå.
     var canStartOver: Bool { channel.archiveDays > 0 && nowPlaying(channel) != nil }
+
+    /// Kanalen har TV-arkiv (hos Xtream-leverandøren).
+    var canArchive: Bool { channel.archiveDays > 0 && app.client != nil }
+
+    /// TV-arkivet for kanalen: direktesendingen stoppes og spilleren lukkes først (én tilkobling), og HomeView viser
+    /// arkivet når spilleren er borte.
+    func openArchive() {
+        app.pendingArchive = channel
+        stop()
+        closeRequested = true
+    }
 
     /// Programmet som går nå, fra start: direktesendingen stoppes og spilleren lukkes, så spilles det fra arkivet.
     /// Er spilleren lukket eller kanalen byttet før arkivet har svart, skjer ingenting.
@@ -350,14 +373,33 @@ final class PlayerModel {
         }
     }
 
-    private func failed(_ gen: Int, _ message: String?) {
+    private func failed(_ gen: Int, _ message: String?, error cause: Error? = nil) {
         guard gen == generation, error == nil else { return }
-        let now = Date()
-        failures = failures.filter { now.timeIntervalSince($0) < 60 } + [now]
         generation += 1
         let next = generation
         stallTimer?.cancel()
         stallTimer = nil
+        if let cause { AppLog.shared.add("TV: kanal \(channel.id): \(Self.describe(cause))\(playingLocal ? " (fra bufferet på enheten)" : "")") }
+        // avspilleren fikk ikke kontakt med tjeneren på enheten (bufferet for tilbakespoling): den startes på nytt (på
+        // samme port), og skjer det igjen, spilles kanalen rett fra leverandøren. Teller ikke som en feil med kanalen
+        // («Kunne ikke koble til tjeneren» kom ellers etter tre forsøk med den samme adressen).
+        if playingLocal, vlc == nil, Self.localServerFailed(player.currentItem, cause) {
+            let count = (localFailures[channel.id] ?? 0) + 1
+            localFailures[channel.id] = count
+            if count >= 2 {
+                shiftOff.insert(channel.id)
+                AppLog.shared.add("Tilbakespoling: tjeneren på enheten svarer ikke, kanalen spilles rett fra leverandøren")
+            }
+            player.pause()
+            Task {
+                await ShiftServer.shared.ensureAlive()
+                guard next == self.generation, !self.stopped else { return }
+                self.open(self.channel)
+            }
+            return
+        }
+        let now = Date()
+        failures = failures.filter { now.timeIntervalSince($0) < 60 } + [now]
         // en egen strøm som feiler to ganger: leverandørens strøm for kanalen (NRK-strømmen kan være nede eller
         // stengt der du er; før ble kanalen da ikke å se i det hele tatt)
         if !playingProvider, failures.count >= 2, !app.providerURLs(channel).isEmpty {
@@ -411,11 +453,19 @@ final class PlayerModel {
         }
         if text == nil {
             var status = code
+            var problem: URLError?
             if status == nil, let url = sourceURL ?? player.currentItem.flatMap({ ($0.asset as? AVURLAsset)?.url }) {
-                status = await withTimeout(8) { await PlayerModel.streamStatus(url) }
+                let found = await withTimeout(8) { await PlayerModel.streamStatus(url) }
+                status = found?.status
+                problem = found?.problem
             }
             if let status {
                 text = channelStatusProblem(status, provider: playingProvider)
+            } else if let problem {
+                // ingen svar fra strømmen: hvorfor (avvist, tidsavbrudd, brutt), så det ikke bare står det
+                // avspilleren sa
+                text = channelConnectionProblem(problem, provider: playingProvider)
+                AppLog.shared.add("TV: strømmen svarte ikke (URLError \(problem.code.rawValue))")
             }
         }
         guard gen == generation, error != nil, let text else { return }
@@ -436,17 +486,55 @@ final class PlayerModel {
         return nil
     }
 
-    /// Bare svaret (HTTP-koden), ikke selve strømmen.
-    private nonisolated static func streamStatus(_ url: URL) async -> Int? {
+    /// Bare svaret (HTTP-koden), ikke selve strømmen; eller hvorfor det ikke kom noe svar.
+    private nonisolated static func streamStatus(_ url: URL) async -> (status: Int?, problem: URLError?) {
         var request = URLRequest(url: url, timeoutInterval: 8)
         request.setValue(ProviderAgent.current, forHTTPHeaderField: "User-Agent")
         do {
             let (bytes, response) = try await URLSession.shared.bytes(for: request)
             bytes.task.cancel()
-            return (response as? HTTPURLResponse)?.statusCode
+            return ((response as? HTTPURLResponse)?.statusCode, nil)
+        } catch let error as URLError {
+            return (nil, error)
         } catch {
-            return nil
+            return (nil, nil)
         }
+    }
+
+    /// Feilen fra avspilleren som en linje i loggen: domenet og koden, også de underliggende (uten adressen).
+    private static func describe(_ error: Error) -> String {
+        var parts: [String] = []
+        var current: NSError? = error as NSError
+        while let e = current, parts.count < 3 {
+            parts.append("\(e.domain) \(e.code)")
+            current = e.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        return parts.joined(separator: " ← ")
+    }
+
+    /// «Fikk ikke kontakt»: avvist, brutt, tidsavbrudd.
+    private static let connectionCodes: Set<Int> = [
+        NSURLErrorCannotConnectToHost, NSURLErrorNetworkConnectionLost, NSURLErrorTimedOut,
+    ]
+
+    /// Avspilleren fikk ikke kontakt med tjeneren på enheten (127.0.0.1), etter feilen eller feilloggen til avspilleren.
+    /// (Nøklene til en kryptert strøm hentes rett fra leverandøren; en feil der er ikke tjeneren sin.)
+    static func localServerFailed(_ item: AVPlayerItem?, _ error: Error?) -> Bool {
+        func local(_ url: String?) -> Bool { url.map { $0.contains("://127.0.0.1") } ?? true }
+        var current = error as NSError?
+        while let e = current {
+            if e.domain == NSURLErrorDomain, connectionCodes.contains(e.code) {
+                let failing = (e.userInfo[NSURLErrorFailingURLErrorKey] as? URL)?.absoluteString
+                    ?? e.userInfo[NSURLErrorFailingURLStringErrorKey] as? String
+                return local(failing)
+            }
+            current = e.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        for event in (item?.errorLog()?.events ?? []).reversed()
+        where event.errorDomain == NSURLErrorDomain && connectionCodes.contains(event.errorStatusCode) {
+            return local(event.uri)
+        }
+        return false
     }
 
     /// Kanalen og programmet som går nå, i infoen til spilleren.

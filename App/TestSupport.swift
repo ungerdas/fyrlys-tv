@@ -7,7 +7,8 @@ import Foundation
 /// leverandøren ikke har, plex og plex-series = Plex-fanen (koblet til fra før), plex-link = koble til
 /// Plex med koden, strommer = Innstillinger (på iPhone arket) med egne strømmer (FYRLYS_TEST_STREAMS), m3u = logget inn med
 /// M3U-lista til den falske leverandøren, login-m3u = innloggingen med M3U-lenke valgt, multiview = multiview med kanal 1
-/// og M3U-lista som innlogging nummer to; på iPhone også category = Sport og all = Alle kanaler).
+/// og M3U-lista som innlogging nummer to, land = innstillingene (på iPhone Konto) og land-tv = TV-siden med en liste med
+/// land og kvalitet i navnene; på iPhone også category = Sport og all = Alle kanaler).
 enum TestSupport {
     static let env = ProcessInfo.processInfo.environment
 
@@ -21,6 +22,11 @@ enum TestSupport {
         if screen == "m3u" { return Login(m3u: server + "/liste.m3u") }
         // player-ts: en leverandør uten HLS (bare MPEG-TS), som spilles med VLC
         if screen == "player-ts" { return Login(server: server, username: "tsbruker", password: "test") }
+        // land, land-tv: land foran kategoriene og merker i kanalnavnene («NO: Sport [720p]», «NOR: Fjordkanalen
+        // [720p]»): «Land som vises» og ryddige navn
+        if screen == "land" || screen == "land-tv" {
+            return Login(server: server, username: "landbruker", password: "test")
+        }
         return Login(server: server, username: "test", password: "test")
     }
 

@@ -1,5 +1,34 @@
 # Endringer
 
+## v0.2.9
+
+- **Velg hvilke land som vises** (som Fyrlys for Windows 2.1.47). Fyrlys finner landene i kategorinavnene («NO: …»,
+  «SE: …», «UK | …», «Norway - …») og lar deg krysse av for dem du vil se: «Land som vises» i innstillingene (Konto på
+  iPhone). Resten skjules fra kategoriene, «Alle kanaler», søket og TV-guiden. Favorittene og «Sist sett» står som
+  før. Valget gjelder innloggingen du bruker, og deles med de andre enhetene dine via iCloud.
+- **Ryddige kanalnavn.** «NOR: TV 2 [720p]» blir «TV 2» med et lite 720p-merke på kortet, og «VIP: NRK1 ØSTLANDET
+  [1080p]» blir «NRK1 ØSTLANDET» (1080p er det vanlige og får ikke merke). Kategoriene ryddes på samme måte: «NO:
+  VIAPLAY [PPV EVENTS] [1080p]» blir «VIAPLAY · PPV EVENTS». Vises flere land, står landet igjen foran kategorinavnet.
+  Kan slås av: «Ryddige kanalnavn» i innstillingene. NRK1, NRK2, NRK3 og NRK Super kjennes nå igjen også med et merke
+  foran navnet («GOLD: NRK1 [1080p]», «VIP: NRK3/SUPER»), så de spilles fra NRK.
+- **TS-spilleren på Apple TV har fått valgene til Apples avspiller.** Trykk på bildet: kanallista, legg til eller fjern
+  favoritt, lydspor og undertekster (når kanalen har flere), bildeformat, strøminfo, «Se fra start» og TV-arkivet (og
+  multiview når du har to innlogginger eller flere tilkoblinger). Opp og ned bytter fortsatt kanal, og Menu tar valgene bort. Bildeformatet
+  og strøminfoen virker nå også når kanalen spilles med VLC på iPhone, iPad og Mac («Mer»), med lydspor og undertekster
+  der. Undertekster kommer ikke lenger opp av seg selv på en direktesending. TV-arkivet finnes også i kontrollene til
+  Apples avspiller.
+- **«Kunne ikke koble til tjeneren» på TV-kanalene.** Pause og tilbakespoling går gjennom en liten tjener i appen. Har
+  den stoppet (Apple TV-en har sovet, eller appen har vært i bakgrunnen), startes den nå på nytt på samme port, så
+  kanalen fortsetter, og svarer den fortsatt ikke, spilles kanalen rett fra leverandøren. Før kom feilen etter tre
+  forsøk med den samme døde adressen. Når en kanal ikke svarer i det hele tatt, sier feilen nå om leverandøren ikke tok
+  imot tilkoblingen, ikke svarte i tide eller brøt forbindelsen.
+- **Send feilrapport rett fra feilen.** Når en kanal ikke kan spilles, sender «Send feilrapport» på Apple TV
+  rapporten til iPhone og iPad (Feilrapport, «Fra Apple TV»); på iPhone, iPad og Mac åpner «Feilrapport» den. Loggen
+  sier nå hva avspilleren svarte (feilkoden), og om kanalen gikk gjennom tilbakespolingen. Rapporten viser landene,
+  ryddige navn, og om kanalene spilles som HLS eller MPEG-TS.
+- «Biblioteker» og «Bytt bruker» under Plex i innstillingene kom ikke fram på iPad (og trolig ikke på Mac); nå gjør de
+  det.
+
 ## v0.2.8
 
 - **Multiview med valgfritt oppsett og antall bilder.** Multiview begynner nå med to bilder (eller så mange som

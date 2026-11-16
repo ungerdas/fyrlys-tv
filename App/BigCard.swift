@@ -214,6 +214,10 @@ private struct CardInfo: View {
                 .fontWeight(big ? .bold : .medium)
                 .foregroundStyle(big ? Theme.ink : Theme.muted)
                 .lineLimit(big ? 2 : 1)
+            // kvaliteten som sto i navnet («720p»), når den ikke er den vanlige
+            if let quality = channel.quality {
+                QualityBadge(text: quality, size: (big ? Metrics.bigTitle : Metrics.bigSub) * 0.62)
+            }
         }
         .font(.system(size: big ? Metrics.bigTitle : Metrics.bigSub))
         .padding(.top, big ? pad : 0)

@@ -1019,9 +1019,9 @@ struct MultiviewPicker: View {
         switch folder {
         case .all: return lists.channels
         case .favorites, .recent:
+            // også kanalene fra land som er skjult (favorittene og «Sist sett» står som før)
             let ids = folder == .favorites ? lists.favorites : lists.recent
-            let byId = Dictionary(lists.channels.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-            return ids.compactMap { byId[$0] }
+            return ids.compactMap { lists.byId[$0] }
         case .category(let id, _): return lists.channels.filter { $0.categoryId == id }
         }
     }

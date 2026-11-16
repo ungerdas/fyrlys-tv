@@ -37,6 +37,11 @@ enum ErrorReport {
         if let error = model.error {
             lines.append(L("Feil i listene: {error}", ["error": error]))
         }
+        lines.append(L("Land som vises: {countries} · ryddige navn: {state}",
+                       ["countries": countriesSummary(model.shownCountries),
+                        "state": model.tidyNames ? L("på") : L("av")]))
+        lines.append(L("Direktesending: {format} · pause og spoling: {shift}",
+                       ["format": model.preferTS ? "MPEG-TS (VLC)" : "HLS", "shift": model.liveShift ? L("på") : L("av")]))
         lines.append(L("NRK direkte: {state} · egne strømmer: {n}",
                        ["state": model.useBuiltInStreams ? L("på") : L("av"), "n": model.streamOverrides.count]))
         lines.append(L("Plex: {state}", ["state": plexState(model.plex)]))

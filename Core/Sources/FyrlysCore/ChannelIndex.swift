@@ -15,6 +15,12 @@ public struct ChannelIndex: Sendable {
     public let merged: [String: [String]]
     /// nøklene (`channelKey`) kanalene ble slått sammen etter
     public let mergeKeys: Set<String>
+    /// landene som skal vises (kodene fra `countryOf`, "" = kategoriene uten land; nil: alle)
+    public let countries: Set<String>?
+    /// ryddige navn: «NOR: TV 2 [720p]» → «TV 2» med et 720p-merke (se `tidyChannelName`)
+    public let tidy: Bool
+    /// landene i hele lista fra leverandøren (også de som er skjult), til valget av land
+    public let countryGroups: [CountryGroup]
     /// kanalene en egen strøm gjelder for: id → nøkkelen (også id-ene som er slått inn i en annen)
     let streamKeyById: [String: String]
     /// navnene på kanalene hver egen strøm gjelder for, hos leverandøren (til innstillingene)
@@ -29,9 +35,15 @@ public struct ChannelIndex: Sendable {
     /// NRK1 FHD og NRK 1 HD NO → NRK1). Den med programinfo og logo beholdes og står i alle kategoriene de andre sto
     /// i; id-ene til de andre peker til den. En kanal med «a/b» i navnet blir to når begge har en strøm
     /// («NRK 3/SUPER NO» → «NRK 3 NO» og «NRK SUPER NO», med id-en `<id>~nrksuper`).
-    public init(_ lists: Lists, merging keys: Set<String> = []) {
+    ///
+    /// [countries]: bare kategoriene fra disse landene vises (i kategoriene, «Alle kanaler» og søket); finnes ingen av
+    /// dem (leverandøren har byttet navn på kategoriene), vises alt. `byId` har også kanalene som er skjult, så
+    /// favorittene og «Sist sett» står som før. [tidy]: ryddige kanal- og kategorinavn (som Fyrlys for Windows 2.1.47).
+    public init(_ lists: Lists, merging keys: Set<String> = [], countries: Set<String>? = nil, tidy: Bool = false) {
         self.lists = lists
         mergeKeys = keys
+        self.countries = countries
+        self.tidy = tidy
         var source: [Channel] = []
         var keyAt: [Int: String] = [:]
         // landet i navnet («TV 2 HD DK»): en strøm uten land gjelder de norske, se `homeCountries`
@@ -94,15 +106,14 @@ public struct ChannelIndex: Sendable {
         self.merged = merged
         self.streamKeyById = streamKeyById
         self.streamNames = streamNames
-        // kanalene uten de som er slått inn i en annen
+        // kanalene uten de som er slått inn i en annen (med ryddige navn når det er valgt)
         var channels: [Channel] = []
         var newIndex: [Int: Int] = [:]
         channels.reserveCapacity(source.count)
         for (i, channel) in source.enumerated() where keptFor[i] == nil || keptFor[i] == i {
             newIndex[i] = channels.count
-            channels.append(channel)
+            channels.append(tidy ? Self.tidied(channel) : channel)
         }
-        self.channels = channels
         // kategoriene: en sammenslått kanal står der hver av dem sto, én gang
         var positions: [String: [Int]] = [:]
         var placed = Set<String>()
@@ -111,14 +122,52 @@ public struct ChannelIndex: Sendable {
             if keptFor[i] != nil, !placed.insert("\(channel.categoryId)|\(at)").inserted { continue }
             positions[channel.categoryId, default: []].append(at)
         }
+        // alle kanalene, også de som er skjult (favorittene og «Sist sett» står som før)
         var byId: [String: Channel] = [:]
         byId.reserveCapacity(source.count)
         for channel in channels where byId[channel.id] == nil { byId[channel.id] = channel }
-        for (i, kept) in keptFor where i != kept { byId[source[i].id] = source[kept] }
+        for (i, kept) in keptFor where i != kept {
+            if let at = newIndex[kept] { byId[source[i].id] = channels[at] }
+        }
         self.byId = byId
+        // landet hver kategori hører til ("" = uten land), og landene i hele lista
+        var countryById: [String: String] = [:]
+        for category in lists.categories where countryById[category.id] == nil {
+            countryById[category.id] = countryOf(category.name) ?? ""
+        }
+        countryGroups = FyrlysCore.countryGroups(lists.categories, lists.channels, countries: countryById)
+        // bare landene som er valgt (finnes ingen av dem, vises alt heller enn ingenting)
+        if let countries {
+            let shown = Set(positions.keys.filter { countries.contains(countryById[$0] ?? "") })
+            if !shown.isEmpty, shown.count < positions.count {
+                var keep = [Bool](repeating: false, count: channels.count)
+                for id in shown {
+                    for at in positions[id] ?? [] { keep[at] = true }
+                }
+                var moved = [Int](repeating: -1, count: channels.count)
+                var visible: [Channel] = []
+                visible.reserveCapacity(channels.count)
+                for at in channels.indices where keep[at] {
+                    moved[at] = visible.count
+                    visible.append(channels[at])
+                }
+                channels = visible
+                positions = positions.filter { shown.contains($0.key) }.mapValues { $0.map { moved[$0] } }
+            }
+        }
+        self.channels = channels
         self.positions = positions
         byCategory = positions.mapValues { $0.map { channels[$0] } }
-        categories = lists.categories.filter { positions[$0.id] != nil }
+        var categories = lists.categories.filter { positions[$0.id] != nil }
+        if tidy {
+            // flere land: koden står igjen foran kategorinavnet («SE · SPORT»), ellers blir to kategorier like
+            let several = Set(categories.compactMap { countryById[$0.id] }.filter { !$0.isEmpty }).count > 1
+            categories = categories.map { category in
+                let name = tidyCategoryName(category.name, keepCountry: several)
+                return name == category.name ? category : ChannelCategory(id: category.id, name: name)
+            }
+        }
+        self.categories = categories
         categoryById = Dictionary(categories.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         // en sammenslått kanal finnes på navnene til alle (søk på «nrk1» finner «NRK 1» når «NRK1 HD» var med)
         if merged.isEmpty {
@@ -128,9 +177,25 @@ public struct ChannelIndex: Sendable {
             for i in keptFor.keys { names[source[i].id] = source[i].name }
             searchNames = channels.map { channel in
                 guard let ids = merged[channel.id] else { return channel.name.lowercased() }
-                return ids.compactMap { names[$0] }.joined(separator: " | ").lowercased()
+                let all = ids.compactMap { names[$0] }
+                return (tidy ? [channel.name] + all : all).joined(separator: " | ").lowercased()
             }
         }
+    }
+
+    /// Kanalen med det ryddige navnet (se `tidyChannelName`), eller som den er.
+    static func tidied(_ channel: Channel) -> Channel {
+        let tidy = tidyChannelName(channel.name)
+        guard tidy.name != channel.name || tidy.quality != nil else { return channel }
+        return channel.tidied(name: tidy.name, quality: tidy.quality)
+    }
+
+    /// Lista har kanaler fra flere land (da kan du velge hvilke som vises).
+    public var hasCountries: Bool { hasSeveralCountries(countryGroups) }
+
+    /// Lagd med de samme valgene (nøklene, landene og ryddige navn).
+    public func hasSameOptions(merging keys: Set<String>, countries: Set<String>?, tidy: Bool) -> Bool {
+        mergeKeys == keys && self.countries == countries && self.tidy == tidy
     }
 
     /// Id-ene en kanal har (flere når kanaler er slått sammen).

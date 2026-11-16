@@ -18,6 +18,8 @@ enum ProviderAgent {
 struct PickerLists {
     let channels: [Channel]
     let categories: [ChannelCategory]
+    /// alle kanalene på id, også de fra land som er skjult (favorittene og «Sist sett»)
+    let byId: [String: Channel]
     let favorites: [String]
     let recent: [String]
     let favoriteCategories: [String]
@@ -67,7 +69,7 @@ final class AppModel {
     /// et program fra start (TV-arkivet), vist av HomeView over alt annet
     var replay: VODPlay?
     /// listene til innlogginger som ikke er i bruk (kanalvalget i multiview), hentet én gang
-    @ObservationIgnored private var otherLists: [String: Lists] = [:]
+    @ObservationIgnored private var otherLists: [String: ChannelIndex] = [:]
     /// en film eller serie som skal åpnes (fra Top Shelf: fyrlys://vod/…), vist av fanen den hører til
     var pendingVOD: VODItem?
     #if os(macOS)
@@ -81,6 +83,8 @@ final class AppModel {
     var multiview: MultiviewRequest?
     /// multiview venter på at spilleren for direktesendingen er lukket (den bruker en tilkobling)
     @ObservationIgnored var pendingMultiview: MultiviewRequest?
+    /// TV-arkivet for en kanal venter på at spilleren for direktesendingen er lukket
+    @ObservationIgnored var pendingArchive: Channel?
     /// telles opp når «Fortsett å se» endres
     private(set) var continueVersion = 0
     /// telles opp når favorittene i Filmer eller Serier endres (her eller på en annen enhet)
@@ -338,6 +342,8 @@ final class AppModel {
     /// til Plex, filmene og seriene, og kanallista når den er noen timer gammel (eventkanalene har kampene i navnet).
     func becameActive() {
         guard phase == .ready, login != nil else { return }
+        // tjeneren for tilbakespoling kan ha mistet porten mens appen var i bakgrunnen (Apple TV-en sov)
+        Task { await ShiftServer.shared.ensureAlive() }
         programs.refreshVisible()
         plex.reprobe()
         movies.refreshIfOld()
@@ -375,6 +381,7 @@ final class AppModel {
         listsFetchedAt = nil
         library = Library(store: store, loginId: login.id)
         libraryVersion += 1
+        loadCountries()
         pictureFormats = PictureFormats(defaults.dictionary(forKey: Self.pictureKey(login)) as? [String: String] ?? [:])
         pictureVersion += 1
         programs.reset(source: source)
@@ -383,12 +390,14 @@ final class AppModel {
         let cache = cache
         let id = login.id
         let keys = mergeKeys
+        let countries = shownCountries
+        let tidy = tidyNames
         let m3uSource = self.m3u
         Task {
             // lista fra sist leses og pakkes ut i bakgrunnen: med titusenvis av kanaler sto appen ellers stille imens
             let lists = fresh
             let saved = await Task.detached(priority: .userInitiated) { () -> ChannelIndex? in
-                (lists ?? cache.read(id)).map { ChannelIndex($0, merging: keys) }
+                (lists ?? cache.read(id)).map { ChannelIndex($0, merging: keys, countries: countries, tidy: tidy) }
             }.value
             guard gen == generation else { return }
             if let saved {
@@ -448,9 +457,12 @@ final class AppModel {
             AppLog.shared.add("Listene: \(lists.channels.count) kanaler i \(lists.categories.count) kategorier")
             listsFetchedAt = Date()
             let keys = mergeKeys
+            let countries = shownCountries
+            let tidy = tidyNames
             // oppslagene lages i bakgrunnen, og bare når lista er endret: ellers tegnes alt på nytt for ingenting
             let next = await Task.detached(priority: .userInitiated) { () -> ChannelIndex? in
-                current.hasSameLists(as: lists) && current.mergeKeys == keys ? nil : ChannelIndex(lists, merging: keys)
+                current.hasSameLists(as: lists) && current.hasSameOptions(merging: keys, countries: countries, tidy: tidy)
+                    ? nil : ChannelIndex(lists, merging: keys, countries: countries, tidy: tidy)
             }.value
             guard gen == generation else { return }
             if let next {
@@ -503,6 +515,11 @@ final class AppModel {
             multiview = next
             return
         }
+        if let channel = pendingArchive {
+            pendingArchive = nil
+            archiveChannel = channel
+            return
+        }
         guard let next = pendingReplay else { return }
         pendingReplay = nil
         replay = next
@@ -545,14 +562,25 @@ final class AppModel {
     /// ikke hver gang en kanal velges (som Fyrlys for Windows 2.1.45).
     func pickerLists(of other: Login) async throws -> PickerLists {
         let lib = other.id == login?.id ? library : Library(store: store, loginId: other.id)
-        let lists: Lists
         if other.id == login?.id, !index.channels.isEmpty {
-            lists = index.lists
-        } else if let kept = otherLists[other.id] {
-            lists = kept
+            return PickerLists(channels: allChannels, categories: index.categories, byId: index.byId,
+                               favorites: lib?.favorites ?? [], recent: lib?.recent ?? [],
+                               favoriteCategories: lib?.favoriteCategories ?? [])
+        }
+        // som lista ellers vises: landene som er valgt for innloggingen, og ryddige navn
+        let keys = mergeKeys
+        let countries = Self.countries(store.strings(Self.countriesKey(other.id)))
+        let tidy = tidyNames
+        let otherIndex: ChannelIndex
+        if let kept = otherLists[other.id] {
+            otherIndex = kept.hasSameOptions(merging: keys, countries: countries, tidy: tidy) ? kept
+                : await Task.detached(priority: .userInitiated) {
+                    ChannelIndex(kept.lists, merging: keys, countries: countries, tidy: tidy)
+                }.value
         } else {
             let cache = cache
             let id = other.id
+            let lists: Lists
             if let saved = await Task.detached(priority: .userInitiated, operation: { cache.read(id) }).value,
                !saved.channels.isEmpty {
                 lists = saved
@@ -564,10 +592,13 @@ final class AppModel {
                 async let chans = client.channels()
                 lists = Lists(categories: try await cats, channels: try await chans)
             }
-            otherLists[other.id] = lists
+            otherIndex = await Task.detached(priority: .userInitiated) {
+                ChannelIndex(lists, merging: keys, countries: countries, tidy: tidy)
+            }.value
         }
-        let channels = other.id == login?.id && !allChannels.isEmpty ? allChannels : lists.channels
-        return PickerLists(channels: channels, categories: lists.categories,
+        otherLists[other.id] = otherIndex
+        return PickerLists(channels: otherIndex.channels(favoring: lib?.favoriteCategories ?? []),
+                           categories: otherIndex.categories, byId: otherIndex.byId,
                            favorites: lib?.favorites ?? [], recent: lib?.recent ?? [],
                            favoriteCategories: lib?.favoriteCategories ?? [])
     }
@@ -728,23 +759,67 @@ final class AppModel {
         // de egne går foran de innebygde
         let all = streamOverrides + (builtInOn ? builtInStreams : [])
         streamByKey = Dictionary(all.map { ($0.key, $0.url) }, uniquingKeysWith: { first, _ in first })
-        remerge()
+        reindex()
     }
 
     /// Kanalene som spilles fra samme egne strøm (NRK1 HD, NRK1 FHD …), slås sammen til én.
     private var mergeKeys: Set<String> { Set(streamByKey.keys) }
 
-    /// Oppslagene på nytt når de egne strømmene er endret (i bakgrunnen).
-    private func remerge() {
+    /// Oppslagene på nytt når de egne strømmene, landene som vises eller de ryddige navnene er endret (i bakgrunnen).
+    private func reindex() {
         let current = index
         let keys = mergeKeys
-        guard current.mergeKeys != keys, !current.lists.channels.isEmpty else { return }
+        let countries = shownCountries
+        let tidy = tidyNames
+        guard !current.hasSameOptions(merging: keys, countries: countries, tidy: tidy),
+              !current.lists.channels.isEmpty else { return }
         let gen = generation
         Task {
-            let next = await Task.detached(priority: .userInitiated) { ChannelIndex(current.lists, merging: keys) }.value
-            guard gen == generation, mergeKeys == keys else { return }
+            let next = await Task.detached(priority: .userInitiated) {
+                ChannelIndex(current.lists, merging: keys, countries: countries, tidy: tidy)
+            }.value
+            guard gen == generation,
+                  next.hasSameOptions(merging: mergeKeys, countries: shownCountries, tidy: tidyNames) else { return }
             show(next)
         }
+    }
+
+    // ── land som vises og ryddige navn (som Fyrlys for Windows 2.1.47) ──
+
+    /// landene som vises i innloggingen i bruk (kodene fra `countryOf`, "" = kategoriene uten land); nil: alle.
+    /// Per innlogging, og i iCloud (valgt på iPhone, gjelder på Apple TV).
+    private(set) var shownCountries: Set<String>?
+
+    /// ryddige kanal- og kategorinavn («NOR: TV 2 [720p]» → «TV 2» med et 720p-merke); på, men kan slås av
+    var tidyNames: Bool {
+        get { tidyOn }
+        set {
+            tidyOn = newValue
+            defaults.set(!newValue, forKey: "ryddige-navn-av")
+            AppLog.shared.add("Ryddige navn: \(newValue ? "på" : "av")")
+            reindex()
+        }
+    }
+    private var tidyOn = !TestSupport.defaults.bool(forKey: "ryddige-navn-av")
+
+    static func countriesKey(_ loginId: String) -> String { "land@\(loginId)" }
+
+    /// Landene som er lagret (tom: alle).
+    private static func countries(_ codes: [String]) -> Set<String>? { codes.isEmpty ? nil : Set(codes) }
+
+    private func loadCountries() {
+        shownCountries = login.flatMap { Self.countries(store.strings(Self.countriesKey($0.id))) }
+    }
+
+    /// Viser bare [codes] (nil: alle land) i innloggingen i bruk.
+    func setShownCountries(_ codes: Set<String>?) {
+        guard let login else { return }
+        let codes = codes?.isEmpty == true ? nil : codes
+        guard codes != shownCountries else { return }
+        shownCountries = codes
+        store.set(codes.map { $0.sorted() } ?? [], for: Self.countriesKey(login.id))
+        AppLog.shared.add("Land som vises: \(codes.map { $0.sorted().joined(separator: ", ") } ?? "alle")")
+        reindex()
     }
 
     func setStreams(_ text: String) {
@@ -954,6 +1029,9 @@ final class AppModel {
     /// Favorittene eller «Dine kategorier» er endret på en annen enhet (iCloud).
     private func libraryChangedElsewhere() {
         loadStreams()
+        let countries = shownCountries
+        loadCountries()
+        if shownCountries != countries { reindex() }
         let before = hiddenLibraries
         loadHiddenLibraries()
         let order = libraryOrder

@@ -56,30 +56,43 @@ struct PlayerView: View {
 }
 
 /// Direktesendingen med VLC (Apple TV): bildet over hele skjermen, kanalen og programmet nederst en stund etter hvert
-/// bytte (og ved trykk). Opp og ned bytter kanal, spill/pause og velg = pause, Menu lukker.
+/// bytte. Opp og ned bytter kanal, spill/pause = pause, Menu lukker. Et trykk på bildet gir valgene under infolinja,
+/// som i Apples avspiller: kanallista, favoritt, lyd, undertekster, bildeformat, strøminfo, se fra start, TV-arkivet og
+/// multiview (Menu eller opp tar dem bort igjen).
 private struct LiveVLCScreen: View {
     @Environment(AppModel.self) private var app
     let model: PlayerModel
     let vlc: VLCEngine
     let close: () -> Void
+
+    private enum Field: Hashable {
+        case screen, channels, favorite, audio, subtitles, format, info, startOver, archive, multiview
+    }
+
+    /// det som vises over knappene
+    private enum Shelf { case channels, info }
+
     @State private var info = true
+    /// valgene (knappene) står framme
+    @State private var options = false
+    @State private var shelf: Shelf?
     @State private var hideTask: Task<Void, Never>?
-    @FocusState private var focused: Bool
+    @FocusState private var focus: Field?
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             VLCSurface(engine: vlc)
                 .ignoresSafeArea()
             Button {
-                vlc.togglePause()
-                show()
+                openOptions()
             } label: {
                 Color.clear
                     .contentShape(Rectangle())
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .buttonStyle(BareButtonStyle())
-            .focused($focused)
+            .focused($focus, equals: .screen)
+            .disabled(options)
             .ignoresSafeArea()
             .accessibilityIdentifier(vlc.started ? "live-vlc" : "live-vlc-venter")
             if !vlc.started {
@@ -87,18 +100,38 @@ private struct LiveVLCScreen: View {
                     .scaleEffect(1.5)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            if info || !vlc.isPlaying {
-                infoBar
-                    .transition(.opacity)
+            if info || options || !vlc.isPlaying {
+                VStack(alignment: .leading, spacing: 0) {
+                    if options, let shelf {
+                        shelfView(shelf)
+                            .transition(.opacity)
+                    }
+                    infoBar
+                    if options {
+                        optionRow
+                            .transition(.opacity)
+                    }
+                }
+                .background(LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea())
+                .transition(.opacity)
             }
         }
-        .defaultFocus($focused, true)
+        .defaultFocus($focus, .screen)
         .onAppear {
-            focused = true
+            focus = .screen
             show()
         }
-        .onChange(of: model.channel.id) { show() }
+        .onChange(of: model.channel.id) {
+            closeOptions()
+            show()
+        }
         .onMoveCommand { direction in
+            if options {
+                // opp fra knappene: bort med valgene (ikke når kanallista står over: dit går fokus)
+                if direction == .up, focus != nil, shelf != .channels { closeOptions() }
+                return
+            }
             switch direction {
             case .up: model.step(-1)
             case .down: model.step(1)
@@ -109,7 +142,17 @@ private struct LiveVLCScreen: View {
             vlc.togglePause()
             show()
         }
-        .onExitCommand(perform: close)
+        .onExitCommand {
+            if options, shelf == .channels, focus == nil {
+                // fra kanallista: tilbake til knappene
+                withAnimation { shelf = nil }
+                focus = .channels
+            } else if options {
+                closeOptions()
+            } else {
+                close()
+            }
+        }
     }
 
     private var infoBar: some View {
@@ -127,9 +170,11 @@ private struct LiveVLCScreen: View {
                         .foregroundStyle(Color.white.opacity(0.8))
                         .lineLimit(1)
                 }
-                Text(L("Opp og ned bytter kanal"))
-                    .font(.system(size: 20))
-                    .foregroundStyle(Color.white.opacity(0.55))
+                if !options {
+                    Text(L("Opp og ned bytter kanal  ·  trykk for flere valg"))
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color.white.opacity(0.55))
+                }
             }
             Spacer(minLength: 0)
             if !vlc.isPlaying && vlc.started {
@@ -139,10 +184,127 @@ private struct LiveVLCScreen: View {
             }
         }
         .padding(.horizontal, 60)
-        .padding(.vertical, 36)
+        .padding(.top, 36)
+        .padding(.bottom, options ? 18 : 36)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .top, endPoint: .bottom))
         .allowsHitTesting(false)
+    }
+
+    /// Valgene: én knapp per valg, i samme rekkefølge som i Apples avspiller der det finnes.
+    private var optionRow: some View {
+        HStack(spacing: 22) {
+            Button {
+                withAnimation { shelf = shelf == .channels ? nil : .channels }
+            } label: {
+                Label(L("Kanaler"), systemImage: "list.bullet")
+            }
+            .focused($focus, equals: .channels)
+            .accessibilityIdentifier("live-kanaler")
+            Button {
+                model.toggleFavorite()
+            } label: {
+                Label(model.isFavorite ? L("Fjern fra favoritter") : L("Legg til i favoritter"),
+                      systemImage: model.isFavorite ? "star.fill" : "star")
+            }
+            .focused($focus, equals: .favorite)
+            .accessibilityIdentifier("live-favoritt")
+            if vlc.hasAudioChoice {
+                VLCAudioMenu(engine: vlc, id: "live-lyd")
+                    .focused($focus, equals: .audio)
+            }
+            if vlc.hasSubtitles {
+                VLCSubtitleMenu(engine: vlc, id: "live-tekst")
+                    .focused($focus, equals: .subtitles)
+            }
+            Menu {
+                Picker(L("Bildeformat"), selection: Binding(get: { model.pictureFormat },
+                                                             set: { model.setPictureFormat($0) })) {
+                    ForEach(PictureFormat.allCases, id: \.self) { format in
+                        Text(format.title).tag(format)
+                    }
+                }
+            } label: {
+                Label(L("Bildeformat"), systemImage: "aspectratio")
+            }
+            .focused($focus, equals: .format)
+            .accessibilityIdentifier("live-bildeformat")
+            Button {
+                withAnimation { shelf = shelf == .info ? nil : .info }
+            } label: {
+                Label(L("Strøminfo"), systemImage: "info.circle")
+            }
+            .focused($focus, equals: .info)
+            .accessibilityIdentifier("live-strominfo")
+            if model.canStartOver {
+                Button {
+                    model.startOver()
+                } label: {
+                    Label(L("Se fra start"), systemImage: "backward.end")
+                }
+                .focused($focus, equals: .startOver)
+                .accessibilityIdentifier("live-fra-start")
+            }
+            if model.canArchive {
+                Button {
+                    model.openArchive()
+                } label: {
+                    Label(L("TV-arkiv"), systemImage: "clock.arrow.circlepath")
+                }
+                .focused($focus, equals: .archive)
+                .accessibilityIdentifier("live-arkiv")
+            }
+            if model.canMultiview {
+                Button {
+                    model.openMultiview()
+                } label: {
+                    Label(L("Multiview"), systemImage: "rectangle.split.2x2")
+                }
+                .focused($focus, equals: .multiview)
+                .accessibilityIdentifier("live-multiview")
+            }
+        }
+        .font(.system(size: 22, weight: .semibold))
+        .labelStyle(.titleAndIcon)
+        .padding(.horizontal, 60)
+        .padding(.bottom, 44)
+        .focusSection()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("live-valg")
+    }
+
+    @ViewBuilder
+    private func shelfView(_ shelf: Shelf) -> some View {
+        Group {
+            switch shelf {
+            case .channels:
+                ChannelStrip(model: model)
+                    .frame(height: 300)
+                    .focusSection()
+            case .info:
+                StreamInfoPanel(model: model)
+            }
+        }
+        // mørk bak teksten (over et lyst bilde var den vanskelig å lese)
+        .background(Color.black.opacity(0.7))
+    }
+
+    private func openOptions() {
+        hideTask?.cancel()
+        withAnimation {
+            info = true
+            options = true
+        }
+        focus = .channels
+    }
+
+    private func closeOptions() {
+        guard options else { return }
+        withAnimation {
+            options = false
+            shelf = nil
+        }
+        focus = .screen
+        show()
     }
 
     private func show() {
@@ -151,17 +313,20 @@ private struct LiveVLCScreen: View {
         guard !TestSupport.isActive else { return }
         hideTask = Task {
             try? await Task.sleep(for: .seconds(5))
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, !options else { return }
             withAnimation { info = false }
         }
     }
 }
 
-/// Når kanalen ikke kan spilles.
+/// Når kanalen ikke kan spilles. «Send feilrapport» sender rapporten (med loggen fra nå) til iPhone og iPad via
+/// iCloud, så årsaken kan finnes.
 private struct PlayerError: View {
+    @Environment(AppModel.self) private var app
     let model: PlayerModel
     let message: String
     let close: () -> Void
+    @State private var sent = false
 
     var body: some View {
         VStack(spacing: 34) {
@@ -180,9 +345,23 @@ private struct PlayerError: View {
             HStack(spacing: 40) {
                 Button(L("Prøv igjen")) { model.retry() }
                 Button(L("Neste kanal")) { model.step(1) }
+                Button(L("Send feilrapport")) {
+                    app.sendReport(ErrorReport.build(app))
+                    sent = true
+                }
+                .disabled(sent)
+                .accessibilityIdentifier("send-rapport-spiller")
                 Button(L("Lukk"), action: close)
             }
+            if sent {
+                Text(L("Sendt. Åpne Fyrlys på iPhone eller iPad med samme Apple-ID: Feilrapport, «Fra Apple TV»."))
+                    .font(.system(size: 24))
+                    .foregroundStyle(Theme.muted)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 1200)
+            }
         }
+        .onChange(of: message) { sent = false }
     }
 }
 
@@ -222,6 +401,11 @@ struct PlayerController: UIViewControllerRepresentable {
         if model.canStartOver {
             items.append(UIAction(title: L("Se fra start"), image: UIImage(systemName: "backward.end")) { _ in
                 MainActor.assumeIsolated { model.startOver() }
+            })
+        }
+        if model.canArchive {
+            items.append(UIAction(title: L("TV-arkiv"), image: UIImage(systemName: "clock.arrow.circlepath")) { _ in
+                MainActor.assumeIsolated { model.openArchive() }
             })
         }
         if model.canMultiview {

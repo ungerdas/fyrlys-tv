@@ -51,6 +51,10 @@ public func channelKeyAndCountry(_ name: String) -> (key: String, country: Strin
         if trailingCountryCodes.contains(code) { country = code }
         s = String(s[m.upperBound...])
     }
+    // et annet merke foran: «GOLD: NRK1 [1080p]», «VIP: NRK2» (som Fyrlys for Windows 2.1.47)
+    if let m = s.range(of: #"^[a-z][a-z0-9+]{1,7}\s*:\s*"#, options: .regularExpression) {
+        s = String(s[m.upperBound...])
+    }
     // bare det første av «kanal | noe annet»
     if let bar = s.range(of: " | ") { s = String(s[..<bar.lowerBound]) }
     var words = s.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
@@ -95,7 +99,24 @@ public func matchingStreamKeys(_ name: String, in keys: Set<String>) -> [(key: S
     let byWord = matches(channelAlternatives(name))
     guard name.contains("/") else { return byWord }
     let bySide = matches(wholeAlternatives(name))
-    return bySide.count > byWord.count ? bySide : byWord
+    let best = bySide.count > byWord.count ? bySide : byWord
+    // «NRK3/SUPER»: skråstreken skiller ikke to hele navn, men det er NRK3 og NRK Super (som i Fyrlys for Windows)
+    if best.count < 2, sharedNRK.contains(channelKey(name)), keys.contains("nrk3"), keys.contains("nrksuper") {
+        return [("nrk3", replacingAlternatives(name, with: "NRK3")),
+                ("nrksuper", replacingAlternatives(name, with: "NRK Super"))]
+    }
+    return best
+}
+
+/// Navnene NRK3 og NRK Super har når de deler kanal hos leverandøren («NRK3/SUPER», «NRK Super/3»).
+let sharedNRK: Set<String> = ["nrk3super", "nrk3nrksuper", "nrksupernrk3", "nrksuper3"]
+
+/// [name] med «a/b» byttet med [replacement]: «VIP: NRK3/SUPER [1080p]» → «VIP: NRK Super [1080p]».
+func replacingAlternatives(_ name: String, with replacement: String) -> String {
+    guard let r = name.range(of: #"[\p{L}\p{N}]+(\s*/\s*[\p{L}\p{N}]+)+"#, options: .regularExpression) else {
+        return replacement
+    }
+    return name.replacingCharacters(in: r, with: replacement)
 }
 
 /// Nøkkelen en adresse gjelder for: filnavnet uten filtype, eller mappen over når filnavnet er generelt.

@@ -122,6 +122,10 @@ struct ChannelCard: View {
                         .font(.system(size: Metrics.cardTitle, weight: .semibold))
                         .foregroundStyle(Theme.ink)
                         .lineLimit(twoLines ? 2 : 1)
+                    // kvaliteten som sto i navnet («720p»), når den ikke er den vanlige
+                    if let quality = channel.quality {
+                        QualityBadge(text: quality, size: Metrics.cardSub * 0.78)
+                    }
                 }
                 if !parts.sub.isEmpty {
                     Text(verbatim: parts.sub)

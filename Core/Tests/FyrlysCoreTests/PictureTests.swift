@@ -40,6 +40,10 @@ final class PictureTests: XCTestCase {
         XCTAssertEqual(fourCCText(0x6176_6331), "avc1")
         XCTAssertEqual(fourCCText(0x6563_2D33), "ec-3")
         XCTAssertEqual(fourCCText(3), "3")
+        // VLC: den første bokstaven i den laveste byten
+        XCTAssertEqual(vlcFourCCText(0x3436_3268), "h264")
+        XCTAssertEqual(codecName(vlcFourCCText(0x2032_3561)), "AC3")
+        XCTAssertEqual(codecName("mpgv"), "MPEG-2")
         var info = StreamInfo()
         XCTAssertTrue(info.isEmpty)
         info.width = 1920

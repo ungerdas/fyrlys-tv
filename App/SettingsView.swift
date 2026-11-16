@@ -99,6 +99,8 @@ struct SettingsView: View {
                             .frame(maxWidth: 760, alignment: .leading)
                     }
 
+                    ChannelListSettings()
+
                     PlexSettings()
 
                     StreamSettings()

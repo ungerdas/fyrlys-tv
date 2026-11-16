@@ -78,6 +78,7 @@ struct SettingsView: View {
                     Text(L("Innloggingene (også passordene) lagres i iCloud-kontoen din, så de finnes på Apple TV, iPhone, iPad og Mac med samme Apple-ID."))
                 }
                 .listRowBackground(Theme.surface)
+                ChannelListSettings()
                 PlexSettings()
                 StreamSettings()
                 Section(L("Utseende")) {

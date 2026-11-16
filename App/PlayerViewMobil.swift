@@ -392,7 +392,7 @@ private struct PlayerPanel: View {
         .accessibilityValue(TestSupport.isActive ? Text(verbatim: model.tried.joined(separator: " ")) : Text(""))
     }
 
-    /// «Mer»: bildeformatet for kanalen og strøminfoen.
+    /// «Mer»: bildeformatet for kanalen og strøminfoen, og lydsporet og undertekstene når kanalen spilles med VLC.
     private var more: some View {
         Menu {
             Picker(selection: Binding(get: { model.pictureFormat }, set: { model.setPictureFormat($0) })) {
@@ -403,6 +403,28 @@ private struct PlayerPanel: View {
                 Label(L("Bildeformat"), systemImage: "aspectratio")
             }
             .pickerStyle(.menu)
+            if let vlc = model.vlc {
+                if vlc.hasAudioChoice {
+                    Picker(selection: Binding(get: { vlc.audioTrack }, set: { vlc.selectAudio($0) })) {
+                        ForEach(vlc.audioTracks.filter { $0.id >= 0 }) { track in
+                            Text(verbatim: track.name).tag(track.id)
+                        }
+                    } label: {
+                        Label(L("Lyd"), systemImage: "speaker.wave.2")
+                    }
+                    .pickerStyle(.menu)
+                }
+                if vlc.hasSubtitles {
+                    Picker(selection: Binding(get: { vlc.subtitleTrack }, set: { vlc.selectSubtitle($0) })) {
+                        ForEach(vlc.subtitleTracks) { track in
+                            Text(verbatim: track.name).tag(track.id)
+                        }
+                    } label: {
+                        Label(L("Undertekster"), systemImage: "captions.bubble")
+                    }
+                    .pickerStyle(.menu)
+                }
+            }
             Button {
                 showInfo.toggle()
             } label: {
@@ -574,9 +596,11 @@ private struct ChannelRow: View {
 
 /// Når kanalen ikke kan spilles: forklaringen og prøv igjen, neste kanal eller lukk.
 private struct PlayerErrorMobil: View {
+    @Environment(AppModel.self) private var app
     let model: PlayerModel
     let message: String
     let close: () -> Void
+    @State private var report = false
 
     var body: some View {
         VStack(spacing: 14) {
@@ -594,6 +618,16 @@ private struct PlayerErrorMobil: View {
             }
             .buttonStyle(.bordered)
             .tint(Theme.signal)
+            // rapporten med loggen fra nå (kopier eller del den)
+            Button(L("Feilrapport")) { report = true }
+                .font(.subheadline)
+                .tint(Theme.muted)
+                .accessibilityIdentifier("feilrapport-spiller")
+        }
+        .sheet(isPresented: $report) {
+            ErrorReportView()
+                .environment(app)
+                .macSheetSize()
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

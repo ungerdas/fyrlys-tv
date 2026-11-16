@@ -124,6 +124,17 @@ final class LoginProblemTests: XCTestCase {
         XCTAssertEqual(channelStatusProblem(404, provider: false), "Strømmen svarte HTTP 404.")
     }
 
+    /// Kanalen svarte ikke i det hele tatt (tjeneren tok ikke imot, tidsavbrudd, brutt forbindelse).
+    func testChannelConnectionProblem() {
+        XCTAssertTrue(channelConnectionProblem(URLError(.cannotConnectToHost), provider: true)?
+            .contains("tok ikke imot tilkoblingen") == true)
+        XCTAssertTrue(channelConnectionProblem(URLError(.networkConnectionLost), provider: true)?
+            .contains("tilkoblingene") == true)
+        XCTAssertTrue(channelConnectionProblem(URLError(.timedOut), provider: false)?.hasPrefix("Strømmen") == true)
+        XCTAssertNotNil(channelConnectionProblem(URLError(.notConnectedToInternet), provider: true))
+        XCTAssertNil(channelConnectionProblem(URLError(.cancelled), provider: true))
+    }
+
     func testHLSAndTS() {
         let info: [String: Any] = ["auth": 1, "status": "Active", "allowed_output_formats": ["ts", "rtmp"]]
         XCTAssertTrue(parseAccount(info).hlsBlocked)
