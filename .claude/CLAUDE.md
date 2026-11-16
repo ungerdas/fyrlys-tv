@@ -1026,5 +1026,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Apple TV (`test13Serier`, `test19PlexSerier` og de andre testene som bruker siden), iPhone og iPad (`test14Serier`,
   `test20PlexSerier` og de andre) og Mac (bildet). Pushet 16.11 («push når du er ferdig»). 0.2.10 (bygg 79) er i
   TestFlight, VALID for TV_OS, IOS og MAC_OS, sendt til den eksterne gruppa; UI-testjobbene fikk ingen Mac («not
-  acquired by Runner») og ble kjørt på nytt med `gh run rerun <id> --failed` (lager ikke et nytt TestFlight-bygg). Ikke
+  acquired by Runner») og ble kjørt på nytt med `gh run rerun <id> --failed` (lager ikke et nytt TestFlight-bygg); da
+  ble alle grønne. Ikke
   prøvd mot Plex-serveren hans: bakgrunnsbildet med den nye toningen, handlingen i sesongene, «Merk sesongen som sett».
