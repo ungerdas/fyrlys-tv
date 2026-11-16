@@ -415,7 +415,13 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (Core `MultiviewLayout.swift`: `like`/`side`/`topp`, `multiviewFrames`, 16:9 i side og topp; side blir topp når
   skjermen står) i `multiview-oppsett`; hurtigmenyen («Oppsett», «Gjør til hovedbildet», «Legg til et bilde», «Fjern
   bildet») og knappen `multiview-oppsett` med `oppsett-<…>`, `legg-til-bilde`, `fjern-bilde` på iPhone/iPad/Mac.
-  Falsk leverandør: `--tilkoblinger N` (max_connections).
+  Falsk leverandør: `--tilkoblinger N` (max_connections). Fra 0.2.10 (eieren 16.11: «blå kant hele tiden, og navn
+  synlig hele tiden, det er vel ikke nødvendig?»): kanten rundt det valgte og navnene i bildene er borte etter
+  `MultiviewModel.infoTime` (4 s) uten at noe skjer (`showsInfo`, `wake()`: valg, stort bilde, lyd, oppsett, bilder
+  lagt til/fjernet, kanalvalget lukket; Apple TV også `onMoveCommand` (fokus flytter seg fortsatt, også ved kanten
+  kommer de fram) og `onPlayPauseCommand`; iPhone/iPad/Mac `onContinuousHover`); «Velg kanal» og feilene står. I
+  testene `accessibilityValue` «info» på `multiview` når de vises (bildene `69-…-info`). (Windows lar kanten stå og
+  skjuler bare linja nederst etter 3 s.)
 - **TV-spilleren fra 0.1.30** (pakken «TV-spilleren» fra Windows-lista; hvordan Windows gjør det: mpv tar vare på det
   siste selv, `lib/ui/player_page.dart`, `lib/ui/playback.dart`, `lib/core/picture.dart`): pause og tilbakespoling i
   direktesending med et buffer på enheten: `Core/.../LiveShift.swift` (`parseHLS`: hovedliste med varianter (lyden for
@@ -991,3 +997,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (også `test35Land` og `test36PlexArk` på iPad), sendt til den eksterne gruppa. Ikke prøvd mot leverandøren hans:
   landene i kategorinavnene hans (bare «Norway» og andre hele landnavn, eller «Norway - …», kjennes igjen; «Norway
   Sport» uten skilletegn blir «Uten land»), lyd- og undertekstsporene i TS-strømmene.
+- 16.11.2026: eieren om multiview: «blå kant hele tiden, og navn synlig hele tiden, det er vel ikke nødvendig?» →
+  0.2.10: kanten og navnene er borte etter 4 s (se Multiview i Arkitektur). Lokalt testet: `test30Multiview` (Apple
+  TV, også at et trykk mot kanten henter dem fram og at fokus flytter seg som før), `test29Multiview` (iPhone) og musa
+  over bildene på Mac. Committet lokalt, ikke pushet.

@@ -856,10 +856,24 @@ final class FyrlysUITests: XCTestCase {
         let named = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "multiview-bilde-1", "Villmark")).firstMatch
         XCTAssertTrue(named.waitForExistence(timeout: 15), "kanalen kom ikke i det andre bildet")
+        // kanten rundt det valgte og navnene er borte etter noen sekunder, og kommer fram igjen med fjernkontrollen, også
+        // når fokus ikke kan flytte seg (høyre i det høyre bildet); venstre flytter fortsatt fokus
+        let multiview = find(app, "multiview")
+        let info = { (multiview.value as? String) == "info" }
+        if !second.hasFocus { remote.press(.right) }
         wait(8)
         shot("55-multiview")
+        XCTAssertFalse(info(), "kanten og navnene ble ikke borte")
+        XCTAssertTrue(second.hasFocus, "fokus står ikke på det andre bildet")
+        remote.press(.right)
+        XCTAssertTrue(until(3) { info() }, "kanten og navnene kom ikke fram igjen ved kanten")
+        XCTAssertTrue(second.hasFocus, "fokus flyttet seg fra det andre bildet")
+        shot("69-multiview-info")
+        remote.press(.left)
+        XCTAssertTrue(until(3) { first.hasFocus }, "venstre flyttet ikke fokus til det første bildet")
+        remote.press(.right)
+        XCTAssertTrue(until(3) { second.hasFocus }, "høyre flyttet ikke fokus tilbake til det andre bildet")
         // stort bilde, og Menu tilbake til begge
-        if !second.hasFocus { remote.press(.right) }
         remote.press(.select)
         wait(2)
         shot("56-multiview-stort")
@@ -876,7 +890,6 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertGreaterThan(first.frame.width, second.frame.width * 2, "det første bildet ble ikke stort")
         XCTAssertGreaterThan(second.frame.minX, first.frame.maxX, "det andre bildet står ikke ved siden av")
         shot("64-multiview-side")
-        let multiview = find(app, "multiview")
         for _ in 0..<3 where multiview.exists {
             remote.press(.menu)
             wait(2)

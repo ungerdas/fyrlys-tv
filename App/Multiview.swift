@@ -255,16 +255,26 @@ final class MultiviewModel {
     private(set) var muted = false
     /// bildene er fra flere innlogginger (navnet står da ved kanalen)
     private(set) var severalLogins = false
+    /// kanten rundt det valgte bildet og navnene nede i bildene: de vises når noe skjer (fokus, trykk, musa), og er borte
+    /// igjen etter `infoTime` uten at noe har skjedd, som kontrollene i en spiller
+    private(set) var showsInfo = true
     var layout: MultiviewLayout {
-        didSet { defaults.set(layout.rawValue, forKey: "multiview-oppsett") }
+        didSet {
+            defaults.set(layout.rawValue, forKey: "multiview-oppsett")
+            wake()
+        }
     }
     /// én innlogging per tilkobling (høyst fire)
     @ObservationIgnored private var slots: [Login] = []
     @ObservationIgnored private var nextId = 0
     @ObservationIgnored private let defaults = TestSupport.defaults
+    @ObservationIgnored private var hideAt = Date.distantPast
+    @ObservationIgnored private var hiding: Task<Void, Never>?
     private let app: AppModel
 
     static let maxTiles = 4
+    /// sekunder kanten og navnene står etter det siste som skjedde
+    static let infoTime: TimeInterval = 4
 
     init(app: AppModel) {
         self.app = app
@@ -302,6 +312,25 @@ final class MultiviewModel {
         if let first { tiles[0].open(first) }
         selected = tiles[0].id
         updateAudio()
+        wake()
+    }
+
+    /// Viser kanten og navnene til det har gått `infoTime` uten at noe har skjedd (hver gang flytter fristen).
+    func wake() {
+        hideAt = Date().addingTimeInterval(Self.infoTime)
+        if !showsInfo { showsInfo = true }
+        guard hiding == nil else { return }
+        hiding = Task { [weak self] in
+            var left = Self.infoTime
+            while left > 0 {
+                try? await Task.sleep(for: .seconds(left))
+                guard let self, !Task.isCancelled else { return }
+                left = self.hideAt.timeIntervalSinceNow
+            }
+            guard let self else { return }
+            self.hiding = nil
+            self.showsInfo = false
+        }
     }
 
     /// Et bilde til (tomt), med en innlogging som har en ledig tilkobling.
@@ -310,6 +339,7 @@ final class MultiviewModel {
         guard canAdd, let tile = makeTile() else { return nil }
         defaults.set(tiles.count, forKey: "multiview-antall")
         updateAudio()
+        wake()
         return tile
     }
 
@@ -321,6 +351,7 @@ final class MultiviewModel {
         if selected == tile.id { selected = tiles[0].id }
         defaults.set(tiles.count, forKey: "multiview-antall")
         updateAudio()
+        wake()
     }
 
     /// [tile] blir hovedbildet (først).
@@ -328,6 +359,7 @@ final class MultiviewModel {
         guard let index = tiles.firstIndex(where: { $0.id == tile.id }), index > 0 else { return }
         tiles.remove(at: index)
         tiles.insert(tile, at: 0)
+        wake()
     }
 
     func isMain(_ tile: MultiviewTile) -> Bool { tiles.first?.id == tile.id }
@@ -350,10 +382,12 @@ final class MultiviewModel {
 
     func toggleBig(_ id: Int) {
         big = big == id ? nil : id
+        wake()
     }
 
-    /// Lyden fra bildet med id-en [id].
+    /// Lyden fra bildet med id-en [id] (og kanten og navnene en stund, også når det var valgt fra før).
     func select(_ id: Int) {
+        wake()
         guard selected != id else { return }
         selected = id
         updateAudio()
@@ -362,9 +396,12 @@ final class MultiviewModel {
     func toggleMute() {
         muted.toggle()
         updateAudio()
+        wake()
     }
 
     func stop() {
+        hiding?.cancel()
+        hiding = nil
         for tile in tiles { tile.stop() }
     }
 
@@ -377,9 +414,10 @@ final class MultiviewModel {
 
 /// Multiview over hele skjermen i oppsettet som er valgt (`multiviewFrames`): like store, ett stort med de andre ved
 /// siden av, eller ett stort øverst; «Oppsett», «Legg til et bilde» og «Fjern bildet» i hurtigmenyen (og i knappen
-/// `multiview-oppsett` øverst på iPhone, iPad og Mac). Apple TV: fokus velger bildet (og lyden), trykk gir stort bilde (eller kanalvalget for et tomt bilde),
-/// hold inne for å bytte kanal, Menu tilbake. iPhone og iPad: trykk velger, dobbelttrykk gir stort bilde, hold inne
-/// for å bytte kanal.
+/// `multiview-oppsett` øverst på iPhone, iPad og Mac). Apple TV: fokus velger bildet (og lyden), trykk gir stort
+/// bilde (eller kanalvalget for et tomt bilde), hold inne for å bytte kanal, Menu tilbake. iPhone og iPad: trykk
+/// velger, dobbelttrykk gir stort bilde, hold inne for å bytte kanal. Kanten rundt det valgte og navnene i bildene er
+/// borte når ingenting har skjedd på en stund (`MultiviewModel.wake`).
 struct MultiviewView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
@@ -412,6 +450,8 @@ struct MultiviewView: View {
         .preferredColorScheme(.dark)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("multiview")
+        // UI-testene: om kanten og navnene står framme
+        .accessibilityValue(TestSupport.isActive && model?.showsInfo == true ? "info" : "")
         .onAppear {
             guard model == nil else { return }
             #if os(macOS)
@@ -426,6 +466,7 @@ struct MultiviewView: View {
             MultiviewPicker(tile: tile, severalLogins: model?.severalLogins ?? false) { channel in
                 picking = nil
                 if let channel { tile.open(channel) }
+                model?.wake()
             }
             .environment(app)
             .macSheetSize(width: 560, height: 680)
@@ -434,12 +475,21 @@ struct MultiviewView: View {
         .onExitCommand {
             if model?.big != nil {
                 model?.big = nil
+                model?.wake()
             } else {
                 dismiss()
             }
         }
         .onChange(of: focus) { _, now in
             if let now { model?.select(now) }
+        }
+        // også når fokus ikke kan flytte seg (ved kanten) og ved pause/spill: kanten og navnene kommer fram
+        .onMoveCommand { _ in model?.wake() }
+        .onPlayPauseCommand { model?.wake() }
+        #else
+        // musa (Mac, iPad med styreflate): kanten og navnene kommer fram når den flyttes over bildene
+        .onContinuousHover { phase in
+            if case .active = phase { model?.wake() }
         }
         #endif
     }
@@ -498,8 +548,8 @@ struct MultiviewView: View {
     @ViewBuilder
     private func tileView(_ tile: MultiviewTile, model: MultiviewModel, big: Bool) -> some View {
         let selected = model.selected == tile.id
-        let face = MultiviewTileFace(tile: tile, selected: selected, severalLogins: model.severalLogins,
-                                     muted: model.muted)
+        let face = MultiviewTileFace(tile: tile, selected: selected, showsInfo: model.showsInfo,
+                                     severalLogins: model.severalLogins, muted: model.muted)
         #if os(tvOS)
         Button {
             if tile.channel == nil || tile.error != nil {
@@ -715,10 +765,12 @@ struct MultiviewView: View {
 }
 
 /// Bildet med kanalnavnet og det som går nå nede til venstre (og innloggingen når bildene er fra flere), en kant rundt
-/// det valgte, «Velg kanal» i et tomt bilde og feilen med «Prøv igjen» og «Annen kanal» i hurtigmenyen.
+/// det valgte, «Velg kanal» i et tomt bilde og feilen med «Prøv igjen» og «Annen kanal» i hurtigmenyen. Kanten og
+/// navnet står bare en stund etter at noe har skjedd (`showsInfo`); «Velg kanal» og feilen står hele tiden.
 private struct MultiviewTileFace: View {
     let tile: MultiviewTile
     let selected: Bool
+    let showsInfo: Bool
     let severalLogins: Bool
     let muted: Bool
 
@@ -734,11 +786,15 @@ private struct MultiviewTileFace: View {
             }
             if let channel = tile.channel {
                 info(channel)
+                    .opacity(showsInfo ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.35), value: showsInfo)
             }
         }
         .overlay {
             Rectangle()
-                .strokeBorder(selected ? Theme.focus : Color.clear, lineWidth: 3)
+                .strokeBorder(Theme.focus, lineWidth: 3)
+                .opacity(selected && showsInfo ? 1 : 0)
+                .animation(.easeInOut(duration: 0.35), value: selected && showsInfo)
         }
         .clipped()
     }

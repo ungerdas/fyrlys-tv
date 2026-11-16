@@ -1,5 +1,12 @@
 # Endringer
 
+## v0.2.10
+
+- **Multiview uten kant og navn hele tiden.** Den blå kanten rundt bildet med lyden og navnet på kanalen nede i hvert
+  bilde blir borte etter fire sekunder. De kommer fram igjen når du bruker fjernkontrollen (også når fokus ikke kan
+  flytte seg lenger), trykker på et bilde eller flytter musa over bildene på Mac og iPad. «Velg kanal» og feilene står
+  som før.
+
 ## v0.2.9
 
 - **Velg hvilke land som vises** (som Fyrlys for Windows 2.1.47). Fyrlys finner landene i kategorinavnene («NO: …»,

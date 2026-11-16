@@ -788,6 +788,14 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(named.waitForExistence(timeout: 15), "kanalen kom ikke i det andre bildet")
         wait(8)
         shot("49-multiview")
+        // kanten rundt det valgte og navnene er borte etter noen sekunder, og kommer fram igjen med et trykk
+        let multiview = find(app, "multiview")
+        let info = { (multiview.value as? String) == "info" }
+        XCTAssertFalse(info(), "kanten og navnene ble ikke borte")
+        first.tap()
+        XCTAssertTrue(until(3) { info() }, "kanten og navnene kom ikke fram igjen")
+        shot("69-multiview-info")
+        wait(1)
         first.doubleTap()
         wait(2)
         shot("50-multiview-stort")
@@ -805,7 +813,6 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(second.frame.minY, first.frame.maxY, "det andre bildet står ikke under")
         shot("65-multiview-topp")
         find(app, "lukk-multiview").tap()
-        let multiview = find(app, "multiview")
         for _ in 0..<10 where multiview.exists { wait(1) }
         XCTAssertFalse(multiview.exists, "krysset lukket ikke multiview")
     }
