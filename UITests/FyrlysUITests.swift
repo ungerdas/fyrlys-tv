@@ -381,6 +381,10 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(until(5) { next.label.contains("S2 E1") }, "knappen gikk ikke til sesong 2: \(next.label)")
         wait(1)
         shot("70-serie-sesong-sett")
+        // opp fra sesong 1 (plakaten står rett over den): til knappene, ikke til fanelinja
+        XCTAssertTrue(focus(app, season), "fikk ikke fokus på sesong 1 igjen")
+        remote.press(.up)
+        XCTAssertTrue(until(3) { next.hasFocus }, "opp fra sesong 1 gikk ikke til knappen til episoden")
         // favoritt: serien står så under «Favoritter» på Hjem
         let star = find(app, "vod-favoritt")
         XCTAssertTrue(star.exists, "stjernen mangler")
@@ -1033,10 +1037,8 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(next.label.contains("S1 E2"), "episoden du er midt i, skulle stå på knappen: \(next.label)")
         wait(2)
         shot("35-plex-serie")
-        // sesongene og episodene: «2 usette» i sesong 1, handlingen i sesongen, og episoden du er midt i merket
-        // «Fortsett»; ned fra sesongene havner fokus på den
-        let season = find(app, "sesong-1")
-        XCTAssertEqual(season.value as? String, "2 usette", "sesong 1 skulle ha to usette")
+        // sesongene og episodene: handlingen i sesongen, og episoden du er midt i merket «Fortsett»; ned fra
+        // sesongene havner fokus på den
         XCTAssertTrue(find(app, "sesong-handling").exists, "handlingen i sesong 1 mangler")
         let resume = find(app, "episode-2102")
         XCTAssertEqual(resume.value as? String, "Fortsett", "episoden du er midt i, er ikke merket")

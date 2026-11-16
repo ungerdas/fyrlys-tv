@@ -912,6 +912,10 @@ struct VODDetailView: View {
     /// episoden med fokus i raden, og sesongene der fokus alt er flyttet til episoden du skal se
     @FocusState private var focusedEpisode: String?
     @State private var steered: Set<Int> = []
+    /// «Spill av» eller «Fortsett» øverst: dit går fokus når du kommer inn i toppen (opp fra sesongene, ned fra
+    /// fanelinja)
+    @FocusState private var headerFocus: HeaderFocus?
+    enum HeaderFocus: Hashable { case main }
     #endif
 
     private var model: VODModel { app.vod(for: item) }
@@ -1078,6 +1082,13 @@ struct VODDetailView: View {
                 noticeText
             }
         }
+        // hele bredden, og på Apple TV en egen del for fokus: opp fra sesongene havner da på knappene, også når
+        // knappene ikke står rett over (rett over «Sesong 1» står plakaten, og fokus hoppet til fanelinja)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        #if os(tvOS)
+        .focusSection()
+        .defaultFocus($headerFocus, .main, priority: .userInitiated)
+        #endif
     }
 
     /// Tittelen: logoen til filmen eller serien når Plex har den (ellers, og til den er lastet, navnet som tekst).
@@ -1300,6 +1311,9 @@ struct VODDetailView: View {
                       systemImage: "play.fill")
             }
             .vodPrimary()
+            #if os(tvOS)
+            .focused($headerFocus, equals: .main)
+            #endif
             // Plex: fila står på siden, som hentes først (før gjorde knappen ingenting til da)
             .disabled(item.isPlex && details == nil)
             .accessibilityIdentifier("spill-av")
@@ -1349,6 +1363,9 @@ struct VODDetailView: View {
             Label(title, systemImage: "play.fill")
         }
         .vodPrimary()
+        #if os(tvOS)
+        .focused($headerFocus, equals: .main)
+        #endif
         .accessibilityIdentifier("fortsett-serie")
     }
 
@@ -1405,8 +1422,8 @@ struct VODDetailView: View {
         }
     }
 
-    /// Sesongene som knapper: hake når hele sesongen er sett, «4 usette» når du har begynt på den; hold inne for å
-    /// merke hele sesongen som sett eller ikke sett.
+    /// Sesongene som knapper: hake når hele sesongen er sett; hold inne for å merke hele sesongen som sett eller ikke
+    /// sett.
     private func seasonPicker(_ details: VODDetails, current: Int) -> some View {
         ScrollView(.horizontal) {
             HStack(spacing: 16) {
@@ -1423,14 +1440,11 @@ struct VODDetailView: View {
                             }
                             Text(seasonName(s.number))
                                 .fontWeight(s.number == current ? .bold : .regular)
-                            if let unseen = state.unseen {
-                                Text(verbatim: "· " + unseen)
-                            }
                         }
                     }
                     .vodSeason(selected: s.number == current)
                     .accessibilityLabel(seasonName(s.number))
-                    .accessibilityValue(state.done ? L("Sett") : (state.unseen ?? ""))
+                    .accessibilityValue(state.done ? L("Sett") : "")
                     .accessibilityIdentifier("sesong-\(s.number)")
                     .contextMenu { seasonActions(s) }
                 }
@@ -1444,14 +1458,11 @@ struct VODDetailView: View {
         #endif
     }
 
-    /// Sett ferdig (alle episodene), begynt på (noe er sett, eller du er midt i en), og «4 usette» når du har begynt.
-    private func seasonState(_ s: Season) -> (done: Bool, started: Bool, unseen: String?) {
+    /// Sett ferdig (alle episodene), og begynt på (noe er sett, eller du er midt i en).
+    private func seasonState(_ s: Season) -> (done: Bool, started: Bool) {
         let seen = s.episodes.filter(finished).count
-        if !s.episodes.isEmpty, seen == s.episodes.count { return (true, true, nil) }
-        let started = seen > 0 || s.episodes.contains { app.progress($0.progressKey) > 0 }
-        let unseen = s.episodes.count - seen
-        guard started, unseen > 0 else { return (false, started, nil) }
-        return (false, true, unseen == 1 ? L("1 usett") : L("{n} usette", ["n": unseen]))
+        if !s.episodes.isEmpty, seen == s.episodes.count { return (true, true) }
+        return (false, seen > 0 || s.episodes.contains { app.progress($0.progressKey) > 0 })
     }
 
     /// Hold inne på en sesong: hele sesongen som sett eller ikke sett.
@@ -1885,12 +1896,11 @@ extension VODDetailView {
                             HStack(spacing: 6) {
                                 if state.done { Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)) }
                                 Text(seasonName(s.number))
-                                if let unseen = state.unseen { Text(verbatim: "· " + unseen) }
                             }
                         }
                         .buttonStyle(MacChoiceStyle(selected: s.number == current))
                         .accessibilityLabel(seasonName(s.number))
-                        .accessibilityValue(state.done ? L("Sett") : (state.unseen ?? ""))
+                        .accessibilityValue(state.done ? L("Sett") : "")
                         .accessibilityIdentifier("sesong-\(s.number)")
                         .contextMenu { seasonActions(s) }
                     }

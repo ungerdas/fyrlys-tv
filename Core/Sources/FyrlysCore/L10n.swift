@@ -287,8 +287,6 @@ public let english: [String: String] = [
     "Spesialer": "Specials",
     "Fortsett": "Resume",
     "{time} igjen": "{time} left",
-    "1 usett": "1 unwatched",
-    "{n} usette": "{n} unwatched",
     "Sesong {s}, episode {e}": "Season {s}, episode {e}",
     "Sett til {time}": "Watched to {time}",
     "Kunne ikke spilles: leverandøren svarte ikke med filen, eller alle tilkoblingene dine er i bruk.":

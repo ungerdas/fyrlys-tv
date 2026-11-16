@@ -502,7 +502,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
 - **Seriesiden fra 0.2.10** (eieren 16.11 valgte fem forslag: «1-5 kjør», og «kanskje littegranne mer luft med logoen
   osv, slik at bakgrunnsbildet er littegranne mer tydelig»): i `VODDetailView` står `episodes` rett under `header`
   (foran `peopleRow` og `relatedRow`); `seasonPicker` (`seasonName`: sesong 0 = «Spesialer»; `seasonState`: hake når
-  alt er sett, «4 usette» når du har begynt; `accessibilityValue` «Sett»/«2 usette»; hurtigmeny `seasonActions` →
+  alt er sett (0.2.10 viste også «4 usette»; eieren: «å vise antall usette er ikke nødvendig», borte i 0.2.11);
+  `accessibilityValue` «Sett»; hurtigmeny `seasonActions` →
   `markSeason`: Plex `setWatched(Season.key)` (sesongens ratingKey fra `/children`, ellers `parentRatingKey`),
   leverandøren `setFinished` per episode), handlingen i sesongen (`sesong-handling`; Core `Season.summary`: Plex
   `parseSeasonInfo` fra `/library/metadata/<serie>/children`, hentet samtidig med `allLeaves`; Xtream `seasons[].
@@ -516,7 +517,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `MacEpisodeCell`) har fått sesongtilstanden, hurtigmenyen, handlingen i sesongen og merket. Falsk Plex: `/children`
   (handlingen i sesong 1, nøklene 2100/2200), episodene med `thumb` og `parentRatingKey`; falsk leverandør:
   `seasons` med `overview`. Testene `test13Serier`/`test14Serier` (sesongen som sett, knappen går til S2 E1) og
-  `test19PlexSerier`/`test20PlexSerier` («2 usette», «Fortsett» på 2102, fokus ned i raden på Apple TV).
+  `test19PlexSerier`/`test20PlexSerier` («Fortsett» på 2102, fokus ned i raden på Apple TV). Fra 0.2.11 er `header`
+  hele bredden og en `focusSection()` på Apple TV: opp fra «Sesong 1» (plakaten står rett over) hoppet fokus til
+  fanelinja (eieren: «slet også med å navigere meg opp når man sto på seson 1 knappen»); `test13Serier` sjekker det.
 - **Mac fra 0.2.2** (eieren 7.11.2026: «det neste vi skal bygge er app til MacOS»; valgte egen Mac-app (ikke
   Catalyst: MobileVLCKit har ingen del for Catalyst, og iPad-apper kjører ikke på hans Intel-Mac), utseendet som Fyrlys
   for Windows, ut via TestFlight som de andre): målet `FyrlysMac` (macOS 14, samme bundle-id, sandkasse med

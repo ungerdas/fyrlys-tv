@@ -589,10 +589,8 @@ final class FyrlysMobilUITests: XCTestCase {
         let next = find(app, "fortsett-serie")
         if !next.waitForExistence(timeout: 15), episode.exists { episode.tap() }
         XCTAssertTrue(next.waitForExistence(timeout: 15), "episoden i raden åpnet ikke serien")
-        // sesongene og episodene: «2 usette» i sesong 1, og episoden du er midt i merket «Fortsett»
-        let season = find(app, "sesong-1")
-        XCTAssertTrue(season.waitForExistence(timeout: 10), "sesong 1 mangler")
-        XCTAssertEqual(season.value as? String, "2 usette", "sesong 1 skulle ha to usette")
+        // sesongene og episodene: episoden du er midt i merket «Fortsett»
+        XCTAssertTrue(find(app, "sesong-1").waitForExistence(timeout: 10), "sesong 1 mangler")
         let resume = find(app, "episode-2102")
         XCTAssertTrue(resume.waitForExistence(timeout: 10), "episoden du er midt i, mangler")
         XCTAssertEqual(resume.value as? String, "Fortsett", "episoden du er midt i, er ikke merket")
