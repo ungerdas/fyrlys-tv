@@ -532,7 +532,11 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `seasons` med `overview`. Testene `test13Serier`/`test14Serier` (sesongen som sett, knappen går til S2 E1) og
   `test19PlexSerier`/`test20PlexSerier` («Fortsett» på 2102, fokus ned i raden på Apple TV). Fra 0.2.11 er `header`
   hele bredden og en `focusSection()` på Apple TV: opp fra «Sesong 1» (plakaten står rett over) hoppet fokus til
-  fanelinja (eieren: «slet også med å navigere meg opp når man sto på seson 1 knappen»); `test13Serier` sjekker det.
+  fanelinja (eieren: «slet også med å navigere meg opp når man sto på seson 1 knappen»). Knappene øverst har
+  `headerFocus` (`main`, `start`, `favorite`, `watched`), og kommer fokus inn i toppen på en annen enn `main`, flyttes
+  det dit (`onChange`). Ikke `defaultFocus(…, priority: .userInitiated)`: med den kom fokus på Apple TV-en verken ned
+  fra fanelinja eller opp dit igjen (eieren: «kommer ikke lenger enn Fortsett knappen»). `test13Serier` går opp fra
+  sesong 1 til knappen, videre til fanelinja og ned igjen.
 - **Mac fra 0.2.2** (eieren 7.11.2026: «det neste vi skal bygge er app til MacOS»; valgte egen Mac-app (ikke
   Catalyst: MobileVLCKit har ingen del for Catalyst, og iPad-apper kjører ikke på hans Intel-Mac), utseendet som Fyrlys
   for Windows, ut via TestFlight som de andre): målet `FyrlysMac` (macOS 14, samme bundle-id, sandkasse med

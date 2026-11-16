@@ -912,10 +912,10 @@ struct VODDetailView: View {
     /// episoden med fokus i raden, og sesongene der fokus alt er flyttet til episoden du skal se
     @FocusState private var focusedEpisode: String?
     @State private var steered: Set<Int> = []
-    /// «Spill av» eller «Fortsett» øverst: dit går fokus når du kommer inn i toppen (opp fra sesongene, ned fra
-    /// fanelinja)
+    /// knappen med fokus øverst; når fokus kommer inn i toppen (opp fra sesongene, ned fra fanelinja), flyttes det til
+    /// «Spill av» eller «Fortsett» (`main`)
     @FocusState private var headerFocus: HeaderFocus?
-    enum HeaderFocus: Hashable { case main }
+    enum HeaderFocus: Hashable { case main, start, favorite, watched }
     #endif
 
     private var model: VODModel { app.vod(for: item) }
@@ -1004,6 +1004,9 @@ struct VODDetailView: View {
         .accessibilityLabel(favorite ? L("Fjern fra favoritter") : L("Legg til i favoritter"))
         .accessibilityValue(favorite ? L("Favoritt") : "")
         .accessibilityIdentifier("vod-favoritt")
+        #if os(tvOS)
+        .focused($headerFocus, equals: .favorite)
+        #endif
     }
 
     private var header: some View {
@@ -1087,7 +1090,10 @@ struct VODDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         #if os(tvOS)
         .focusSection()
-        .defaultFocus($headerFocus, .main, priority: .userInitiated)
+        // ikke defaultFocus(priority: .userInitiated): da kom fokus verken ned fra fanelinja eller opp dit igjen
+        .onChange(of: headerFocus) { old, now in
+            if old == nil, let now, now != .main { headerFocus = .main }
+        }
         #endif
     }
 
@@ -1193,6 +1199,9 @@ struct VODDetailView: View {
             }
             .disabled(busy)
             .accessibilityIdentifier("merk-sett")
+            #if os(tvOS)
+            .focused($headerFocus, equals: .watched)
+            #endif
         }
     }
 
@@ -1324,6 +1333,9 @@ struct VODDetailView: View {
                     Label(L("Fra start"), systemImage: "arrow.counterclockwise")
                 }
                 .accessibilityIdentifier("fra-start")
+                #if os(tvOS)
+                .focused($headerFocus, equals: .start)
+                #endif
             }
         }
     }

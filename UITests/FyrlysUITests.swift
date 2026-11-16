@@ -385,6 +385,12 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(focus(app, season), "fikk ikke fokus på sesong 1 igjen")
         remote.press(.up)
         XCTAssertTrue(until(3) { next.hasFocus }, "opp fra sesong 1 gikk ikke til knappen til episoden")
+        // videre opp til fanelinja, og ned igjen til knappen (eieren 16.11: kom ikke lenger enn «Fortsett»)
+        remote.press(.up)
+        let tabs = app.tabBars.firstMatch.buttons.matching(NSPredicate(format: "hasFocus == true"))
+        XCTAssertTrue(until(4) { tabs.count > 0 }, "opp fra knappen gikk ikke til fanelinja")
+        remote.press(.down)
+        XCTAssertTrue(until(4) { next.hasFocus }, "ned fra fanelinja gikk ikke til knappen til episoden")
         // favoritt: serien står så under «Favoritter» på Hjem
         let star = find(app, "vod-favoritt")
         XCTAssertTrue(star.exists, "stjernen mangler")
