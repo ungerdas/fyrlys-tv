@@ -987,4 +987,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   tilbakespolingen, multiview og arkivet på Apple TV, landvalget på Mac. Ikke valgt (fra samme liste): forrige kanal,
   sovetimer, «Fortsett å se» for IPTV i iCloud, Plex med lavere kvalitet utenfor hjemmet. Om «Kunne ikke koble til
   tjeneren» var tjeneren for tilbakespolingen eller leverandøren, er ikke bekreftet (feilrapporten fra feilskjermen
-  skal vise det neste gang).
+  skal vise det neste gang). 0.2.9 (bygg 78) er i TestFlight, VALID for TV_OS, IOS og MAC_OS, alle jobbene grønne
+  (også `test35Land` og `test36PlexArk` på iPad), sendt til den eksterne gruppa. Ikke prøvd mot leverandøren hans:
+  landene i kategorinavnene hans (bare «Norway» og andre hele landnavn, eller «Norway - …», kjennes igjen; «Norway
+  Sport» uten skilletegn blir «Uten land»), lyd- og undertekstsporene i TS-strømmene.
