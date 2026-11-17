@@ -1099,3 +1099,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   (`VODViews.swift`, bryteren `vis-iptv-vod`: Apple TV, iPad og Mac i innstillingene under «Kanaler», iPhone i Konto).
   Fanene forsvinner, og `onChange(of: hasVOD)` går til TV. Testene `test38SkjulFilmer` (Apple TV) og
   `test37SkjulFilmer` (iPhone og iPad).
+  0.2.12 (bygg 81) kom aldri til TestFlight: først svarte Apple HTTP 500 på `GET /v1/bundleIds` (også etter tre nye
+  forsøk i `asc.py`), så fikk TestFlight-jobben ingen Mac i GitHub i to nye kjøringer («not acquired by Runner»).
+  0.2.13 (med 0.2.12) pushet 17.11 («push»).
