@@ -92,9 +92,10 @@ class Asc:
         self._token = None
         self._made = 0
 
-    def request(self, method, path, body=None, tries=3):
+    def request(self, method, path, body=None, tries=6):
         """Svaret fra App Store Connect. Svarer ikke Apple (tidsavbrudd, brutt forbindelse) eller svarer med 5xx,
-        prøves det igjen (bygg 44 stoppet på et tidsavbrudd da profilen skulle lages)."""
+        prøves det igjen (bygg 44 stoppet på et tidsavbrudd da profilen skulle lages), med lengre pauser (15, 30, 60,
+        120, 120 s): bygg 81 og 82 stoppet på HTTP 500 fra Apple som varte lenger enn tre forsøk på et halvt minutt."""
         for attempt in range(tries):
             if not self._token or time.time() - self._made > 600:
                 self._token = token(self.key_path, self.key_id, self.issuer)
@@ -111,7 +112,7 @@ class Asc:
                 raw = e.read()
                 if e.code in (500, 502, 503, 504) and not last:
                     print(f"{method} {path.split('?')[0]}: HTTP {e.code}, prøver igjen", file=sys.stderr)
-                    time.sleep(10 * (attempt + 1))
+                    time.sleep(min(120, 15 * 2 ** attempt))
                     continue
                 try:
                     return e.code, json.loads(raw)
@@ -121,7 +122,7 @@ class Asc:
                 if last:
                     sys.exit(f"{method} {path.split('?')[0]}: Apple svarte ikke ({e})")
                 print(f"{method} {path.split('?')[0]}: {e}, prøver igjen", file=sys.stderr)
-                time.sleep(10 * (attempt + 1))
+                time.sleep(min(120, 15 * 2 ** attempt))
 
     def call(self, method, path, body=None, ok=(200, 201, 204)):
         code, res = self.request(method, path, body)

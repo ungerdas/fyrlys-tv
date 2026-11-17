@@ -1041,8 +1041,15 @@ final class FyrlysMobilUITests: XCTestCase {
             + "http://127.0.0.1:8899/egen/kystnytt24/muxed.m3u8\nhttp://127.0.0.1:8899/egen/nrk1/muxed.m3u8"
         let app = launch("strommer", extra: ["FYRLYS_TEST_STREAMS": streams])
         let matched = find(app, "egen-strom-fjordkanalen")
-        // lista i Innstillinger på iPad lager radene først når de vises: rull fram til dem
-        XCTAssertTrue(find(app, "nrk-direkte").waitForExistence(timeout: 30), "innstillingene kom ikke")
+        // lista i Innstillinger på iPad lager radene først når de vises: rull fram til dem (fra 0.2.13 står «Filmer og
+        // serier» over, så «NRK direkte» kom ikke fram uten å rulle)
+        let direct = find(app, "nrk-direkte")
+        _ = direct.waitForExistence(timeout: 30)
+        for _ in 0..<6 where !direct.exists {
+            app.swipeUp()
+            wait(1.5)
+        }
+        XCTAssertTrue(direct.exists, "innstillingene kom ikke")
         for _ in 0..<8 where !(matched.exists && matched.isHittable) {
             app.swipeUp()
             wait(1.5)

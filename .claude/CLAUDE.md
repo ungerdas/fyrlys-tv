@@ -1101,4 +1101,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   `test37SkjulFilmer` (iPhone og iPad).
   0.2.12 (bygg 81) kom aldri til TestFlight: først svarte Apple HTTP 500 på `GET /v1/bundleIds` (også etter tre nye
   forsøk i `asc.py`), så fikk TestFlight-jobben ingen Mac i GitHub i to nye kjøringer («not acquired by Runner»).
-  0.2.13 (med 0.2.12) pushet 17.11 («push»).
+  0.2.13 (med 0.2.12) pushet 17.11 («push»). Bygg 82 kom heller ikke til TestFlight: Apple svarte HTTP 500 på
+  `GET /v1/apps/<id>/appStoreVersions` (`asc.py check`); og `test21EgneStrommer` feilet på iPad (fra 0.2.13 står
+  «Filmer og serier» over «NRK direkte» i den late lista: testen ruller nå fram). `asc.py` prøver nå seks ganger med
+  15–120 s pause ved 5xx og tidsavbrudd. Pushet på nytt (bygg 83) med samme versjon, 0.2.13.
