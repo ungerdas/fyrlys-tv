@@ -1104,4 +1104,9 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   0.2.13 (med 0.2.12) pushet 17.11 («push»). Bygg 82 kom heller ikke til TestFlight: Apple svarte HTTP 500 på
   `GET /v1/apps/<id>/appStoreVersions` (`asc.py check`); og `test21EgneStrommer` feilet på iPad (fra 0.2.13 står
   «Filmer og serier» over «NRK direkte» i den late lista: testen ruller nå fram). `asc.py` prøver nå seks ganger med
-  15–120 s pause ved 5xx og tidsavbrudd. Pushet på nytt (bygg 83) med samme versjon, 0.2.13.
+  15–120 s pause ved 5xx og tidsavbrudd. Pushet på nytt (bygg 83) med samme versjon, 0.2.13. Bygg 83: sjekken kom
+  gjennom (HTTP 500 to ganger, så svar), tvOS ble lastet opp, men eksporten av iPhone/iPad hang i over en halvtime, og
+  jobben gikk ut på tid (45 min); iPad-testen manglet raden «Kystnytt 24» (iPad-simulatoren i bygget er mindre). Nå:
+  tvOS- og iOS-eksporten høyst 20 min hver (`perl alarm`, feilkode 142 = hang), TestFlight-jobben 70 min, testen ruller
+  videre, og `security find-identity` skriver bare antallet (navnet på sertifikatet er eierens navn, og loggene er
+  offentlige). Pushet som bygg 84.

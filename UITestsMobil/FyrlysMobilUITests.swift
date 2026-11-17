@@ -1057,7 +1057,13 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(matched.waitForExistence(timeout: 10), "de egne strømmene vises ikke")
         for _ in 0..<10 where !matched.label.contains("Fjordkanalen") { wait(1) }
         XCTAssertTrue(matched.label.contains("Fjordkanalen"), "kanalen ble ikke funnet: \(matched.label)")
-        XCTAssertTrue(find(app, "egen-strom-kystnytt24").label.contains("Kystnytt 24"), "kanalen fra adressen mangler")
+        // raden under (iPad-simulatoren i bygget er mindre: den kom ikke fram uten å rulle videre)
+        let kyst = find(app, "egen-strom-kystnytt24")
+        for _ in 0..<4 where !kyst.exists {
+            app.swipeUp()
+            wait(1.5)
+        }
+        XCTAssertTrue(kyst.exists && kyst.label.contains("Kystnytt 24"), "kanalen fra adressen mangler")
         wait(1)
         shot("31-egne-strommer")
         // «Fjordkanalen HD» (91) spilles fra samme egne strøm som «Fjordkanalen» (1): én kanal, 19 i stedet for 20
