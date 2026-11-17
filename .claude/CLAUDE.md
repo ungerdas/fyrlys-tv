@@ -1091,3 +1091,6 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Plex-fanen) → valgte «Knapper øverst» → 0.2.12 (se Plex-fanen uten sidemeny i Arkitektur). Lokalt testet: Plex-testene
   på Apple TV, iPhone og iPad i simulatorene, Mac-appen (bildet); lagt på Apple TV-en hans; pushet 17.11 («push når
   du er ferdig»).
+  Samme kveld: «På serier, så har den serienavn under posteren, det kan vi ta bort, men beholde eps nummer og navn.» →
+  0.2.13: `PosterCard` for en episode viser episodenavnet (to linjer) og «S1 · E2», ikke serien; VoiceOver får serien
+  med (`spokenLabel`).

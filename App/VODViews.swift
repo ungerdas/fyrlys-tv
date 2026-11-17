@@ -820,6 +820,16 @@ struct PosterCard: View {
     private var posterOnly: Bool { item.isPlex && episode == nil }
 
     var body: some View {
+        if episode != nil {
+            card
+                .accessibilityLabel(spokenLabel)
+        } else {
+            card
+        }
+    }
+
+    @ViewBuilder
+    private var card: some View {
         #if os(tvOS)
         if posterOnly {
             image
@@ -903,27 +913,28 @@ struct PosterCard: View {
 
     private var text: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(item.name)
+            // en episode: navnet på den og nummeret, ikke serien (plakaten er seriens; eieren 17.11)
+            Text(episode?.title ?? item.name)
                 .font(.system(size: Metrics.posterTitle, weight: .semibold))
                 .foregroundStyle(Theme.ink)
                 // på Apple TV like høye kort (plass til to linjer); på iPhone og iPad året rett under tittelen
                 #if os(tvOS)
-                .lineLimit(episode == nil ? 2 : 1, reservesSpace: true)
+                .lineLimit(2, reservesSpace: true)
                 #else
-                .lineLimit(episode == nil ? 2 : 1)
+                .lineLimit(2)
                 #endif
                 .multilineTextAlignment(.leading)
-            if let episode {
-                Text(episode.title)
-                    .font(.system(size: Metrics.posterTitle - 2))
-                    .foregroundStyle(Theme.ink2)
-                    .lineLimit(1)
-            }
             Text(verbatim: meta)
                 .font(.system(size: Metrics.posterTitle - 3))
                 .foregroundStyle(Theme.muted)
                 .lineLimit(1)
         }
+    }
+
+    /// VoiceOver: serien står ikke under plakaten til en episode, så den leses først.
+    var spokenLabel: String {
+        guard let episode else { return item.name }
+        return "\(item.name), \(episode.title), \(meta)"
     }
 
     private var meta: String {

@@ -1,5 +1,10 @@
 # Endringer
 
+## v0.2.13
+
+- Episodene i radene på Plex Hjem (som «Nytt fra …») har bare navnet og nummeret på episoden under plakaten, ikke
+  serien (plakaten er seriens).
+
 ## v0.2.12
 
 - **Plex-fanen uten sidemeny.** Hjem fyller hele bredden, med filmer og serier sammen. Øverst står knappene Søk,
