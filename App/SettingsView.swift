@@ -101,6 +101,8 @@ struct SettingsView: View {
 
                     ChannelListSettings()
 
+                    ProviderVODSettings()
+
                     PlexSettings()
 
                     StreamSettings()

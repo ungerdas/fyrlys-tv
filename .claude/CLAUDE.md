@@ -1094,3 +1094,8 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   Samme kveld: «På serier, så har den serienavn under posteren, det kan vi ta bort, men beholde eps nummer og navn.» →
   0.2.13: `PosterCard` for en episode viser episodenavnet (to linjer) og «S1 · E2», ikke serien; VoiceOver får serien
   med (`spokenLabel`).
+  Så: «Vi burde kanskje få til å skjule serier og filmer fra IPTV om man vil?» → også i 0.2.13: `AppModel.hasVOD` =
+  `hasProviderVOD` (Xtream) og `showsProviderVOD` (`iptv-filmer-serier-av`, bare på enheten); `ProviderVODSettings`
+  (`VODViews.swift`, bryteren `vis-iptv-vod`: Apple TV, iPad og Mac i innstillingene under «Kanaler», iPhone i Konto).
+  Fanene forsvinner, og `onChange(of: hasVOD)` går til TV. Testene `test38SkjulFilmer` (Apple TV) og
+  `test37SkjulFilmer` (iPhone og iPad).

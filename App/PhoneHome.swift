@@ -312,6 +312,16 @@ private struct AccountMenu: View {
             }
             .buttonStyle(PressStyle())
             .accessibilityIdentifier("rydd-navn")
+            if model.hasProviderVOD {
+                Button {
+                    model.showsProviderVOD.toggle()
+                } label: {
+                    menuButton(model.showsProviderVOD ? L("Filmer og Serier fra leverandøren: på")
+                               : L("Filmer og Serier fra leverandøren: av"))
+                }
+                .buttonStyle(PressStyle())
+                .accessibilityIdentifier("vis-iptv-vod")
+            }
             Button(action: openStreams) {
                 menuButton(model.streamLines.isEmpty ? L("Egne strømmer …")
                            : L("Egne strømmer ({n})", ["n": model.streamOverrides.count]))

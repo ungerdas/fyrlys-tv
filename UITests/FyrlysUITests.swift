@@ -1294,6 +1294,21 @@ final class FyrlysUITests: XCTestCase {
         shot("66-land-tv")
     }
 
+    /// «Filmer og Serier fra leverandøren» av i innstillingene: fanene Filmer og Serier står ikke (eieren 17.11: «skjule
+    /// serier og filmer fra IPTV om man vil»).
+    func test38SkjulFilmer() {
+        let app = launch("land")
+        let toggle = find(app, "vis-iptv-vod")
+        XCTAssertTrue(toggle.waitForExistence(timeout: 30), "bryteren mangler i innstillingene")
+        let movies = app.tabBars.firstMatch.buttons["Filmer"], series = app.tabBars.firstMatch.buttons["Serier"]
+        XCTAssertTrue(movies.exists && series.exists, "fanene Filmer og Serier mangler før bryteren er slått av")
+        XCTAssertTrue(focusDown(app, toggle, label: "Filmer og Serier fra leverandøren"), "fikk ikke fokus på bryteren")
+        remote.press(.select)
+        XCTAssertTrue(until(5) { !movies.exists && !series.exists }, "fanene Filmer og Serier står fortsatt")
+        wait(1)
+        shot("72-skjul-filmer")
+    }
+
     func test08Settings() {
         let app = launch("settings")
         XCTAssertTrue(find(app, "innstillinger").waitForExistence(timeout: 30))

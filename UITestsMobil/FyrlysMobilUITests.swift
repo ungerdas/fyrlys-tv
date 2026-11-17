@@ -290,6 +290,31 @@ final class FyrlysMobilUITests: XCTestCase {
     /// Land som vises og ryddige navn (som Fyrlys for Windows 2.1.47), med en liste der landet står foran kategoriene
     /// og kvaliteten i kanalnavnene: Sverige tas bort (Konto på iPhone, innstillingene på iPad), og på TV-siden er
     /// navnene ryddet og kategoriene og kanalene fra Sverige borte.
+    /// «Filmer og Serier fra leverandøren» av (Konto på iPhone, innstillingene på iPad): fanene Filmer og Serier står
+    /// ikke (eieren 17.11).
+    func test37SkjulFilmer() {
+        let app = launch("land")
+        let toggle = find(app, "vis-iptv-vod")
+        // innstillingene på iPad er et lat skjema: rull fram til bryteren
+        for _ in 0..<5 where !toggle.waitForExistence(timeout: 6) { app.swipeUp() }
+        XCTAssertTrue(toggle.exists, "bryteren mangler")
+        let tabs = { app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ OR label == %@",
+                                                                          "Filmer", "Serier")).count }
+        XCTAssertGreaterThan(tabs(), 0, "fanene Filmer og Serier mangler før bryteren er slått av")
+        if isPad {
+            // bryteren står til høyre i raden
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+            if !until(3, { (toggle.value as? String) == "0" }), toggle.switches.firstMatch.exists {
+                toggle.switches.firstMatch.tap()
+            }
+        } else {
+            toggle.tap()
+        }
+        XCTAssertTrue(until(5) { tabs() == 0 }, "fanene Filmer og Serier står fortsatt")
+        wait(1)
+        shot("72-skjul-filmer")
+    }
+
     func test35Land() {
         let app = launch("land")
         let countries = find(app, "velg-land")

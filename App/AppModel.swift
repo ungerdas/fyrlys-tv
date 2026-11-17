@@ -865,8 +865,24 @@ final class AppModel {
         return guide ? L("M3U-liste med TV-guide") : L("M3U-liste uten TV-guide")
     }
 
-    /// Filmer og Serier finnes: hos Xtream (en M3U-liste har dem ikke, så fanene vises ikke da).
-    var hasVOD: Bool { client != nil }
+    /// Filmer og Serier vises: hos Xtream (en M3U-liste har dem ikke, så fanene vises ikke da), når de ikke er slått av
+    /// i innstillingene («Filmer og Serier fra leverandøren»; eieren 17.11: «skjule serier og filmer fra IPTV om man
+    /// vil», for den som har Plex).
+    var hasVOD: Bool { hasProviderVOD && showsProviderVOD }
+
+    /// Leverandøren har filmer og serier (Xtream), også når fanene er slått av.
+    var hasProviderVOD: Bool { client != nil }
+
+    /// Fanene Filmer og Serier fra leverandøren; på, men kan slås av (bare på denne enheten)
+    var showsProviderVOD: Bool {
+        get { providerVODOn }
+        set {
+            providerVODOn = newValue
+            defaults.set(!newValue, forKey: "iptv-filmer-serier-av")
+            AppLog.shared.add("Filmer og Serier fra leverandøren: \(newValue ? "på" : "av")")
+        }
+    }
+    private var providerVODOn = !TestSupport.defaults.bool(forKey: "iptv-filmer-serier-av")
 
     /// Plex-fanen: når en Plex-server er valgt (også mens den kobler til, eller når den ikke svarer), og når en av
     /// serverne på kontoen skal velges

@@ -2,6 +2,9 @@
 
 ## v0.2.13
 
+- **Skjul Filmer og Serier fra leverandøren.** Ser du filmer og serier i Plex, kan du slå av «Filmer og Serier fra
+  leverandøren» i innstillingene (Konto på iPhone), så står ikke fanene Filmer og Serier. Gjelder bare den enheten du
+  slår det av på.
 - Episodene i radene på Plex Hjem (som «Nytt fra …») har bare navnet og nummeret på episoden under plakaten, ikke
   serien (plakaten er seriens).
 

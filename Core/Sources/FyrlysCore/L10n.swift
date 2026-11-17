@@ -369,6 +369,12 @@ public let english: [String: String] = [
     "Merk som sett": "Mark as watched",
     "Merk som ikke sett": "Mark as unwatched",
     "Merk sesongen som sett": "Mark season as watched",
+    "Filmer og serier": "Movies and series",
+    "Filmer og Serier fra leverandøren": "Movies and Series from the provider",
+    "Filmer og Serier fra leverandøren: på": "Movies and Series from the provider: on",
+    "Filmer og Serier fra leverandøren: av": "Movies and Series from the provider: off",
+    "Slå av hvis du ser filmer og serier i Plex: da står ikke fanene Filmer og Serier. Gjelder bare denne enheten.":
+        "Turn off if you watch movies and series in Plex: the Movies and Series tabs are then hidden. Only on this device.",
     "Merk sesongen som ikke sett": "Mark season as unwatched",
     "Mer som dette": "More like this",
     "Mer": "More",

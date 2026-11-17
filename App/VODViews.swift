@@ -480,6 +480,49 @@ struct VODTab: View {
     }
 }
 
+/// Innstillingen «Filmer og Serier fra leverandøren»: av = fanene Filmer og Serier står ikke (for den som ser filmer og
+/// serier i Plex). Bare når innloggingen har dem (Xtream), og bare på denne enheten.
+struct ProviderVODSettings: View {
+    @Environment(AppModel.self) private var model
+
+    private var help: String {
+        L("Slå av hvis du ser filmer og serier i Plex: da står ikke fanene Filmer og Serier. Gjelder bare denne enheten.")
+    }
+
+    var body: some View {
+        if model.hasProviderVOD {
+            #if os(tvOS)
+            VStack(alignment: .leading, spacing: 16) {
+                Text(L("Filmer og serier"))
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(Theme.muted)
+                Toggle(isOn: Binding(get: { model.showsProviderVOD }, set: { model.showsProviderVOD = $0 })) {
+                    Label(L("Filmer og Serier fra leverandøren"), systemImage: "film")
+                }
+                .frame(maxWidth: 760)
+                .accessibilityIdentifier("vis-iptv-vod")
+                Text(help)
+                    .font(.system(size: 22))
+                    .foregroundStyle(Theme.muted)
+                    .frame(maxWidth: 760, alignment: .leading)
+            }
+            #else
+            Section {
+                Toggle(isOn: Binding(get: { model.showsProviderVOD }, set: { model.showsProviderVOD = $0 })) {
+                    Label(L("Filmer og Serier fra leverandøren"), systemImage: "film")
+                }
+                .accessibilityIdentifier("vis-iptv-vod")
+            } header: {
+                Text(L("Filmer og serier"))
+            } footer: {
+                Text(help)
+            }
+            .listRowBackground(Theme.surface)
+            #endif
+        }
+    }
+}
+
 /// Et bibliotek i Plex-fanen, åpnet fra knappene øverst på Hjem.
 struct PlexLibraryRoute: Hashable {
     let id: String

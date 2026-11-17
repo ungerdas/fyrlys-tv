@@ -79,6 +79,7 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Theme.surface)
                 ChannelListSettings()
+                ProviderVODSettings()
                 PlexSettings()
                 StreamSettings()
                 Section(L("Utseende")) {
