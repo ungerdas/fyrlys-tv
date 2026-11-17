@@ -1087,3 +1087,7 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   fikk fokus (etter hurtigmenyen på sesongen) og ble borte; med `wait(1)` først går den, både der og i simulatoren.
   Rettet i testen (ikke i appen), kommer med neste push. Et trykk rett etter at fokus har flyttet seg til fanelinja
   kan altså bli borte på en ekte Apple TV: vent litt i testene.
+- 17.11.2026: eieren: «Jeg liker plex delen nå. Men syntes egentlig at menyen til høyre er overflødig» (sidemenyen i
+  Plex-fanen) → valgte «Knapper øverst» → 0.2.12 (se Plex-fanen uten sidemeny i Arkitektur). Lokalt testet: Plex-testene
+  på Apple TV, iPhone og iPad i simulatorene, Mac-appen (bildet); lagt på Apple TV-en hans; pushet 17.11 («push når
+  du er ferdig»).
