@@ -45,7 +45,7 @@ final class FyrlysUITests: XCTestCase {
             let id = focused.exists ? focused.identifier : ""
             let inSidebar = sidebar(id)
             // på siden (ikke i fanelinja): kortene, og sesongene og knappene på siden for en serie
-            let onCard = ["kanal-", "vod-", "episode-", "rad-", "fortsett-", "sesong-", "merk-"]
+            let onCard = ["kanal-", "vod-", "episode-", "rad-", "fortsett-", "sesong-", "merk-", "bibliotek-", "plex-"]
                 .contains { id.hasPrefix($0) }
             if !inSidebar && !onCard {
                 // i fanelinja (eller ingen fokus): ned
@@ -710,9 +710,10 @@ final class FyrlysUITests: XCTestCase {
     }
 
     /// Plex: rekkefølgen i et bibliotek («A–Å»: «Fjordbyen» foran «Nordlys over fjorden»), uten valg av sjanger.
+    /// Biblioteket åpnes fra knappen øverst på Hjem.
     func test25PlexSortering() {
         let app = launch("plex")
-        let library = find(app, "vodkat-1")
+        let library = find(app, "bibliotek-1")
         XCTAssertTrue(library.waitForExistence(timeout: 40), "biblioteket Filmer mangler")
         XCTAssertTrue(focus(app, library), "fikk ikke fokus på biblioteket")
         remote.press(.select)
@@ -731,45 +732,40 @@ final class FyrlysUITests: XCTestCase {
         shot("47-plex-a-a")
     }
 
-    /// Plex: hold inne på et bibliotek i sidemenyen: «Flytt opp» (Serier over Filmer, også etter at fanen er hentet på
-    /// nytt) og «Skjul» (borte fra sidemenyen). «Velg biblioteker» står ikke i sidemenyen.
+    /// Plex: hold inne på et bibliotek blant knappene øverst på Hjem: «Flytt til venstre» (Serier foran Filmer, også
+    /// etter at fanen er hentet på nytt) og «Skjul» (borte fra knappene). «Velg biblioteker» står ikke der.
     func test27PlexBiblioteker() {
         let app = launch("plex")
-        let movies = find(app, "vodkat-1"), series = find(app, "vodkat-2")
+        let movies = find(app, "bibliotek-1"), series = find(app, "bibliotek-2")
         XCTAssertTrue(series.waitForExistence(timeout: 40) && movies.exists, "bibliotekene mangler")
-        XCTAssertFalse(find(app, "velg-biblioteker").exists, "«Velg biblioteker» skal ikke stå i sidemenyen")
+        XCTAssertFalse(find(app, "velg-biblioteker").exists, "«Velg biblioteker» skal ikke stå blant knappene")
         XCTAssertTrue(before(movies, series), "rekkefølgen fra Plex: Filmer først")
         XCTAssertTrue(focus(app, series), "fikk ikke fokus på Serier")
         remote.press(.select, forDuration: 2)
-        XCTAssertTrue(choose(app, "Flytt opp"), "«Flytt opp» mangler i menyen")
+        XCTAssertTrue(choose(app, "Flytt til venstre"), "«Flytt til venstre» mangler i menyen")
         XCTAssertTrue(until(10) { series.exists && movies.exists && before(series, movies) },
-                      "Serier ble ikke flyttet opp")
+                      "Serier ble ikke flyttet fram")
         wait(1)
         shot("49-plex-rekkefolge")
-        let other = find(app, "vodkat-4")
+        let other = find(app, "bibliotek-4")
         XCTAssertTrue(focus(app, other), "fikk ikke fokus på «Andre videoer»")
         remote.press(.select, forDuration: 2)
         XCTAssertTrue(choose(app, "Skjul"), "«Skjul» mangler i menyen")
-        XCTAssertTrue(until(20) { movies.exists && !other.exists }, "«Andre videoer» står fortsatt i sidemenyen")
+        XCTAssertTrue(until(20) { movies.exists && !other.exists }, "«Andre videoer» står fortsatt blant knappene")
         // fanen er hentet på nytt (uten det skjulte biblioteket), og rekkefølgen står seg
         XCTAssertTrue(series.exists && before(series, movies), "rekkefølgen ble borte")
         wait(1)
         shot("50-plex-skjult")
     }
 
-    /// Plex Home: «Hvem ser på?» øverst i sidemenyen; «Barna» har PIN (feil PIN gir feilmelding, 1234 bytter), og
-    /// navnet på knappen byttes.
+    /// Plex Home: «Hvem ser på?» blant knappene øverst på Hjem; «Barna» har PIN (feil PIN gir feilmelding, 1234
+    /// bytter), og navnet på knappen byttes.
     func test32PlexHome() {
         let app = launch("plex")
         let who = find(app, "plex-bruker")
         XCTAssertTrue(who.waitForExistence(timeout: 40), "«Hvem ser på?» mangler")
         XCTAssertTrue(until(10) { who.label.contains("Eieren") }, "eieren står ikke som den som ser på: \(who.label)")
-        XCTAssertTrue(focus(app, find(app, "vodkat-hjem")), "fikk ikke fokus på Hjem")
-        for _ in 0..<3 where !who.hasFocus {
-            remote.press(.up)
-            wait(0.8)
-        }
-        XCTAssertTrue(who.hasFocus, "fikk ikke fokus på «Hvem ser på?»")
+        XCTAssertTrue(focus(app, who), "fikk ikke fokus på «Hvem ser på?»")
         remote.press(.select)
         let child = find(app, "bruker-2")
         XCTAssertTrue(child.waitForExistence(timeout: 10), "brukerne kom ikke")
@@ -1044,10 +1040,12 @@ final class FyrlysUITests: XCTestCase {
         XCTAssertTrue(find(app, "fortsett-1001").waitForExistence(timeout: 40), "filmen mangler i «Fortsett å se»")
         XCTAssertTrue(find(app, "fortsett-2001").exists, "serien mangler i «Fortsett å se»")
         XCTAssertTrue(find(app, "rad-e2102").waitForExistence(timeout: 10), "episodene mangler på Hjem")
-        XCTAssertTrue(find(app, "vodkat-hjem").exists, "«Hjem» mangler")
-        XCTAssertTrue(find(app, "vodkat-1").exists, "biblioteket Filmer mangler")
-        XCTAssertTrue(find(app, "vodkat-2").exists, "biblioteket Serier mangler")
-        XCTAssertFalse(find(app, "vodkat-3").exists, "musikkbiblioteket skal ikke vises")
+        // ingen sidemeny (eieren 17.11): søket og bibliotekene som knapper øverst på Hjem
+        XCTAssertFalse(find(app, "vodkat-hjem").exists, "sidemenyen skal ikke vises i Plex-fanen")
+        XCTAssertTrue(find(app, "plex-sok").exists, "søket mangler øverst")
+        XCTAssertTrue(find(app, "bibliotek-1").exists, "biblioteket Filmer mangler øverst")
+        XCTAssertTrue(find(app, "bibliotek-2").exists, "biblioteket Serier mangler øverst")
+        XCTAssertFalse(find(app, "bibliotek-3").exists, "musikkbiblioteket skal ikke vises")
         wait(2)
         shot("28-plex-hjem")
         // filmen i «Nylig lagt til», den tredje raden

@@ -10,6 +10,9 @@ struct VODHomeView: View {
     let model: VODModel
     /// åpner siden for en film eller serie
     let open: (VODItem) -> Void
+    /// Apple TV, Plex-fanen: knappene øverst (søket, «Hvem ser på?» og bibliotekene), først i lista; får den
+    /// fokus, ruller lista helt opp (parameteren)
+    var bar: ((@escaping () -> Void) -> AnyView)?
     @State private var playing: VODPlay?
 
     /// toppen av lista: dit den øverste raden ruller når den får fokus, så fanelinja på Apple TV kommer helt fram igjen
@@ -70,6 +73,9 @@ struct VODHomeView: View {
         }
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: Metrics.homeGap) {
+                if let bar {
+                    bar(toTop)
+                }
                 if !resume.isEmpty {
                     VODShelf(title: L("Fortsett å se")) {
                         ForEach(resume) { entry in
@@ -500,6 +506,8 @@ struct VODRowPage: View {
             .padding(.vertical, 12)
             #if os(tvOS)
             .hidesScrollIndex()
+            // fanelinja følger siden (ellers fulgte den lista bak og kunne stå skjult; med sveip kom en ikke opp dit)
+            .movesTabBar()
             #endif
         }
         .scrollIndicators(.never)

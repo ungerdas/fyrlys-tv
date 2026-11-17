@@ -115,6 +115,8 @@ enum Metrics {
     static let bigGap: CGFloat = 24
     // filmer og serier (fem plakater i bredden ved siden av sidemenyen: det det var plass til med minst 230)
     static let posterColumns = 5
+    /// et bibliotek i Plex-fanen over hele bredden (uten sidemeny)
+    static let posterColumnsWide = 7
     static let posterMin: CGFloat = 230
     static let posterGap: CGFloat = 40
     static let posterTitle: CGFloat = 22

@@ -49,6 +49,10 @@ struct VODTab: View {
                 .navigationDestination(for: VODRow.self) { row in
                     VODRowPage(model: model, row: row)
                 }
+                // et bibliotek i Plex-fanen (knappene øverst på Hjem)
+                .navigationDestination(for: PlexLibraryRoute.self) { route in
+                    PlexLibraryPage(model: model, id: route.id)
+                }
                 #if os(tvOS)
                 .navigationDestination(for: VODSearchRoute.self) { _ in
                     VODSearchPage(model: model)
@@ -141,6 +145,8 @@ struct VODTab: View {
                 VODMessage(text: kind == .movies ? L("Ingen filmer hos leverandøren.")
                            : L("Ingen serier hos leverandøren."))
             }
+        } else if model.mixed {
+            plexPage
         } else {
             #if !os(tvOS)
             if usesPhoneLayout(sizeClass) { phone } else { split }
@@ -150,15 +156,93 @@ struct VODTab: View {
         }
     }
 
+    /// Bibliotekene i Plex-fanen (uten Hjem), i rekkefølgen som er valgt.
+    private var plexLibraries: [ChannelCategory] {
+        model.categories.filter { $0.id != VODModel.home }
+    }
+
+    /// Plex-fanen: Hjem over hele bredden, med filmer og serier sammen, og knappene øverst: søket, «Hvem ser på?» og
+    /// bibliotekene (Filmer, Serier …), som åpner alle plakatene i biblioteket (eieren 17.11: sidemenyen var
+    /// overflødig). Hold inne på et bibliotek for å flytte eller skjule det.
+    @ViewBuilder
+    private var plexPage: some View {
+        #if os(tvOS)
+        VODHomeView(model: model, open: { path.append($0) }, bar: { toTop in AnyView(plexBar(toTop)) })
+            .padding(.horizontal, Theme.edge)
+            .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
+        #else
+        VStack(spacing: 0) {
+            if usesPhoneLayout(sizeClass) {
+                plexChips
+                    .padding(.top, 8)
+                searchField
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+            } else {
+                HStack(spacing: 12) {
+                    searchField
+                        .frame(maxWidth: 360)
+                    plexChips
+                }
+                .padding(.leading, Metrics.pagePadding)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
+            }
+            if searching {
+                VODSearchResults(model: model, query: query.trimmingCharacters(in: .whitespaces))
+            } else {
+                VODHomeView(model: model) { path.append($0) }
+            }
+        }
+        #endif
+    }
+
+    #if os(tvOS)
+    /// Apple TV: søket, «Hvem ser på?» og bibliotekene som knapper øverst på Hjem (ruller lista helt opp når de får
+    /// fokus, så fanelinja kommer fram).
+    private func plexBar(_ toTop: @escaping () -> Void) -> some View {
+        HStack(spacing: 20) {
+            Button {
+                path.append(VODSearchRoute())
+            } label: {
+                Label(L("Søk"), systemImage: "magnifyingglass")
+            }
+            .buttonStyle(PillStyle(selected: false))
+            .onFocusGained(toTop)
+            .accessibilityIdentifier("plex-sok")
+            if hasHomeUsers {
+                Button {
+                    chooseUser = true
+                } label: {
+                    Label(app.plex.user?.name ?? L("Hvem ser på?"), systemImage: "person.crop.circle")
+                        .lineLimit(1)
+                }
+                .buttonStyle(PillStyle(selected: false))
+                .onFocusGained(toTop)
+                .accessibilityIdentifier("plex-bruker")
+            }
+            ForEach(plexLibraries) { category in
+                Button {
+                    path.append(PlexLibraryRoute(id: category.id))
+                } label: {
+                    Label(category.name, systemImage: libraryIcon(category.id))
+                        .lineLimit(1)
+                }
+                .buttonStyle(PillStyle(selected: false))
+                .onFocusGained(toTop)
+                // id-en før hurtigmenyen (etter den ble id-en borte av og til)
+                .accessibilityIdentifier("bibliotek-\(category.id)")
+                .contextMenu { libraryActions(category.id, across: true) }
+            }
+        }
+        .padding(.vertical, 10)
+    }
+    #endif
+
     /// Plex-fanen: ikonet foran Hjem og bibliotekene (filmer eller serier).
     private func libraryIcon(_ id: String) -> String {
         if id == VODModel.home { return "house" }
         return model.kind(of: id) == .movies ? "film" : "tv"
-    }
-
-    /// Et bibliotek i Plex-fanen (ikke Hjem): hold inne for å flytte eller skjule det.
-    private func isLibrary(_ category: ChannelCategory) -> Bool {
-        model.mixed && category.id != VODModel.home
     }
 
     /// Hold inne på et bibliotek: flytt det opp eller ned (til venstre eller høyre i raden på iPhone, [across]), eller
@@ -208,7 +292,7 @@ struct VODTab: View {
         .accessibilityIdentifier("vodkat-\(category.id)")
     }
 
-    /// Apple TV og iPad: kategoriene (i Plex-fanen bibliotekene, med ikon) til venstre, plakatene til høyre.
+    /// Filmer og Serier hos leverandøren på Apple TV, iPad og Mac: kategoriene til venstre, plakatene til høyre.
     private var split: some View {
         HStack(alignment: .top, spacing: 0) {
             ScrollView {
@@ -228,30 +312,8 @@ struct VODTab: View {
                     .buttonStyle(SidebarStyle(selected: false))
                     .accessibilityIdentifier("vod-sok")
                     #endif
-                    if hasHomeUsers {
-                        Button {
-                            chooseUser = true
-                        } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: "person.crop.circle")
-                                Text(app.plex.user?.name ?? L("Hvem ser på?"))
-                                    .lineLimit(1)
-                                Spacer(minLength: 0)
-                            }
-                        }
-                        .buttonStyle(SidebarStyle(selected: false))
-                        .accessibilityIdentifier("plex-bruker")
-                    }
                     ForEach(model.categories) { category in
-                        if isLibrary(category) {
-                            sidebarRow(category)
-                                .contextMenu { libraryActions(category.id, across: false) }
-                                #if os(macOS)
-                                .macRowMenu { libraryActions(category.id, across: false) }
-                                #endif
-                        } else {
-                            sidebarRow(category)
-                        }
+                        sidebarRow(category)
                     }
                 }
                 .padding(.vertical, 6)
@@ -287,14 +349,10 @@ struct VODTab: View {
     }
 
     #if !os(tvOS)
-    /// iPhone: kategorien i en meny øverst (i Plex-fanen Hjem og bibliotekene som knapper på en rad), plakatene under.
+    /// Filmer og Serier hos leverandøren på iPhone: kategorien i en meny øverst, plakatene under.
     private var phone: some View {
         VStack(spacing: 0) {
-            if model.mixed {
-                libraryRow
-            } else {
-                categoryMenu
-            }
+            categoryMenu
             searchField
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -328,47 +386,52 @@ struct VODTab: View {
         .padding(.top, 8)
     }
 
-    /// Plex-fanen på iPhone: Hjem og bibliotekene som knapper på en rad (den kan dras til siden når det er mange); hold
-    /// inne på et bibliotek for å flytte eller skjule det.
-    private var libraryRow: some View {
+    /// Plex-fanen på iPhone, iPad og Mac: «Hvem ser på?» og bibliotekene som knapper på en rad (den kan dras til siden
+    /// når det er mange); et bibliotek åpner alle plakatene i det, og hold inne for å flytte eller skjule det.
+    private var plexChips: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 if hasHomeUsers {
                     Button {
                         chooseUser = true
                     } label: {
-                        Image(systemName: "person.crop.circle")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(Theme.ink2)
-                            .frame(width: 44, height: 38)
-                            .background(Capsule().fill(Theme.surface))
-                            .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
-                            .contentShape(Capsule())
+                        HStack(spacing: 6) {
+                            Image(systemName: "person.crop.circle")
+                                .font(.system(size: 17, weight: .semibold))
+                            if !usesPhoneLayout(sizeClass), let name = app.plex.user?.name {
+                                Text(verbatim: name)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .lineLimit(1)
+                            }
+                        }
+                        .foregroundStyle(Theme.ink2)
+                        .padding(.horizontal, 12)
+                        .frame(minWidth: 44, minHeight: 38)
+                        .background(Capsule().fill(Theme.surface))
+                        .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
+                        .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(app.plex.user?.name ?? L("Hvem ser på?"))
                     .accessibilityIdentifier("plex-bruker")
                 }
-                ForEach(model.categories) { category in
-                    if isLibrary(category) {
-                        chip(category)
-                            .contextMenu { libraryActions(category.id, across: true) }
-                    } else {
-                        chip(category)
-                    }
+                ForEach(plexLibraries) { category in
+                    chip(category)
+                        .contextMenu { libraryActions(category.id, across: true) }
+                        #if os(macOS)
+                        .macRowMenu { libraryActions(category.id, across: true) }
+                        #endif
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, usesPhoneLayout(sizeClass) ? 16 : 0)
         }
         .scrollIndicators(.never)
-        .padding(.top, 8)
     }
 
-    /// Hjem eller et bibliotek på raden øverst på iPhone.
+    /// Et bibliotek på raden øverst i Plex-fanen: åpner alle plakatene i det.
     private func chip(_ category: ChannelCategory) -> some View {
-        let selected = model.chosen == category.id
-        return Button {
-            model.chosen = category.id
+        Button {
+            path.append(PlexLibraryRoute(id: category.id))
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: libraryIcon(category.id))
@@ -377,16 +440,15 @@ struct VODTab: View {
                     .font(.system(size: 15, weight: .semibold))
                     .lineLimit(1)
             }
-            .foregroundStyle(selected ? Theme.signalInk : Theme.ink2)
+            .foregroundStyle(Theme.ink2)
             .padding(.horizontal, 14)
             .frame(height: 38)
-            .background(Capsule().fill(selected ? Theme.signal : Theme.surface))
-            .overlay(Capsule().strokeBorder(selected ? Color.clear : Theme.line, lineWidth: 1))
+            .background(Capsule().fill(Theme.surface))
+            .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("vodkat-\(category.id)")
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("bibliotek-\(category.id)")
     }
 
     private var searching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -418,6 +480,33 @@ struct VODTab: View {
     }
 }
 
+/// Et bibliotek i Plex-fanen, åpnet fra knappene øverst på Hjem.
+struct PlexLibraryRoute: Hashable {
+    let id: String
+}
+
+/// Alle plakatene i et bibliotek i Plex-fanen, med rekkefølgen og hvor mange (over hele bredden; Menu eller tilbake går
+/// til Hjem).
+private struct PlexLibraryPage: View {
+    let model: VODModel
+    let id: String
+
+    var body: some View {
+        #if os(tvOS)
+        PosterGrid(model: model, category: id, showsTitle: true, columnCount: Metrics.posterColumnsWide)
+            .padding(.horizontal, Theme.edge)
+            .ignoresSafeArea(.container, edges: [.horizontal, .bottom])
+            .accessibilityIdentifier("plex-bibliotek")
+        #else
+        PosterGrid(model: model, category: id, showsTitle: false)
+            .background(Theme.bg.ignoresSafeArea())
+            .navigationTitle(model.name(id))
+            .navigationBarTitleDisplayMode(.inline)
+            .accessibilityIdentifier("plex-bibliotek")
+        #endif
+    }
+}
+
 /// «Søk i filmer», «Søk i serier» eller «Søk i Plex».
 @MainActor
 func searchPrompt(_ model: VODModel) -> String {
@@ -429,6 +518,10 @@ private struct PosterGrid: View {
     let model: VODModel
     let category: String?
     var showsTitle = true
+    #if os(tvOS)
+    /// Apple TV: plakater i bredden (ved siden av sidemenyen fem; over hele bredden flere)
+    var columnCount = Metrics.posterColumns
+    #endif
 
     /// toppen av lista (den øverste raden ruller dit, så fanelinja på Apple TV kommer helt fram)
     static let top = "toppen"
@@ -438,7 +531,7 @@ private struct PosterGrid: View {
     private var columns: [GridItem] {
         #if os(tvOS)
         Array(repeating: GridItem(.flexible(), spacing: Metrics.posterGap, alignment: .top),
-              count: Metrics.posterColumns)
+              count: columnCount)
         #else
         [GridItem(.adaptive(minimum: Metrics.posterMin), spacing: Metrics.posterGap, alignment: .top)]
         #endif
@@ -488,7 +581,7 @@ private struct PosterGrid: View {
     private func grid(_ toTop: @escaping () -> Void) -> some View {
         let items = category.flatMap { model.shown($0) }
         #if os(tvOS)
-        let firstRow = Set((items ?? []).prefix(Metrics.posterColumns).map(\.id))
+        let firstRow = Set((items ?? []).prefix(columnCount).map(\.id))
         #else
         let firstRow = Set<String>()
         #endif

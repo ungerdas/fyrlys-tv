@@ -553,6 +553,19 @@ leverandøren i `tools/fake_xtream.py`, med oppdiktede kanaler. `README.md` er f
   får fokus, og toppen får plass på skjermen (`Metrics.detailPlotLines` 4, `detailLogoHeight` 230 på Apple TV).
   `test37Fokus` (serien), `test12Filmer` og `test17Plex` (filmen med lang handling, åpnet fra den tredje raden på Hjem:
   fanelinja framme, «Fortsett» på skjermen) går opp til fanelinja og ned igjen; kjørt på Apple TV-en også.
+- **Plex-fanen uten sidemeny fra 0.2.12** (eieren 17.11: «syntes egentlig at menyen til høyre er overflødig. jeg ønsker
+  at den fjernes, og at filmer og serier bare er sammen slik hjem skjermen er til vanlig»; valgte «Knapper øverst»):
+  `VODTab.plexPage` (når `model.mixed`) i stedet for `split`/`phone`: Hjem (`VODHomeView`) over hele bredden. Apple TV:
+  `plexBar` er første rad i lista (`VODHomeView.bar`, ruller helt opp når en knapp får fokus): `plex-sok` (→
+  `VODSearchRoute`), `plex-bruker`, og bibliotekene `bibliotek-<id>` (`PillStyle`, hurtigmeny `libraryActions(across:
+  true)`: «Flytt til venstre/høyre», «Skjul»). iPhone, iPad og Mac: `plexChips` fast over Hjem (iPad/Mac på én rad med
+  søkefeltet, iPhone over søkefeltet), `chip` med samme id-er. Et bibliotek: `PlexLibraryRoute` → `PlexLibraryPage`
+  (`PosterGrid` over hele bredden, på Apple TV `Metrics.posterColumnsWide` 7). `model.chosen` brukes ikke i Plex-fanen
+  lenger (Hjem står alltid). IPTV-fanene Filmer og Serier har sidemenyen (`vodkat-<id>`) som før. `VODRowPage` («Se
+  alle») har `movesTabBar()` på Apple TV. Testene: `bibliotek-…` i `test17Plex`, `test25PlexSortering`,
+  `test27PlexBiblioteker`, `test32PlexHome` (Apple TV) og `test18Plex`, `test25PlexSortering`, `test26PlexBiblioteker`,
+  `test36PlexArk` (iPhone/iPad; `chooseCategory` trykker på `bibliotek-<id>`); `focus()` regner `bibliotek-`/`plex-`
+  som på siden.
 - **Mac fra 0.2.2** (eieren 7.11.2026: «det neste vi skal bygge er app til MacOS»; valgte egen Mac-app (ikke
   Catalyst: MobileVLCKit har ingen del for Catalyst, og iPad-apper kjører ikke på hans Intel-Mac), utseendet som Fyrlys
   for Windows, ut via TestFlight som de andre): målet `FyrlysMac` (macOS 14, samme bundle-id, sandkasse med

@@ -1,5 +1,13 @@
 # Endringer
 
+## v0.2.12
+
+- **Plex-fanen uten sidemeny.** Hjem fyller hele bredden, med filmer og serier sammen. Øverst står knappene Søk,
+  «Hvem ser på?» (med Plex Home) og bibliotekene (Filmer, Serier …). Et bibliotek åpner alle plakatene i det, med
+  rekkefølgen og antallet, og Menu (tilbake) går til Hjem. Hold inne på et bibliotek for å flytte det til venstre eller
+  høyre, eller skjule det. På iPhone, iPad og Mac står knappene øverst på samme måte, med søkefeltet.
+- Apple TV: fanelinja kommer fram på «Se alle» fra en rad i Plex også, så du kommer opp til den med sveip.
+
 ## v0.2.11
 
 - Sesongene viser ikke lenger hvor mange episoder som er usett, bare en hake når hele sesongen er sett.

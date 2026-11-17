@@ -339,7 +339,7 @@ final class FyrlysMobilUITests: XCTestCase {
     /// seksjon i et skjema havner på hver rad, og kom ikke fram på iPad.
     func test36PlexArk() {
         let app = launch("plex")
-        XCTAssertTrue(find(app, "vodkat-1").waitForExistence(timeout: 40), "Plex kom ikke")
+        XCTAssertTrue(find(app, "bibliotek-1").waitForExistence(timeout: 40), "Plex kom ikke")
         if isPad {
             let settings = app.buttons["Innstillinger"].firstMatch
             XCTAssertTrue(settings.waitForExistence(timeout: 5), "fanen Innstillinger mangler")
@@ -549,7 +549,7 @@ final class FyrlysMobilUITests: XCTestCase {
         XCTAssertTrue(find(app, "rad-1001").exists, "radene fra Plex kom ikke")
         XCTAssertTrue(find(app, "fortsett-1001").exists, "filmen mangler i «Fortsett å se»")
         XCTAssertTrue(find(app, "fortsett-2001").exists, "serien mangler i «Fortsett å se»")
-        XCTAssertTrue(find(app, "vodkat-1").exists && find(app, "vodkat-2").exists, "bibliotekene mangler")
+        XCTAssertTrue(find(app, "bibliotek-1").exists && find(app, "bibliotek-2").exists, "bibliotekene mangler")
         if !isPad {
             // Filmer og Serier (fra leverandøren) og Plex i fanelinja
             for tab in ["Filmer", "Serier", "Plex"] {
@@ -685,7 +685,11 @@ final class FyrlysMobilUITests: XCTestCase {
     /// Velger kategorien [id] («[name]»): i sidemenyen på iPad, med knappene øverst i Plex-fanen på iPhone, ellers i
     /// menyen øverst på iPhone.
     func chooseCategory(_ app: XCUIApplication, id: String, name: String) {
-        if isPad || find(app, "vodkat-\(id)").exists {
+        // Plex-fanen: bibliotekene som knapper øverst (åpner alle plakatene i biblioteket)
+        let library = find(app, "bibliotek-\(id)")
+        if library.exists {
+            library.tap()
+        } else if isPad || find(app, "vodkat-\(id)").exists {
             find(app, "vodkat-\(id)").tap()
         } else {
             find(app, "vod-kategori").tap()
@@ -912,17 +916,17 @@ final class FyrlysMobilUITests: XCTestCase {
         shot("45-feilrapport")
     }
 
-    /// Plex: hold inne på et bibliotek (sidemenyen på iPad, knappene øverst på iPhone): «Flytt opp» eller «Flytt til
-    /// venstre» (Serier foran Filmer, også etter at fanen er hentet på nytt) og «Skjul». «Velg biblioteker» står ikke der.
+    /// Plex: hold inne på et bibliotek blant knappene øverst: «Flytt til venstre» (Serier foran Filmer, også etter at
+    /// fanen er hentet på nytt) og «Skjul». «Velg biblioteker» står ikke der.
     func test26PlexBiblioteker() {
         let app = launch("plex")
         XCTAssertTrue(find(app, "vod-hjem").waitForExistence(timeout: 40), "Hjem fra Plex kom ikke")
-        let movies = find(app, "vodkat-1"), series = find(app, "vodkat-2"), other = find(app, "vodkat-4")
+        let movies = find(app, "bibliotek-1"), series = find(app, "bibliotek-2"), other = find(app, "bibliotek-4")
         XCTAssertTrue(series.waitForExistence(timeout: 10) && movies.exists && other.exists, "bibliotekene mangler")
         XCTAssertFalse(find(app, "velg-biblioteker").exists, "«Velg biblioteker» skal ikke stå blant bibliotekene")
         XCTAssertTrue(before(movies, series), "rekkefølgen fra Plex: Filmer først")
         series.press(forDuration: 1.2)
-        let up = app.buttons[isPad ? "Flytt opp" : "Flytt til venstre"]
+        let up = app.buttons["Flytt til venstre"]
         XCTAssertTrue(up.waitForExistence(timeout: 5), "menyen kom ikke")
         up.tap()
         XCTAssertTrue(until(10) { series.exists && movies.exists && before(series, movies) },
